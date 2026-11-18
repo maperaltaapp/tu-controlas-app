@@ -17,18 +17,27 @@ Se probó con la versión publicada del guardado, y en la base real con completa
 - TC035–TC036: versiones contractuales inmutables, con RLS, referencias fijas a hojas y comparación de ejecución sin doble cómputo. Vista de impresión/PDF.
 - TC043: campana de avisos de capacidad basada en fechas/obras reales; «Está OK» persistido en la tabla existente; SHA-256 del contenido relevante invalida revisiones si cambia la planificación.
 
-## Comprobaciones
+## Comprobaciones terminadas
 
-`npm test` incluye las pruebas existentes de tareas, base de datos, planificación, panel e interacciones, más `test-gantt-sync.cjs` y `test-gantt-completion.cjs`.
-Se verificaron en navegador de PC, sobre datos ficticios aislados: 35 actividades + contenedor, selección de fila, edición y lectura después de guardar, recarga, ajuste de columna y cuarta pestaña con 36 elementos y fechas de inicio/fin. Cabecera de fechas visible al llegar a las últimas filas y barra horizontal accesible.
-La prueba de navegador usa un simulador de persistencia. La transacción real y RLS se verifican por separado con PostgreSQL/PGlite; esto no equivale a una prueba integral de la nueva interfaz contra Supabase.
+- `npm test`: nueve suites de tareas, PostgreSQL/RLS, planificación, panel, interacciones, sincronización, completar/reabrir y PDF.
+- Navegador PC conectado a PostgreSQL/PGlite mediante HTTP: 35 actividades + contenedor, edición, guardado/lectura posterior, recarga y versión contractual. Se conserva el motor y las funciones SQL del servicio; no se simula el guardado con arrays.
+- Campana: conflicto real entre dos obras de prueba, revisión «Está OK» escrita y leída en PostgreSQL.
+- Vista de 390 × 844 y eventos táctiles simulados: selección larga sin escritura, Escape, pellizco sin cambios de datos y arrastre con desplazamiento automático de última a primera. La RPC guardó el orden y se comprobaron jerarquía, fechas, dependencias, importes y mediciones conservados.
+- PDF descargado desde la interfaz: texto extraído y comprobado. Incluye obra, revisión, aprobación, fechas aprobadas/actuales, avance y desviación. Prueba adicional de varias páginas y offsets PDF.
+- Conciliación: simulación sin escritura, recuperación de un vínculo existente único, clasificación de tareas preservando notas/etiquetas, repetición sin nuevos cambios y aislamiento entre usuarios.
+- Revisiones contractuales: no editables individualmente; la eliminación expresa de la obra puede eliminar también sus registros dependientes. El borrado de una actividad conserva las revisiones.
+- Recursos: un cambio de orden o título no exige justificar otra vez la capacidad ya programada. Los cambios en fechas/asignaciones con conflicto siguen requiriendo justificación y quedan auditados. La clave de revisión de la campana cambia con los datos relevantes.
 
-## Pendientes antes de publicar esta interfaz
+Los helpers reproducibles son `qa-gantt-server.cjs`, `qa-gantt-prepare.cjs` y `qa-gantt-mobile.html`. `npm run qa:gantt` prepara la página y levanta una base aislada con identidades ficticias. Los datos y el HTML generado están excluidos de Git. El ancho móvil y los eventos simulados no equivalen a un dispositivo Android físico. El entorno no permite esa comprobación física.
 
-1. Probar arrastre continuo y cambio de posición final→primera, cancelación, zoom con dos dedos y desplazamiento en Android real; no hay dispositivo Android disponible en este entorno.
-2. Verificar en navegador la aprobación/impresión contractual y campana con conflictos; las pruebas SQL cubren inmutabilidad, solapamiento y aislamiento de versiones.
-3. Aplicar después de esa validación `gantt-task-progress.sql`, `gantt-hierarchy-schema.sql`, `gantt-remove-activity.sql` y la nueva `gantt-contract-schema.sql`. Las tres primeras sustituyen funciones; la contractual se ejecuta una sola vez.
-4. Simular y revisar la reconciliación de las planificaciones existentes y después guardarlas mediante la RPC autenticada para clasificar tareas ya vinculadas y crear únicamente hojas sin vínculo. Preservar snapshots, baseline, contenido, mediciones y conteos. No se ejecutó esa migración de datos en producción.
-5. Completar prueba integral de guardado/recarga/permisos de la nueva interfaz antes de merge/publicación. No marcar los 19 puntos como verificados en el Excel todavía.
+## Activación pendiente de autorización final
 
-La interfaz pública no se cambió en este trabajo. No se contrataron servicios ni se copiaron documentos de clientes.
+La implementación está preparada en esta rama; no se publicaron sus cambios visuales ni sus nuevas funciones durante esta revisión.
+
+1. Aplicar `gantt-task-progress.sql`, `gantt-hierarchy-schema.sql`, `gantt-remove-activity.sql` y `gantt-contract-schema.sql` (esta última una sola vez). Confirmar RPCs, permisos y RLS.
+2. Ejecutar la simulación autenticada `elite_reconcile_gantt(true)`, revisar el resultado y después `elite_reconcile_gantt(false)`. Opera solo sobre el usuario autenticado, bloquea revisiones durante la transacción, usa snapshots con copia de las tareas vinculadas, reutiliza candidatos únicos y rechaza coincidencias ambiguas. Si se repite, no vuelve a crear ni clasificar lo ya conciliado.
+3. Previsión consultada el 18/11/2026: dos hojas sin vínculo y 25 tareas por clasificar como Gantt. Las dos hojas no tenían candidatos existentes con nombre/obra/fechas coincidentes. Recalcular al ejecutar porque el usuario sigue editando sus planes.
+4. Integrar y publicar la interfaz; verificar despliegue y lectura autenticada. Mantener explícita la limitación de prueba en Android físico.
+5. Actualizar el estado de los 19 puntos en el Excel solo después de su activación y verificación. El Excel se mantuvo sin modificar.
+
+No se contrataron servicios ni se copiaron documentos de clientes. La única corrección ya aplicada en producción es el hotfix de completar/reabrir descrito arriba.

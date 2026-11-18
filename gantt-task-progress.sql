@@ -49,7 +49,7 @@ begin
  end loop;
  if exists(select 1 from jsonb_array_elements(normalized) entry where nullif(entry->>'task_id','') is not null group by entry->>'task_id' having count(*)>1) then raise exception 'Una tarea no puede vincularse dos veces';end if;
  if exists(select 1 from jsonb_array_elements(coalesce(old_plan.phases,'[]')) prior where nullif(prior->>'task_id','') is not null  and not exists(select 1 from jsonb_array_elements(normalized) current_row where current_row->>'task_id'=prior->>'task_id')) then raise exception 'Conserva las tareas vinculadas al reorganizar actividades';end if;
- if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)) on conflict do nothing;end if;
+ if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)||jsonb_build_object('linked_tasks',(select coalesce(jsonb_agg(to_jsonb(task_backup)),'[]') from public.elite_tasks task_backup where task_backup.user_id=uid and task_backup.id::text in(select original->>'task_id' from jsonb_array_elements(old_plan.phases) original)))) on conflict do nothing;end if;
  result:=elite_private.gantt_save_core(target_work,normalized,expected_revision,freeze_baseline,confirm_work,exception_reason);
  perform set_config('elite.gantt_sync','on',true);
  for p in select value from jsonb_array_elements(result.phases) loop
@@ -102,3 +102,38 @@ begin
 end $$;
 revoke all on function elite_private.gantt_task_changed() from public,anon,authenticated;
 commit;
+
+-- Owner-only reconciliation. Default is a read-only simulation; execution is atomic.
+create or replace function public.elite_reconcile_gantt(simulate boolean default true) returns jsonb language plpgsql security definer set search_path='' as $reconcile$
+declare uid uuid:=auth.uid();plan public.elite_work_plans;p jsonb;candidate public.elite_tasks;matches integer;rows jsonb;report jsonb:='[]';creates integer;links integer;classified integer;changed boolean;result public.elite_work_plans;
+begin
+ if uid is null then raise exception 'Inicia sesión';end if;
+ perform pg_advisory_xact_lock(hashtextextended(uid::text,0));
+ for plan in select wp.* from public.elite_work_plans wp join public.elite_works w on w.id=wp.work_id where wp.user_id=uid and w.archived_at is null and jsonb_array_length(wp.phases)>0 order by wp.work_id for update of wp loop
+  rows:='[]';creates:=0;links:=0;classified:=0;
+  for p in select value from jsonb_array_elements(plan.phases) loop
+   if not exists(select 1 from jsonb_array_elements(plan.phases) child where child->>'parent_id'=p->>'id') then
+    if nullif(p->>'task_id','') is null then
+     select count(*) into matches from public.elite_tasks t where t.user_id=uid and t.work_id=plan.work_id and t.deleted_at is null and t.control_id is null and t.recurrence='none' and t.title=p->>'name' and (t.start_at at time zone 'Europe/Madrid')::date=(p->>'start')::date and (t.due_at at time zone 'Europe/Madrid')::date=(p->>'end')::date and not exists(select 1 from public.elite_work_plans wp cross join lateral jsonb_array_elements(wp.phases) linked where linked->>'task_id'=t.id::text) and not exists(select 1 from jsonb_array_elements(rows) linked where linked->>'task_id'=t.id::text);
+     if matches>1 then raise exception 'Varias tareas coinciden con la actividad %. Revisa el vínculo antes de conciliar.',p->>'name';end if;
+     if matches=1 then
+      select * into candidate from public.elite_tasks t where t.user_id=uid and t.work_id=plan.work_id and t.deleted_at is null and t.control_id is null and t.recurrence='none' and t.title=p->>'name' and (t.start_at at time zone 'Europe/Madrid')::date=(p->>'start')::date and (t.due_at at time zone 'Europe/Madrid')::date=(p->>'end')::date and not exists(select 1 from public.elite_work_plans wp cross join lateral jsonb_array_elements(wp.phases) linked where linked->>'task_id'=t.id::text) and not exists(select 1 from jsonb_array_elements(rows) linked where linked->>'task_id'=t.id::text) for update;
+      p:=p||jsonb_build_object('task_id',candidate.id,'task_updated_at',candidate.updated_at);links:=links+1;
+     else creates:=creates+1;end if;
+    else
+     select * into candidate from public.elite_tasks where id=(p->>'task_id')::uuid and user_id=uid and work_id=plan.work_id and deleted_at is null for update;
+     if not found then raise exception 'Una actividad tiene un vínculo no disponible';end if;
+     if candidate.stage is distinct from 'Gantt' then classified:=classified+1;end if;
+     p:=p||jsonb_build_object('task_updated_at',candidate.updated_at);
+    end if;
+   end if;
+   rows:=rows||jsonb_build_array(p);
+  end loop;
+  changed:=creates+links+classified>0;
+  if not simulate and changed then result:=public.elite_save_gantt(plan.work_id,rows,plan.revision,false,plan.confirmed_at is not null,'');end if;
+  report:=report||jsonb_build_array(jsonb_build_object('work_id',plan.work_id,'revision',plan.revision,'activities',jsonb_array_length(plan.phases),'create_tasks',creates,'link_existing',links,'classify_tasks',classified,'applied',not simulate and changed));
+ end loop;
+ return report;
+end $reconcile$;
+revoke all on function public.elite_reconcile_gantt(boolean) from public,anon;
+grant execute on function public.elite_reconcile_gantt(boolean) to authenticated;

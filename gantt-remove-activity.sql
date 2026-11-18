@@ -58,7 +58,7 @@ begin
  end loop;
  if exists(select 1 from jsonb_array_elements(normalized) entry where nullif(entry->>'task_id','') is not null group by entry->>'task_id' having count(*)>1) then raise exception 'Una tarea no puede vincularse dos veces';end if;
  if exists(select 1 from jsonb_array_elements(coalesce(old_plan.phases,'[]')) prior where nullif(prior->>'task_id','') is not null and prior->>'id'<>remove_activity::text and not exists(select 1 from jsonb_array_elements(normalized) current_row where current_row->>'task_id'=prior->>'task_id')) then raise exception 'Conserva las tareas vinculadas al reorganizar actividades';end if;
- if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)) on conflict do nothing;end if;
+ if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)||jsonb_build_object('linked_tasks',(select coalesce(jsonb_agg(to_jsonb(task_backup)),'[]') from public.elite_tasks task_backup where task_backup.user_id=uid and task_backup.id::text in(select original->>'task_id' from jsonb_array_elements(old_plan.phases) original)))) on conflict do nothing;end if;
  result:=elite_private.gantt_save_core(target_work,normalized,expected_revision,freeze_baseline,confirm_work,exception_reason);
  perform set_config('elite.gantt_sync','on',true);
  for p in select value from jsonb_array_elements(result.phases) loop

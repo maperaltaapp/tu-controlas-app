@@ -63,7 +63,12 @@ begin
  ), checks as (
   select i.contractor_id,i.starts,array_agg(distinct a.work_id) works,c.capacity from intervals i join intervals a on a.contractor_id=i.contractor_id and a.starts<=i.starts and a.ends>=i.starts join public.elite_contractors c on c.id=i.contractor_id group by i.contractor_id,i.starts,c.capacity
  ) select coalesce(jsonb_agg(to_jsonb(c)),'[]') into conflicts from checks c where cardinality(c.works)>c.capacity and target_work=any(c.works);
- if conflicts<>'[]'::jsonb and length(trim(exception_reason))=0 then raise exception 'CAPACITY_CONFLICT' using detail=conflicts::text; end if;
+ -- Cosmetic edits and row ordering preserve already scheduled capacity. New resource dates still require justification.
+ if conflicts<>'[]'::jsonb and length(trim(exception_reason))=0 and
+ (select coalesce(jsonb_agg(jsonb_build_array(f->>'id',f->>'contractor_id',f->>'start',f->>'end') order by f->>'id'),'[]') from jsonb_array_elements(normalized) f where nullif(f->>'contractor_id','') is not null)
+ is distinct from
+ (select coalesce(jsonb_agg(jsonb_build_array(f->>'id',f->>'contractor_id',f->>'start',f->>'end') order by f->>'id'),'[]') from jsonb_array_elements(coalesce(old_plan.phases,'[]')) f where nullif(f->>'contractor_id','') is not null)
+ then raise exception 'CAPACITY_CONFLICT' using detail=conflicts::text; end if;
  insert into public.elite_work_plans(work_id,user_id,phases,baseline,baseline_at,confirmed_at)
  values(target_work,owner_id,normalized,case when freeze_baseline then normalized else '[]'::jsonb end,case when freeze_baseline then now() else null end,case when confirm_work then now() else null end)
  on conflict(work_id) do update set phases=excluded.phases,
@@ -72,8 +77,8 @@ begin
  confirmed_at=case when confirm_work then coalesce(elite_work_plans.confirmed_at,now()) else null end,
  revision=elite_work_plans.revision+1,updated_at=now() returning * into result;
  if jsonb_array_length(normalized)>0 then update public.elite_works set start_date=(select min((value->>'start')::date) from jsonb_array_elements(normalized)),end_date=(select max((value->>'end')::date) from jsonb_array_elements(normalized)) where id=target_work; end if;
- if conflicts<>'[]'::jsonb then insert into public.elite_plan_exceptions(user_id,work_id,reason,conflicts) values(owner_id,target_work,left(trim(exception_reason),2000),conflicts); end if;
- insert into public.elite_history(user_id,entity_id,entity_type,action,title,fields) values(owner_id,target_work,'elite_work_plans',case when conflicts<>'[]'::jsonb then 'Excepción de capacidad: '||left(trim(exception_reason),500) else 'Planificación actualizada' end,title,jsonb_build_array('phases',case when freeze_baseline then 'baseline' else 'planning' end));
+ if conflicts<>'[]'::jsonb and length(trim(exception_reason))>0 then insert into public.elite_plan_exceptions(user_id,work_id,reason,conflicts) values(owner_id,target_work,left(trim(exception_reason),2000),conflicts); end if;
+ insert into public.elite_history(user_id,entity_id,entity_type,action,title,fields) values(owner_id,target_work,'elite_work_plans',case when conflicts<>'[]'::jsonb and length(trim(exception_reason))>0 then 'Excepción de capacidad: '||left(trim(exception_reason),500) else 'Planificación actualizada' end,title,jsonb_build_array('phases',case when freeze_baseline then 'baseline' else 'planning' end));
  return result;
 end $function$
 

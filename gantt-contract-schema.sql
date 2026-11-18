@@ -11,7 +11,7 @@ create table if not exists public.elite_contract_plan_versions (
  approval_reason text not null check(length(btrim(approval_reason)) between 1 and 2000),
  items jsonb not null check(jsonb_typeof(items)='array' and jsonb_array_length(items) between 1 and 100),
  created_at timestamptz not null default now(),
- foreign key(work_id,user_id) references public.elite_works(id,user_id),
+ foreign key(work_id,user_id) references public.elite_works(id,user_id) on delete cascade,
  unique(work_id,revision)
 );
 alter table public.elite_contract_plan_versions enable row level security;
@@ -19,7 +19,11 @@ create policy elite_contract_plan_owner on public.elite_contract_plan_versions f
 revoke all on public.elite_contract_plan_versions from public,anon,authenticated;
 grant select on public.elite_contract_plan_versions to authenticated;
 create function elite_private.contract_immutable() returns trigger language plpgsql set search_path='' as $$
-begin raise exception 'Las revisiones aprobadas son inmutables; crea una nueva revisión';end $$;
+begin
+ -- Explicit deletion of the owning work may purge its dependent records; individual revisions remain immutable.
+ if tg_op='DELETE' and not exists(select 1 from public.elite_works where id=old.work_id and user_id=old.user_id) then return old;end if;
+ raise exception 'Las revisiones aprobadas son inmutables; crea una nueva revisión';
+end $$;
 revoke all on function elite_private.contract_immutable() from public,anon,authenticated;
 create trigger elite_contract_immutable before update or delete on public.elite_contract_plan_versions for each row execute function elite_private.contract_immutable();
 create function public.elite_approve_contract_plan(target_work uuid,expected_plan_revision integer,expected_contract_revision integer,plan_title text,approval_date date,approval_reason text,plan_items jsonb) returns public.elite_contract_plan_versions language plpgsql security definer set search_path='' as $$
