@@ -1,36 +1,24 @@
 # TU CONTROLAS
 
-Aplicación web para gestión de obras. La versión publicada se sirve desde GitHub Pages:
-https://maperaltaapp.github.io/tu-controlas-app/
+Aplicación de gestión de obras: https://maperaltaapp.github.io/tu-controlas-app/
 
-## Cambios de esta entrega
+Producto profesional independiente de ChatGPT, con datos estructurados en Supabase y acceso por propietario mediante autenticación y RLS. Los documentos del cliente permanecen en su Drive, PC o móvil. La arquitectura y los límites vigentes se describen en [DEVELOPMENT.md](DEVELOPMENT.md).
 
-- Navegación inferior fija con Tareas, Panel de Control, Gantt, Checklist y Partes; tema blanco y calendario superior.
-- Tareas de hoy unificadas; prioridad urgente señalada en rojo. Edición rápida al mantener pulsada una tarea y controles para reordenar.
-- Checklist por obra con Preparación, Subcontratas y Proveedores, Ejecución y Cierre. Los elementos con fecha se muestran en Tareas desde su mismo registro.
-- Gantt con edición manual, jerarquía Fase → Tarea → Subtarea, flechas de dependencias, confirmación de reprogramaciones, tareas vinculadas y avance calculado solo con actividades finales.
-- Partes con botón destacado «+ Parte» e historial compacto, conservando el formulario y los registros existentes.
-- Panel de Control conserva la vista general; al entrar a una obra abre el panel económico y físico, con acceso a la ficha original. Los importes sin fuente identificada aparecen como «Sin datos» y los índices sin base como «No calculable».
+## Herramientas actuales
 
-## Estado y límites comprobados
+- Tareas, búsqueda, obra, prioridad y tipo; vistas Activas, Completadas y Archivadas. Checklist con fecha se refleja desde el mismo registro.
+- Botón grande «Tareas de Gantt» junto a Hoy, Vencidas, Próximas y Sin fecha. Las tareas vinculadas pendientes se agrupan en Próximas con sus fechas originales.
+- Gantt con tres niveles, dependencias, selección y arrastre explícitos, fechas y tareas sincronizadas, snapshots, línea base y revisiones contractuales con PDF.
+- Campana de capacidad basada en obras y fechas, con revisión persistida «Está OK».
+- Panel de obra, checklist, directorio, partes e historial existentes. Los indicadores económicos sin fuente identificada se muestran sin datos; no se inventan costes ni ingresos.
+- Notificaciones push por dispositivo. El dictado existente no equivale a IA generativa.
 
-- El esquema de Checklist y la sincronización de porcentaje del Gantt se aplicaron a Supabase como cambios aditivos; no se editaron ni borraron registros de obra existentes.
-- La página pública sirve el título TU CONTROLAS y carga la pantalla de acceso. La verificación de operaciones con datos requiere una sesión autenticada.
-- La validación padre-hijo y la reprogramación de fechas de fases contenedoras ya están activas en la aplicación y en Supabase. Las funciones de guardado siguen protegidas por el usuario propietario y no se cambiaron registros existentes.
-- El asistente conserva dictado y órdenes disponibles en la aplicación; no incorpora IA generativa conectada a ChatGPT. Las órdenes de voz múltiples no equivalen a una conversación de IA.
+La antigua bandeja de aprendizajes ya no forma parte de la interfaz; sus registros históricos no se borran. La IA generativa, la monetización y otras ampliaciones del backlog continúan pendientes.
 
-## Verificaciones locales
+## Pruebas
 
-- `node test-database.cjs`, `node test-planning.cjs` y `node test-planning-database.cjs` pasaron.
-- `npm test` pasa: vistas actuales de Tareas y Partes, datos, jerarquía, guardado, aislamiento RLS, métricas del panel y eventos simulados de arrastre y zoom. Las pruebas de vistas cargan correctamente el JavaScript embebido sin confundirlo con scripts externos.
-- La sintaxis del JavaScript embebido se comprobó con `node --check`.
-- La interfaz autenticada, la escritura real de tareas y la persistencia al volver a abrir aún deben verificarse con una cuenta en una sesión de prueba.
+`npm test` ejecuta las regresiones de tareas, PostgreSQL/RLS, planificación, panel, sincronización, PDF, sesiones concurrentes y retirada de la bandeja antigua.
 
-## Revisión de interacción y panel de obra
+`npm run qa:gantt` prepara un entorno aislado con base PostgreSQL/PGlite e identidades ficticias para revisar navegador, escritura/recarga y diseño móvil. La página de prueba se conecta solo a su origen. Los datos de prueba y archivos generados no se suben al repositorio.
 
-- Selección deliberada mediante pulsación larga; después se edita el campo tocado o con «Editar». Arrastre con copia flotante y destino señalado, conservando la jerarquía.
-- Borrado de actividades: corregida la redistribución de peso antes de retirar la fila; los hitos no reciben peso físico. Cancelar el borrado permite intentarlo nuevamente.
-- Filtro «Tareas de Gantt» y filtro Checklist, sin crear copias adicionales.
-- Panel por obra con siete indicadores, espacio de Curva S, avance físico medido y previsto, cierre, contrato y certificación. Mantiene acceso a la ficha anterior y al Gantt.
-- El panel no interpreta «ejecutado» como coste real ni inventa series económicas. Los índices CPI/SPI se formatean como ratios.
-- La comprobación visual en navegador remoto agotó el tiempo de espera. Los eventos táctiles solo se verificaron por simulación; siguen pendientes la apariencia y la interacción en un dispositivo real.
+Las comprobaciones a ancho móvil y los eventos táctiles simulados no sustituyen una prueba en Android físico. El producto todavía requiere completar y verificar el resto del backlog antes de comercializarse.
