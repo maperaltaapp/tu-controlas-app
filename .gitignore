@@ -1,0 +1,4 @@
+node_modules
+.gantt-qa-data/
+.gantt-qa-public/
+integration-qa/

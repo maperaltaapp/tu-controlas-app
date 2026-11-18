@@ -2,7 +2,7 @@ const {PGlite}=require('@electric-sql/pglite'),fs=require('node:fs'),assert=requ
 (async()=>{
  const db=new PGlite(),root=fs.existsSync(__dirname+'/tasks-schema.sql')?__dirname+'/':__dirname+'/../';
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`);
- for(const path of [root+'tasks-schema.sql',fs.existsSync(root+'native-schema.sql')?root+'native-schema.sql':root+'native-candidate/native-schema.sql',__dirname+'/planning-schema.sql',__dirname+'/gantt-v2-schema.sql',__dirname+'/gantt-task-progress.sql',__dirname+'/gantt-hierarchy-schema.sql'])await db.exec(fs.readFileSync(path,'utf8'));
+ for(const path of [root+'tasks-schema.sql',fs.existsSync(root+'native-schema.sql')?root+'native-schema.sql':root+'native-candidate/native-schema.sql',__dirname+'/subcontractor-controls.sql',__dirname+'/planning-schema.sql',__dirname+'/gantt-v2-schema.sql',__dirname+'/gantt-task-progress.sql',__dirname+'/gantt-hierarchy-schema.sql'])await db.exec(fs.readFileSync(path,'utf8'));
  const user='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
  await db.query('insert into auth.users values($1,$2),($3,$4)',[user,'a@test.example',other,'b@test.example']);
  const create=async name=>(await db.query('insert into elite_works(user_id,name) values($1,$2) returning id',[user,name])).rows[0].id;

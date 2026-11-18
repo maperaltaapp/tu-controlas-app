@@ -1,34 +1,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const handlers={},timers=new Map(),storage=new Map();let timerId=0,frameId=0,committed=null,selected=null,edited=null,renders=0,ghosts=[];
-const classes=(...initial)=>{const s=new Set(initial);return {add:(...x)=>x.forEach(a=>s.add(a)),remove:(...x)=>x.forEach(a=>s.delete(a)),contains:x=>s.has(x)}};
-const rows=[{id:'parent',level:1},{id:'a',level:2,parent_id:'parent'},{id:'b',level:2,parent_id:'parent'},{id:'last',level:1}];
-function node(id,y){const controls={prepend(){}},name={dataset:{inlineEdit:id},querySelector:()=>null};const row={dataset:{row:id},offsetHeight:54,style:{},classList:classes(),getBoundingClientRect:()=>({left:0,top:y,width:360,height:54}),querySelector:s=>s==='.g-row-controls'?controls:name,querySelectorAll:()=>[],cloneNode(){const g={...row,style:{},classList:classes(),removeAttribute(){},remove(){ghosts=ghosts.filter(x=>x!==g)}};return g}};name.closest=s=>s==='.is-delete-selected'&&row.classList.contains('is-delete-selected')?row:s==='.g-grid-row'?row:s==='.g-activity-cell'?cell:null;const cell={closest:s=>s==='.g-grid-row'?row:null,setPointerCapture(){}};return {row,cell,name}}
-const nodes=rows.map((r,i)=>node(r.id,100+i*54));
-const root={addEventListener:(name,fn)=>{(handlers[name]??=[]).push(fn)},querySelectorAll:s=>s==='.g-grid-row'?nodes.map(n=>n.row):[]};
-const ctx=vm.createContext({console,structuredClone,Date,Math,Set,Map,Number,String,innerHeight:800,
- document:{getElementById:()=>root,querySelectorAll:()=>[],createElement:()=>({style:{},classList:classes()}),body:{append:g=>ghosts.push(g)}},
- window:{scrollBy(){}},G2:{zoom:1,busy:false},calZoom:1,localStorage:{setItem:(k,v)=>storage.set(k,v)},
- setTimeout:fn=>{timers.set(++timerId,fn);return timerId},clearTimeout:id=>timers.delete(id),requestAnimationFrame:()=>++frameId,cancelAnimationFrame(){},
- selectHeldForDelete:(host,kind,id)=>{selected=id;host.classList.add('is-delete-selected')},gRows:()=>rows,gHydrate:structuredClone,gConnect(){},gCommit:async r=>{committed=r},
- editHeldField:(f,k,id)=>edited=id,showInlineTaskEditor(){},gRender:()=>renders++,calendar:()=>renders++});
-vm.runInContext(fs.readFileSync(__dirname+'/interaction-refinement.js','utf8'),ctx);
-const run=s=>vm.runInContext(s,ctx);
-ctx.fixture=structuredClone(rows);const moved=run("tcReorder(fixture,'last','parent',false)");assert.deepEqual(Array.from(moved,r=>r.id),['last','parent','a','b']);assert.equal(JSON.stringify(rows),JSON.stringify(ctx.fixture));
-assert.equal(run("tcReorder(fixture,'parent','a',false)"),ctx.fixture);assert.equal(run("tcReorder(fixture,'a','last',false)"),ctx.fixture);
-const movedChild=run("tcReorder(fixture,'b','a',false)");assert.deepEqual(Array.from(movedChild,r=>r.id),['parent','b','a','last']);assert.equal(movedChild[1].parent_id,'parent');
-function event(target,y=270){return {target,button:0,pointerId:1,clientX:50,clientY:y,preventDefault(){},stopImmediatePropagation(){},stopPropagation(){}}}
-const fire=async(name,e)=>{for(const fn of handlers[name]||[])await fn(e)};
-const target=n=>({closest:s=>s==='.g-activity-cell'?n.cell:s==='.g-grid-row'?n.row:s==='[data-inline-task],.g-name[data-inline-edit]'?n.name:null});
-(async()=>{
- const last=nodes[3],e=event(target(last));await fire('pointerdown',e);assert.equal(selected,null);assert.equal(ghosts.length,0);
- for(const [id,fn]of [...timers]){timers.delete(id);fn()}
- assert.equal(selected,'last');assert.equal(ghosts.length,1);assert(ghosts[0].classList.contains('tc-floating-row'));
- await fire('pointermove',event(target(last),85));await fire('pointerup',event(target(last),85));
- assert.deepEqual(Array.from(committed,r=>r.id),['last','parent','a','b']);assert.equal(ghosts.length,0);
- // Two fingers adjust only the visual scale, retaining all planning rows.
- const before=JSON.stringify(rows),sheet={style:{}},host={matches:()=>true,querySelector:()=>sheet};
- const touch=(a,b)=>({target:{closest:()=>host},touches:[{clientX:0,clientY:a},{clientX:0,clientY:b}],preventDefault(){}});
- await fire('touchstart',touch(0,100));await fire('touchmove',touch(0,200));await fire('touchend',{touches:[]});
- assert.equal(ctx.G2.zoom,2);assert.equal(storage.get('tc_gantt_zoom'),'2');assert.equal(JSON.stringify(rows),before);assert.equal(renders,1);
- console.log('PASS: long-press selection, floating drag preview, end-to-start drop, subtree and parent conservation, forbidden self-drop, pinch scale persistence and unchanged planning dates.');
-})().catch(e=>{console.error(e);process.exitCode=1});
+const ctx=vm.createContext({structuredClone,Date,Math,Set,Map,Number,String});vm.runInContext(fs.readFileSync(__dirname+'/gantt-workbench.js','utf8'),ctx);const api=ctx.TCGantt;
+const rows=[{id:'group',name:'Fase',level:1,is_group:true,weight:0,start:'2026-11-01',end:'2026-11-08'},{id:'a',level:2,parent_id:'group',weight:40,start:'2026-11-01',end:'2026-11-02',depends_on:[],observations:[{date:'2026-11-01',percent:50}]},{id:'b',level:2,parent_id:'group',weight:60,start:'2026-11-03',end:'2026-11-08',depends_on:['a'],observations:[{date:'2026-11-01',percent:20}]},{id:'last',name:'Hito',milestone:true,weight:0,start:'2026-11-09',end:'2026-11-09',depends_on:['b']}];const original=JSON.stringify(rows);
+assert.deepEqual(Array.from(api.reorder(rows,'last','group'),r=>r.id),['last','group','a','b']);assert.equal(JSON.stringify(rows),original);
+assert.equal(api.reorder(rows,'group','a'),rows);assert.equal(api.reorder(rows,'a','last'),rows);assert.deepEqual(Array.from(api.reorder(rows,'b','a'),r=>r.id),['group','b','a','last']);
+const removed=api.removal(rows,'group');assert.deepEqual(Array.from(removed,r=>r.id),['a','b','last']);assert.equal(removed[0].parent_id,null);assert.equal(removed[0].level,1);assert.equal(removed[0].weight,40);assert.equal(removed[2].depends_on[0],'b');
+const gone=api.removal(rows,'a');assert.equal(gone.find(p=>p.id==='b').weight,100);assert.equal(gone.find(p=>p.id==='b').depends_on.length,0);assert.equal(JSON.stringify(rows),original);
+const m=api.measurements(rows,['group','a'],'2026-11-01');assert.equal(m.rows.length,2);assert.equal(m.progress,32);const missing=structuredClone(rows);missing[2].observations=[];assert.equal(api.measurements(missing,['group'],'2026-11-01').progress,null);
+const day=d=>Date.parse(d+'T00:00Z')/86400000,date=n=>new Date(n*86400000).toISOString().slice(0,10);const items=[{name:'Cliente',start:'2026-11-01',end:'2026-11-07',activity_ids:['a','b']}];const version=JSON.stringify(items),c=api.contractual(rows,items,'2026-11-01',day)[0];assert.equal(c.progress,32);assert.equal(c.delay,1);assert.equal(JSON.stringify(items),version);assert.equal(api.contractual(removed.filter(p=>p.id!=='a'),items,'2026-11-01',day)[0].progress,null);
+for(const scale of ['day','week','month']){const ticks=api.ticks(day('2026-01-15'),day('2027-01-15'),2,scale,date,day);for(let i=1;i<ticks.length;i++)assert((ticks[i]-ticks[i-1])*2>=72);if(scale==='month')assert(ticks.every(t=>date(t).endsWith('-01')))}
+const capacity={contractor_id:'contractor',capacity:1,works:['w2','w1'],start:'2026-11-01',end:'2026-11-02'},plans=[{work_id:'w1',phases:[{id:'a',name:'A',contractor_id:'contractor',start:'2026-11-01',end:'2026-11-02'}]}],signature=api.capacitySignature(capacity,plans);const renamed=structuredClone(plans);renamed[0].phases[0].name='Otro título';assert.equal(api.capacitySignature(capacity,renamed),signature);renamed[0].phases[0].end='2026-11-03';assert.notEqual(api.capacitySignature(capacity,renamed),signature);assert.notEqual(api.capacitySignature({...capacity,capacity:2},plans),signature);
+console.log('PASS: subtree reorder, parent conservation, safe removal, leaf-only weighted measurement coverage, immutable contract comparisons and readable calendar axis.');

@@ -23,14 +23,33 @@ begin
  if o->>'date' is null or (o->>'date')::date>(now() at time zone 'Europe/Madrid')::date or jsonb_typeof(o->'amount') is distinct from 'number' or (o->>'amount')::numeric<0 then raise exception 'Medición económica no válida';end if;
  end loop;
  tid:=nullif(p->>'task_id','')::uuid;
+ select value into o from jsonb_array_elements(coalesce(old_plan.phases,'[]')) where value->>'id'=p->>'id';
+ if nullif(o->>'task_id','') is not null and not exists(select 1 from jsonb_array_elements(new_phases) child where child->>'parent_id'=p->>'id') then
+  if tid is not null and tid<>(o->>'task_id')::uuid then raise exception 'Conserva el vínculo original de la actividad';end if;
+  if tid is null then tid:=(o->>'task_id')::uuid;p:=p||jsonb_build_object('task_id',tid,'task_updated_at',(select updated_at from public.elite_tasks where id=tid));end if;
+ end if;
  if tid is not null then
  select * into t from public.elite_tasks where id=tid and user_id=uid and work_id=target_work and deleted_at is null for update;
  if not found or t.control_id is not null or t.recurrence<>'none' then raise exception 'Tarea no disponible para vincular';end if;
  if p->>'task_updated_at' is null or (p->>'task_updated_at')::timestamptz<>t.updated_at then raise exception 'La tarea vinculada cambió. Actualiza antes de guardar.';end if;
  end if;
+ -- One canonical task for each executable activity; containers remain projections.
+ if not exists(select 1 from jsonb_array_elements(new_phases) child where child->>'parent_id'=p->>'id') then
+  if tid is null then
+   insert into public.elite_tasks(user_id,work_id,work_name,category,title,stage,start_at,due_at,status,completed,progress_pct)
+   values(uid,target_work,(select name from public.elite_works where id=target_work),'work',p->>'name','Gantt',
+    ((p->>'start')::date+'09:00'::time) at time zone 'Europe/Madrid',((p->>'end')::date+'18:00'::time) at time zone 'Europe/Madrid',
+    coalesce(p->>'activity_status','pending'),coalesce(p->>'activity_status','pending')='done',case when p->>'activity_status'='done' then 100 else null end) returning * into t;
+   tid:=t.id;p:=p||jsonb_build_object('task_id',tid,'task_updated_at',t.updated_at);
+  elsif exists(select 1 from public.elite_work_plans other cross join lateral jsonb_array_elements(other.phases) linked where other.work_id<>target_work and linked->>'task_id'=tid::text) then
+   raise exception 'La tarea ya pertenece a otra planificación';
+  end if;
+ end if;
  normalized:=normalized||jsonb_build_array(p);
  end loop;
- if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)) on conflict do nothing;end if;
+ if exists(select 1 from jsonb_array_elements(normalized) entry where nullif(entry->>'task_id','') is not null group by entry->>'task_id' having count(*)>1) then raise exception 'Una tarea no puede vincularse dos veces';end if;
+ if exists(select 1 from jsonb_array_elements(coalesce(old_plan.phases,'[]')) prior where nullif(prior->>'task_id','') is not null  and not exists(select 1 from jsonb_array_elements(normalized) current_row where current_row->>'task_id'=prior->>'task_id')) then raise exception 'Conserva las tareas vinculadas al reorganizar actividades';end if;
+ if old_plan.work_id is not null then insert into public.elite_plan_versions(work_id,user_id,revision,snapshot) values(target_work,uid,old_plan.revision,to_jsonb(old_plan)||jsonb_build_object('linked_tasks',(select coalesce(jsonb_agg(to_jsonb(task_backup)),'[]') from public.elite_tasks task_backup where task_backup.user_id=uid and task_backup.id::text in(select original->>'task_id' from jsonb_array_elements(old_plan.phases) original)))) on conflict do nothing;end if;
  result:=elite_private.gantt_save_core(target_work,normalized,expected_revision,freeze_baseline,confirm_work,exception_reason);
  perform set_config('elite.gantt_sync','on',true);
  for p in select value from jsonb_array_elements(result.phases) loop
@@ -39,10 +58,12 @@ begin
  select * into t from public.elite_tasks where id=tid;
  update public.elite_tasks set start_at=((p->>'start')::date+coalesce((t.start_at at time zone 'Europe/Madrid')::time,'09:00'::time)) at time zone 'Europe/Madrid',
  due_at=((p->>'end')::date+coalesce((t.due_at at time zone 'Europe/Madrid')::time,'18:00'::time)) at time zone 'Europe/Madrid',
- title=p->>'name',status=coalesce(p->>'activity_status',t.status),completed=coalesce(p->>'activity_status',t.status)='done',progress_pct=case when coalesce(p->>'activity_status',t.status)='done' then 100 else (select (o->>'percent')::numeric from jsonb_array_elements(coalesce(p->'observations','[]')) o where o->>'date'<=(now() at time zone 'Europe/Madrid')::date::text order by o->>'date' desc limit 1) end
- where id=tid and ((start_at at time zone 'Europe/Madrid')::date is distinct from (p->>'start')::date or (due_at at time zone 'Europe/Madrid')::date is distinct from (p->>'end')::date or title is distinct from p->>'name' or status is distinct from coalesce(p->>'activity_status',t.status) or progress_pct is distinct from case when coalesce(p->>'activity_status',t.status)='done' then 100 else (select (o->>'percent')::numeric from jsonb_array_elements(coalesce(p->'observations','[]')) o where o->>'date'<=(now() at time zone 'Europe/Madrid')::date::text order by o->>'date' desc limit 1) end);
+ stage='Gantt',title=p->>'name',status=coalesce(p->>'activity_status',t.status),completed=coalesce(p->>'activity_status',t.status)='done',progress_pct=case when coalesce(p->>'activity_status',t.status)='done' then 100 else (select (measurement->>'percent')::numeric from jsonb_array_elements(coalesce(p->'observations','[]')) measurement where measurement->>'date'<=(now() at time zone 'Europe/Madrid')::date::text order by measurement->>'date' desc limit 1) end
+ where id=tid and (stage is distinct from 'Gantt' or (start_at at time zone 'Europe/Madrid')::date is distinct from (p->>'start')::date or (due_at at time zone 'Europe/Madrid')::date is distinct from (p->>'end')::date or title is distinct from p->>'name' or status is distinct from coalesce(p->>'activity_status',t.status) or progress_pct is distinct from case when coalesce(p->>'activity_status',t.status)='done' then 100 else (select (measurement->>'percent')::numeric from jsonb_array_elements(coalesce(p->'observations','[]')) measurement where measurement->>'date'<=(now() at time zone 'Europe/Madrid')::date::text order by measurement->>'date' desc limit 1) end);
  end if;
  end loop;
+ select coalesce(jsonb_agg(case when nullif(entry->>'task_id','') is null then entry else entry||jsonb_build_object('task_updated_at',(select updated_at from public.elite_tasks where id=(entry->>'task_id')::uuid)) end order by n),'[]') into normalized from jsonb_array_elements(result.phases) with ordinality entries(entry,n);
+ update public.elite_work_plans set phases=normalized where work_id=target_work returning * into result;
  perform set_config('elite.gantt_sync',coalesce(previous_flag,''),true);
  return result;
 end $$;
@@ -60,8 +81,11 @@ begin
  for p in select value from jsonb_array_elements(plan.phases) loop
  if p->>'task_id'=new.id::text then
  p:=p||jsonb_build_object('name',new.title,'start',(new.start_at at time zone 'Europe/Madrid')::date,'end',(new.due_at at time zone 'Europe/Madrid')::date,'activity_status',new.status);
- if new.progress_pct=100 and new.status<>'done' then p:=p||jsonb_build_object('activity_status','done');elsif new.progress_pct is not null and new.progress_pct<100 and new.status='done' then p:=p||jsonb_build_object('activity_status','pending');end if;
+
  if new.progress_pct is distinct from old.progress_pct then p:=p||jsonb_build_object('observations',(select coalesce(jsonb_agg(m),'[]') from jsonb_array_elements(coalesce(p->'observations','[]')) m where m->>'date'<>((now() at time zone 'Europe/Madrid')::date)::text)||case when new.progress_pct is null then '[]'::jsonb else jsonb_build_array(jsonb_build_object('date',(now() at time zone 'Europe/Madrid')::date,'percent',new.progress_pct)) end);end if;
+ if old.status='done' and new.status<>'done' then
+  p:=p||jsonb_build_object('observations',(select coalesce(jsonb_agg(m),'[]') from jsonb_array_elements(coalesce(p->'observations','[]')) m where m->>'date'<>((now() at time zone 'Europe/Madrid')::date)::text)||jsonb_build_array(jsonb_build_object('date',(now() at time zone 'Europe/Madrid')::date,'percent',coalesce((select (m->>'percent')::numeric from jsonb_array_elements(coalesce(p->'observations','[]')) m where (m->>'percent')::numeric<100 order by m->>'date' desc limit 1),0))));
+ end if;
  if new.status='done' and old.status<>'done' then p:=p||jsonb_build_object('observations',(select coalesce(jsonb_agg(m),'[]') from jsonb_array_elements(coalesce(p->'observations','[]')) m where m->>'date'<>((now() at time zone 'Europe/Madrid')::date)::text)||jsonb_build_array(jsonb_build_object('date',(now() at time zone 'Europe/Madrid')::date,'percent',100)));end if;
  if jsonb_array_length(coalesce(p->'depends_on','[]'))>0 then
  select max((q->>'end')::date)+1 into old_start from jsonb_array_elements(plan.phases) q where q->>'id' in(select jsonb_array_elements_text(p->'depends_on'));
@@ -78,3 +102,38 @@ begin
 end $$;
 revoke all on function elite_private.gantt_task_changed() from public,anon,authenticated;
 commit;
+
+-- Owner-only reconciliation. Default is a read-only simulation; execution is atomic.
+create or replace function public.elite_reconcile_gantt(simulate boolean default true) returns jsonb language plpgsql security definer set search_path='' as $reconcile$
+declare uid uuid:=auth.uid();plan public.elite_work_plans;p jsonb;candidate public.elite_tasks;matches integer;rows jsonb;report jsonb:='[]';creates integer;links integer;classified integer;changed boolean;result public.elite_work_plans;
+begin
+ if uid is null then raise exception 'Inicia sesión';end if;
+ perform pg_advisory_xact_lock(hashtextextended(uid::text,0));
+ for plan in select wp.* from public.elite_work_plans wp join public.elite_works w on w.id=wp.work_id where wp.user_id=uid and w.archived_at is null and jsonb_array_length(wp.phases)>0 order by wp.work_id for update of wp loop
+  rows:='[]';creates:=0;links:=0;classified:=0;
+  for p in select value from jsonb_array_elements(plan.phases) loop
+   if not exists(select 1 from jsonb_array_elements(plan.phases) child where child->>'parent_id'=p->>'id') then
+    if nullif(p->>'task_id','') is null then
+     select count(*) into matches from public.elite_tasks t where t.user_id=uid and t.work_id=plan.work_id and t.deleted_at is null and t.control_id is null and t.recurrence='none' and t.title=p->>'name' and (t.start_at at time zone 'Europe/Madrid')::date=(p->>'start')::date and (t.due_at at time zone 'Europe/Madrid')::date=(p->>'end')::date and not exists(select 1 from public.elite_work_plans wp cross join lateral jsonb_array_elements(wp.phases) linked where linked->>'task_id'=t.id::text) and not exists(select 1 from jsonb_array_elements(rows) linked where linked->>'task_id'=t.id::text);
+     if matches>1 then raise exception 'Varias tareas coinciden con la actividad %. Revisa el vínculo antes de conciliar.',p->>'name';end if;
+     if matches=1 then
+      select * into candidate from public.elite_tasks t where t.user_id=uid and t.work_id=plan.work_id and t.deleted_at is null and t.control_id is null and t.recurrence='none' and t.title=p->>'name' and (t.start_at at time zone 'Europe/Madrid')::date=(p->>'start')::date and (t.due_at at time zone 'Europe/Madrid')::date=(p->>'end')::date and not exists(select 1 from public.elite_work_plans wp cross join lateral jsonb_array_elements(wp.phases) linked where linked->>'task_id'=t.id::text) and not exists(select 1 from jsonb_array_elements(rows) linked where linked->>'task_id'=t.id::text) for update;
+      p:=p||jsonb_build_object('task_id',candidate.id,'task_updated_at',candidate.updated_at);links:=links+1;
+     else creates:=creates+1;end if;
+    else
+     select * into candidate from public.elite_tasks where id=(p->>'task_id')::uuid and user_id=uid and work_id=plan.work_id and deleted_at is null for update;
+     if not found then raise exception 'Una actividad tiene un vínculo no disponible';end if;
+     if candidate.stage is distinct from 'Gantt' then classified:=classified+1;end if;
+     p:=p||jsonb_build_object('task_updated_at',candidate.updated_at);
+    end if;
+   end if;
+   rows:=rows||jsonb_build_array(p);
+  end loop;
+  changed:=creates+links+classified>0;
+  if not simulate and changed then result:=public.elite_save_gantt(plan.work_id,rows,plan.revision,false,plan.confirmed_at is not null,'');end if;
+  report:=report||jsonb_build_array(jsonb_build_object('work_id',plan.work_id,'revision',plan.revision,'activities',jsonb_array_length(plan.phases),'create_tasks',creates,'link_existing',links,'classify_tasks',classified,'applied',not simulate and changed));
+ end loop;
+ return report;
+end $reconcile$;
+revoke all on function public.elite_reconcile_gantt(boolean) from public,anon;
+grant execute on function public.elite_reconcile_gantt(boolean) to authenticated;
