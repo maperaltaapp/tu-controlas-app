@@ -100,9 +100,9 @@ begin
  select coalesce(jsonb_agg(r order by o.n),'[]') into ordered from jsonb_array_elements(rows) with ordinality o(p,n) join jsonb_array_elements(result) r on r->>'id'=o.p->>'id';
  result:=ordered;
  for lvl in reverse 3..1 loop
-  select coalesce(jsonb_agg(case when coalesce(nullif(row->>'level','')::integer,1)=lvl and exists(select 1 from jsonb_array_elements(result) child where child->>'parent_id'=row->>'id') then
-   row||jsonb_build_object('is_group',true,'weight',0,'milestone',false,'task_id',null,'contractor_id',null,'observations','[]'::jsonb,'economic_observations','[]'::jsonb,'budget',null,'actual_start',null,'actual_end',null,'depends_on','[]'::jsonb,'start',(select min((child->>'start')::date) from jsonb_array_elements(result) child where child->>'parent_id'=row->>'id'),'end',(select max((child->>'end')::date) from jsonb_array_elements(result) child where child->>'parent_id'=row->>'id'))
-   else row end order by ordinality),'[]') into result from jsonb_array_elements(result) with ordinality;
+  select coalesce(jsonb_agg(case when coalesce(nullif(activity_row->>'level','')::integer,1)=lvl and exists(select 1 from jsonb_array_elements(result) child where child->>'parent_id'=activity_row->>'id') then
+   activity_row||jsonb_build_object('is_group',true,'weight',0,'milestone',false,'task_id',null,'contractor_id',null,'observations','[]'::jsonb,'economic_observations','[]'::jsonb,'budget',null,'actual_start',null,'actual_end',null,'depends_on','[]'::jsonb,'start',(select min((child->>'start')::date) from jsonb_array_elements(result) child where child->>'parent_id'=activity_row->>'id'),'end',(select max((child->>'end')::date) from jsonb_array_elements(result) child where child->>'parent_id'=activity_row->>'id'))
+   else activity_row end order by activity_pos),'[]') into result from jsonb_array_elements(result) with ordinality as activity_item(activity_row,activity_pos);
  end loop;
  return result;
 end $schedule$;
