@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const html=fs.readFileSync(__dirname+'/index.html','utf8'),script=html.match(/<script>([\s\S]*)<\/script>/)[1],map=new Map();
+const html=fs.readFileSync(__dirname+'/index.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1],map=new Map();
 function el(id){if(!map.has(id))map.set(id,{id,innerHTML:'',textContent:'',value:'',disabled:false,classList:{add(){},remove(){},toggle(){}},focus(){},showModal(){},close(){},remove(){map.delete(id)},addEventListener(){}});return map.get(id)}
 const ctx=vm.createContext({console,Date,URL,URLSearchParams,Map,localStorage:{getItem(){return null},setItem(){},removeItem(){}},document:{getElementById:el,querySelectorAll(){return []},createElement(){return el('taskDialog')},body:{appendChild(){}}},navigator:{},location:{hash:'',search:'',pathname:'/'},history:{replaceState(){}},setTimeout,clearTimeout});ctx.window=ctx;vm.runInContext(script,ctx);const run=s=>vm.runInContext(s,ctx);
 const cid='11111111-1111-4111-8111-111111111111',lid='22222222-2222-4222-8222-222222222222';

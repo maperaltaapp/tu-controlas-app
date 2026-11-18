@@ -24,3 +24,10 @@
 .g-grid-row:not(.is-delete-selected) .g-bar{touch-action:pan-x pan-y;cursor:default}.g-grid-row:not(.is-delete-selected) .g-handle{display:none}
 .tc-floating-row{position:fixed!important;z-index:1000!important;pointer-events:none!important;opacity:.96!important;transform:scale(1.025);box-shadow:0 10px 30px #152d4950!important;border:2px solid #d92d32;border-radius:8px;overflow:hidden;background:#fff!important;max-width:calc(100vw - 16px)}
 .tc-floating-row .g-row-controls{display:none!important}.tc-dragging:not(.tc-floating-row){opacity:.25}.tc-drop-before{border-top:3px solid #2267bd}.tc-drop-after{border-bottom:3px solid #2267bd}
+
+/* The row remains selected while its fields are edited. */
+.home-row.is-delete-selected .home-open{background:transparent}
+.home-row.is-delete-selected{padding-right:90px}
+.tc-task-edit{position:absolute;right:44px;top:5px}
+.g-activity-cell{min-width:0}.tc-floating-row .g-table{background:white}
+@media(max-width:700px){.g-axis span{font-size:10px}.evm-dashboard{width:100%}}

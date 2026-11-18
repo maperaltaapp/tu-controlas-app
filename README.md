@@ -10,7 +10,7 @@ https://maperaltaapp.github.io/tu-controlas-app/
 - Checklist por obra con Preparación, Subcontratas y Proveedores, Ejecución y Cierre. Los elementos con fecha se muestran en Tareas desde su mismo registro.
 - Gantt con edición manual, jerarquía Fase → Tarea → Subtarea, flechas de dependencias, confirmación de reprogramaciones, tareas vinculadas y avance calculado solo con actividades finales.
 - Partes con botón destacado «+ Parte» e historial compacto, conservando el formulario y los registros existentes.
-- Panel de Control conserva su diseño anterior.
+- Panel de Control conserva la vista general; al entrar a una obra abre el panel económico y físico, con acceso a la ficha original. Los importes sin fuente identificada aparecen como «Sin datos» y los índices sin base como «No calculable».
 
 ## Estado y límites comprobados
 
@@ -22,6 +22,15 @@ https://maperaltaapp.github.io/tu-controlas-app/
 ## Verificaciones locales
 
 - `node test-database.cjs`, `node test-planning.cjs` y `node test-planning-database.cjs` pasaron.
-- `npm test` aún tropieza con una expectativa antigua de `test-app.cjs` (`dated`), que no coincide con el filtro actual (`all`). La sintaxis del JavaScript se comprobó por separado.
+- `npm test` pasa: vistas actuales de Tareas y Partes, datos, jerarquía, guardado, aislamiento RLS, métricas del panel y eventos simulados de arrastre y zoom. Las pruebas de vistas cargan correctamente el JavaScript embebido sin confundirlo con scripts externos.
 - La sintaxis del JavaScript embebido se comprobó con `node --check`.
 - La interfaz autenticada, la escritura real de tareas y la persistencia al volver a abrir aún deben verificarse con una cuenta en una sesión de prueba.
+
+## Revisión de interacción y panel de obra
+
+- Selección deliberada mediante pulsación larga; después se edita el campo tocado o con «Editar». Arrastre con copia flotante y destino señalado, conservando la jerarquía.
+- Borrado de actividades: corregida la redistribución de peso antes de retirar la fila; los hitos no reciben peso físico. Cancelar el borrado permite intentarlo nuevamente.
+- Filtro «Tareas de Gantt» y filtro Checklist, sin crear copias adicionales.
+- Panel por obra con siete indicadores, espacio de Curva S, avance físico medido y previsto, cierre, contrato y certificación. Mantiene acceso a la ficha anterior y al Gantt.
+- El panel no interpreta «ejecutado» como coste real ni inventa series económicas. Los índices CPI/SPI se formatean como ratios.
+- La comprobación visual en navegador remoto agotó el tiempo de espera. Los eventos táctiles solo se verificaron por simulación; siguen pendientes la apariencia y la interacción en un dispositivo real.
