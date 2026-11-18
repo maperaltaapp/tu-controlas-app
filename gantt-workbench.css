@@ -28,3 +28,7 @@
 .tc-head-actions #tcBell{position:relative}.tc-capacity-count{position:absolute;top:0;right:0;border-radius:10px;background:#ce3434;color:white;min-width:16px;font-size:10px;line-height:16px;text-align:center}
 .gc-document{display:block;background:#f5f8fb;padding:12px;border-radius:7px;margin:10px 0}.gc-document h3{font-size:16px;margin:0 0 7px}.gc-document p{font-size:12px;line-height:1.5;margin:4px 0;white-space:pre-wrap}
 @media print{.gc-document{background:white;color:black;padding:0}body.tc-print-contract dialog::backdrop{background:transparent}}
+.home-count.gantt-count{--group-bg:#eee9ff;--group-ink:#6544a6;min-height:62px}.home-counts{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch}.home-counts .home-count{min-height:62px}.home-counts .home-count span{display:block;white-space:normal;line-height:1.25}.home-counts .home-count strong{line-height:1.25}
+@media(max-width:420px){.home-counts{gap:4px}.home-counts .home-count{min-height:66px;padding:7px 2px}.home-counts .home-count strong{font-size:22px}.home-counts .home-count span{font-size:10px}}
+
+.home-date small{display:block;white-space:nowrap;font-size:10px;line-height:1.5}.home-date{flex-shrink:0}
