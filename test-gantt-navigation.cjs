@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const html=fs.readFileSync(__dirname+'/index.html','utf8');const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const map=new Map();function el(id){if(!map.has(id))map.set(id,{id,innerHTML:'',textContent:'',value:'',disabled:false,style:{},attributes:{},parentElement:{insertAdjacentHTML(){}},classList:{add(){},remove(){},toggle(){}},setAttribute(name,value){this.attributes[name]=String(value)},getAttribute(name){return this.attributes[name]??null},querySelector(sel){return el(this.id+sel)},querySelectorAll(){return []},showModal(){},close(){},remove(){map.delete(this.id)},focus(){},addEventListener(){},append(){},appendChild(){},insertAdjacentHTML(){},getClientRects(){return [1]}});return map.get(id)}
+const ctx=vm.createContext({console,Date,Map,URL,URLSearchParams,crypto,MutationObserver:class{observe(){}},localStorage:{getItem(){return null},setItem(){},removeItem(){}},document:{getElementById:id=>id==='tcBell'&&!el('tcHead').innerHTML.includes('id="tcBell"')?null:el(id),querySelectorAll(){return []},querySelector(){return null},createElement(){return el('taskDialog')},body:{appendChild(){},append(){}}},window:{isSecureContext:true},navigator:{},location:{search:'',pathname:'/'},history:{replaceState(){}},setTimeout,clearTimeout});
+ctx.window=ctx;ctx.structuredClone=structuredClone;vm.runInContext(fs.readFileSync(__dirname+'/planning-engine.js','utf8'),ctx);vm.runInContext(fs.readFileSync(__dirname+'/planning-hierarchy.js','utf8'),ctx);vm.runInContext(script,ctx);const run=s=>vm.runInContext(s,ctx);const t=(id,patch={})=>({id,title:'Revisar planos de prueba',category:'work',work_id:'w1',work_name:'Obra prueba',due_at:'2026-10-12T08:00:00Z',start_at:null,status:'pending',completed:false,priority:'normal',stage:'Preparación',labels:[],checklists:[],recurrence:'none',updated_at:'2026-10-12T07:00:00Z',...patch});
+
+
+ctx.addEventListener=()=>{};ctx.document.addEventListener=()=>{};
+// Exercise the production module with an existing calendar action.
+el('tcHead').insertAdjacentHTML=(_position,html)=>{el('tcHead').innerHTML+=html};
+vm.runInContext(fs.readFileSync(__dirname+'/gantt-workbench.js','utf8'),ctx);
+assert(el('tcHead').innerHTML.includes('aria-label="Calendario"'));
+assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,1);
+run('tcClearOperationalState()');
+assert(el('tcHead').innerHTML.includes('aria-label="Calendario"'));
+assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,1);
+const setup=()=>run("sessionEpoch=0;session={access_token:'fixture'};mode='gantts';G2.work='w1';G2.busy=false;G2.draft=null;G2.undo=['obsolete'];WORK_PLANS=[{work_id:'w1',revision:1,phases:[]}];OWN_TASKS=[{id:'original',work_id:'w1'}];NATIVE_WORKS=[{id:'w1',name:'Original'}];gRender=()=>{};confirm=()=>true");
+(async()=>{
+ setup();run("G2.draft=[{id:'unsaved'}];confirm=()=>false;readAll=async()=>{throw Error('No read expected')}");await run('gRefresh()');assert.equal(run('G2.draft[0].id'),'unsaved');
+ setup();let release;ctx.waiting=new Promise(r=>release=r);ctx.paths=[];run("readAll=async(table,filter)=>{paths.push([table,filter]);return waiting}");let pending=run('gRefresh()');run("G2.work='w2'");release([{work_id:'w1'}]);await pending;assert.equal(run('OWN_TASKS[0].id'),'original');assert(ctx.paths.every(p=>p[1].endsWith('w1')));
+ setup();ctx.waiting=new Promise(r=>release=r);run('readAll=async()=>waiting');pending=run('gRefresh()');run("sessionEpoch++;G2.work=null;OWN_TASKS=[];WORK_PLANS=[];NATIVE_WORKS=[]");release([{id:'old-private-row'}]);await pending;assert.equal(run('OWN_TASKS.length'),0);assert.equal(run('WORK_PLANS.length'),0);
+ setup();ctx.waiting=new Promise(r=>release=r);run('readAll=async()=>waiting');pending=run('gRefresh()');run("G2.draft=[{id:'new-unsaved'}]");release([]);await pending;assert.equal(run('G2.draft[0].id'),'new-unsaved');assert.equal(run('OWN_TASKS[0].id'),'original');
+ setup();run("G2.draft=[{id:'keep-on-failure'}];readAll=async()=>{throw Error('offline fixture')}");await run('gRefresh()');assert.equal(run('G2.draft[0].id'),'keep-on-failure');
+ setup();run("readAll=async table=>table==='elite_work_plans'?[{work_id:'w1',revision:2,phases:[]}]:table==='elite_tasks'?[{id:'fresh',work_id:'w1'}]:[{id:'w1',name:'Actual'}]");await run('gRefresh()');assert.equal(run('planOf("w1").revision'),2);assert.equal(run('OWN_TASKS[0].id'),'fresh');assert.equal(run('G2.undo.length'),0);
+ // A stale contractual read must not open a dialog over another work/session/view.
+ for(const change of ["G2.work='w2'","sessionEpoch++","mode='tasks'"]){setup();ctx.waiting=new Promise(r=>release=r);run("readAll=async()=>waiting;dialogForm=()=>{throw Error('Stale contract dialog opened')}");pending=run('gContractView()');run(change);release([{id:'old-version',items:[]}]);await pending;}
+ console.log('PASS: Calendar and bell coexist; cancelled refresh and network failures preserve drafts; cross-work/session and concurrent-edit reads are ignored; refreshed undo is reset; stale contract dialogs never open.');
+})().catch(e=>{console.error(e);process.exitCode=1});
