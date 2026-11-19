@@ -69,3 +69,17 @@ Implementación: `work-calendar.js` (motor puro), `gantt-calendar.js` (formulari
 Evidencia local: actividad creada solo con nombre y dos días laborables, del 27/11 al 30/11. Al añadir 30/11 como no laborable desde Calendario se mostró propuesta y el final pasó a 01/12, con duración, vínculo y Tareas conservados tras actualizar. Festivo 23/11 visible por nombre en mes y rayado en Gantt. Trece suites completas aprobadas, incluida creación de Gantt vacío con ancla única, regresión de planes legacy, aislamiento entre cuentas y protección de línea base/snapshots.
 
 Reversión: revertir el commit de frontend; la columna nullable puede mantenerse, sin borrar calendarios ni versiones. Un plan ya activado debe seguir usando un cliente compatible con días laborables; el servidor rechaza fechas incompatibles de clientes antiguos. No borrar la columna ni desactivar la guardia para forzar guardados.
+
+## Corrección solicitada: festivos comunes y excepciones de obra
+
+El Calendario principal ya no selecciona obra ni presenta configuración laboral. Muestra los festivos comunes y el botón «Festivos», con edición del mismo día desde su etiqueta. La base 2026 tiene los 12 festivos del Decreto 100/2025; la base 2027, los 12 de BOE-A-2026-21254 para la Comunitat Valenciana. No se incluyen fiestas municipales de Valencia ni se proyectan fechas no verificadas a otros años.
+
+Fuentes verificadas el 19/11/2026:
+- https://dogv.gva.es/datos/2025/07/07/pdf/2025_24690_es.pdf
+- https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-21254
+
+`shared-holidays.js` combina los festivos de la cuenta con `local_exceptions` de cada obra. Las excepciones de obra prevalecen para esa obra. La configuración de semana, inicio y excepciones particulares permanece dentro del Gantt. Las actividades nuevas heredan los festivos sin configurar previamente el calendario. Los planes anteriores a esta función se adaptan al guardar; al incorporar festivos comunes a un plan sin calendario se conserva su semana de siete días, su duración y sus dependencias; la semana se puede ajustar específicamente dentro del Gantt.
+
+`gantt-shared-holidays.sql` añade una tabla con SELECT y RLS por propietario, y una RPC que genera una vista previa o actualiza todos los planes activos de la cuenta en una única transacción. Compara revisión de festivos y conjunto completo de revisiones de planes; comprueba la capacidad sobre el resultado combinado y exige motivo si introduce coincidencias. Conserva las líneas base, fechas reales, tareas completadas, identidades de tareas e historial. Los planes archivados conservan su registro histórico. Los helpers y el núcleo anterior de sincronización quedan privados, sin EXECUTE para clientes. La RPC pública conserva las verificaciones de autenticación, propiedad y revisión.
+
+Validación: catorce suites, incluyendo herencia oficial, edición/eliminación global, excepciones por obra, creación sin configuración manual, fechas de tareas, línea base/historial, tareas completadas, reversión total ante fallo intermedio, revisiones obsoletas, aislamiento entre cuentas, permisos y capacidad final (incluido motivo nulo). Prueba del flujo en vista móvil con dos obras ficticias; no equivale a Android físico.
