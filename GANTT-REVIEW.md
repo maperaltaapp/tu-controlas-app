@@ -59,3 +59,13 @@ Pruebas: doce suites, incluidos casos diferidos de carrera entre obras/sesiones/
 No se requiere migración SQL ni modificación de registros de Supabase para este bloque. Android físico continúa sin comprobarse. La prueba de gestos simulados y el ancho móvil no certifican ese punto del Excel.
 
 El arrastre usa tiempo transcurrido para el desplazamiento automático, con paso acotado al equivalente de 250 ms, evitando que un navegador lento avance solo 12 px por fotograma. El ensayo táctil informa la posición si falla y cancela su arrastre de prueba incluso ante una excepción. La cabecera móvil se compacta para conservar marca, Calendario y campana en una línea.
+
+## TC-014 y TC-063 · calendario laboral compartido
+
+Lectura actual de Drive del 19/11: TC-014 incorpora una sola fecha de inicio y actividades por duración, con Fin–Inicio por defecto; TC-063 incorpora calendario por obra. La instrucción directa añade visibilidad de festivos en el calendario y recalcular el Gantt al cambiarlo.
+
+Implementación: `work-calendar.js` (motor puro), `gantt-calendar.js` (formularios/calendario/Gantt), `gantt-working-calendar.sql` (columna, validación, RPC atómica, guardia y sincronización de tareas). No se modifican datos por instalar la migración. No se activan automáticamente calendarios de obras existentes; requieren revisar y aplicar la propuesta. Los festivos son manuales, con nombre y excepciones por obra.
+
+Evidencia local: actividad creada solo con nombre y dos días laborables, del 27/11 al 30/11. Al añadir 30/11 como no laborable desde Calendario se mostró propuesta y el final pasó a 01/12, con duración, vínculo y Tareas conservados tras actualizar. Festivo 23/11 visible por nombre en mes y rayado en Gantt. Trece suites completas aprobadas, incluida creación de Gantt vacío con ancla única, regresión de planes legacy, aislamiento entre cuentas y protección de línea base/snapshots.
+
+Reversión: revertir el commit de frontend; la columna nullable puede mantenerse, sin borrar calendarios ni versiones. Un plan ya activado debe seguir usando un cliente compatible con días laborables; el servidor rechaza fechas incompatibles de clientes antiguos. No borrar la columna ni desactivar la guardia para forzar guardados.
