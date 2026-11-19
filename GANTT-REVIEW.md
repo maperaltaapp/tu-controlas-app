@@ -83,3 +83,11 @@ Fuentes verificadas el 19/11/2026:
 `gantt-shared-holidays.sql` añade una tabla con SELECT y RLS por propietario, y una RPC que genera una vista previa o actualiza todos los planes activos de la cuenta en una única transacción. Compara revisión de festivos y conjunto completo de revisiones de planes; comprueba la capacidad sobre el resultado combinado y exige motivo si introduce coincidencias. Conserva las líneas base, fechas reales, tareas completadas, identidades de tareas e historial. Los planes archivados conservan su registro histórico. Los helpers y el núcleo anterior de sincronización quedan privados, sin EXECUTE para clientes. La RPC pública conserva las verificaciones de autenticación, propiedad y revisión.
 
 Validación: catorce suites, incluyendo herencia oficial, edición/eliminación global, excepciones por obra, creación sin configuración manual, fechas de tareas, línea base/historial, tareas completadas, reversión total ante fallo intermedio, revisiones obsoletas, aislamiento entre cuentas, permisos y capacidad final (incluido motivo nulo). Prueba del flujo en vista móvil con dos obras ficticias; no equivale a Android físico.
+
+## Cabecera fija, nombres adaptables y tareas separadas
+
+El Gantt ocupa el alto disponible entre la marca superior y la navegación inferior. Sus controles permanecen fuera del desplazamiento; solo se desplazan las filas y la cabecera de columnas queda fija dentro del cronograma. Se elimina la barra horizontal duplicada y el cálculo de alto basado en una posición de página que podía ser negativa.
+
+Actividad conserva el nombre completo en el DOM y lo recorta visualmente según el ancho disponible, sin limitarlo a dos palabras. Se puede ampliar también en móvil, con preferencia independiente y espacio reservado para el cronograma. El ancho se puede cambiar también con teclado y el foco se conserva en su separador.
+
+Las tareas vinculadas al Gantt no aparecen ni se cuentan en Próximas. Se conservan en su botón propio y el filtro por tipo abre esa vista; Completadas y Archivadas mantienen su comportamiento. No hay migración ni escrituras sobre obras o tareas para estos cambios.
