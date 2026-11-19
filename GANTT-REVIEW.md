@@ -30,9 +30,9 @@ Se probó con la versión publicada del guardado, y en la base real con completa
 
 Los helpers reproducibles son `qa-gantt-server.cjs`, `qa-gantt-prepare.cjs` y `qa-gantt-mobile.html`. `npm run qa:gantt` prepara la página y levanta una base aislada con identidades ficticias. Los datos y el HTML generado están excluidos de Git. El ancho móvil y los eventos simulados no equivalen a un dispositivo Android físico. El entorno no permite esa comprobación física.
 
-## Activación pendiente de autorización final
+## Estado histórico de preparación · 18/11/2026
 
-La implementación está preparada en esta rama; no se publicaron sus cambios visuales ni sus nuevas funciones durante esta revisión.
+Los puntos siguientes describen la preparación inicial. La activación y publicación se completaron después, como se aclara al final.
 
 1. Aplicar `gantt-task-progress.sql`, `gantt-hierarchy-schema.sql`, `gantt-remove-activity.sql` y `gantt-contract-schema.sql` (esta última una sola vez). Confirmar RPCs, permisos y RLS.
 2. Ejecutar la simulación autenticada `elite_reconcile_gantt(true)`, revisar el resultado y después `elite_reconcile_gantt(false)`. Opera solo sobre el usuario autenticado, bloquea revisiones durante la transacción, usa snapshots con copia de las tareas vinculadas, reutiliza candidatos únicos y rechaza coincidencias ambiguas. Si se repite, no vuelve a crear ni clasificar lo ya conciliado.
@@ -40,4 +40,22 @@ La implementación está preparada en esta rama; no se publicaron sus cambios vi
 4. Integrar y publicar la interfaz; verificar despliegue y lectura autenticada. Mantener explícita la limitación de prueba en Android físico.
 5. Actualizar el estado de los 19 puntos en el Excel solo después de su activación y verificación. El Excel se mantuvo sin modificar.
 
-No se contrataron servicios ni se copiaron documentos de clientes. La única corrección ya aplicada en producción es el hotfix de completar/reabrir descrito arriba.
+No se contrataron servicios ni se copiaron documentos de clientes.
+
+## Seguimiento · 19/11/2026
+
+La entrega anterior está publicada en main (b39c7af, PR #15). Las funciones Gantt y las versiones contractuales se activaron el 18/11 y la conciliación del propietario quedó completada. El botón grande Tareas de Gantt y la agrupación en Próximas están publicados. Los estados del Excel siguen siendo anteriores a estas entregas: no interpretarlos como ausencia de implementación ni como verificación física Android.
+
+Correcciones de esta revisión (TC-045, TC-049, TC-014 y regresiones):
+
+- La campana se añade junto al Calendario, en lugar de sustituirlo.
+- Actualizar un Gantt con borrador pide confirmar el descarte; cancelar o fallar la red conserva el borrador. Se ignoran lecturas de otra obra/sesión y lecturas anteriores a una edición o guardado concurrente. Una actualización válida descarta el historial Deshacer de una revisión anterior.
+- Las versiones contractuales tardías no abren diálogos sobre otra obra, otra sesión o después de salir del Gantt.
+- Abrir una actividad desde Tareas de Gantt quita filtros de búsqueda anteriores, selecciona la actividad y la desplaza hasta quedar visible.
+- En edición completa, cambiar Inicio con dependencias ajusta la demora automáticamente si no se modificó explícitamente. El inicio anterior a las predecesoras se rechaza; la reprogramación de sucesoras sigue mostrando su confirmación.
+
+Pruebas: doce suites, incluidos casos diferidos de carrera entre obras/sesiones/ediciones. En navegador con PostgreSQL local se comprobó Calendario, apertura de última actividad, rechazo por capacidad, cancelación del descarte y fecha manual guardada/recargada con su nueva demora. Las pruebas usan identidades y datos ficticios; no se prueban escrituras sobre obras reales.
+
+No se requiere migración SQL ni modificación de registros de Supabase para este bloque. Android físico continúa sin comprobarse. La prueba de gestos simulados y el ancho móvil no certifican ese punto del Excel.
+
+El arrastre usa tiempo transcurrido para el desplazamiento automático, con paso acotado al equivalente de 250 ms, evitando que un navegador lento avance solo 12 px por fotograma. El ensayo táctil informa la posición si falla y cancela su arrastre de prueba incluso ante una excepción. La cabecera móvil se compacta para conservar marca, Calendario y campana en una línea.

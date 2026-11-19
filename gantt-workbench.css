@@ -32,3 +32,5 @@
 @media(max-width:420px){.home-counts{gap:4px}.home-counts .home-count{min-height:66px;padding:7px 2px}.home-counts .home-count strong{font-size:22px}.home-counts .home-count span{font-size:10px}}
 
 .home-date small{display:block;white-space:nowrap;font-size:10px;line-height:1.5}.home-date{flex-shrink:0}
+
+@media(max-width:420px){.elite-header-inner{gap:5px}.elite-brand{font-size:16px;gap:6px}.elite-brand>span:nth-child(2){white-space:nowrap}.helmet-mark{width:30px;height:30px}.elite-section{font-size:10px}.tc-head-actions{gap:4px}}
