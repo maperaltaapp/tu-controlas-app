@@ -91,3 +91,11 @@ El Gantt ocupa el alto disponible entre la marca superior y la navegación infer
 Actividad conserva el nombre completo en el DOM y lo recorta visualmente según el ancho disponible, sin limitarlo a dos palabras. Se puede ampliar también en móvil, con preferencia independiente y espacio reservado para el cronograma. El ancho se puede cambiar también con teclado y el foco se conserva en su separador.
 
 Las tareas vinculadas al Gantt no aparecen ni se cuentan en Próximas. Se conservan en su botón propio y el filtro por tipo abre esa vista; Completadas y Archivadas mantienen su comportamiento. No hay migración ni escrituras sobre obras o tareas para estos cambios.
+
+## Móvil: resumen, divisor y zoom exclusivo del cronograma
+
+Se corrige el ancho mínimo heredado de los elementos flexibles: el contenido temporal ancho ya no puede ensanchar la página ni recortar los controles. Con la columna móvil de 132 px se muestran dos palabras; ampliar su divisor muestra el nombre completo recortado por espacio. «Resumir» restablece la columna compacta y su preferencia independiente.
+
+El pellizco se acepta solo cuando ambos dedos comienzan en fechas/barras. Actualiza en vivo la geometría temporal y conserva la fecha bajo el centro del gesto; no transforma cabecera, descripción, fuentes ni el resto de la página. Se conserva la base de ajuste al ampliar, evitando saltos al cambiar entre ajuste y escala. El desplazamiento horizontal nativo conserva pegada la descripción y las barras aceptan navegación táctil; la edición horizontal de fechas queda para ratón/editor, evitando cambios involuntarios al deslizar una barra.
+
+QA móvil incluye comprobaciones de ancho real de página/cabecera, dos palabras, divisor táctil y extensión del nombre, pellizco en vivo, anchos/fuentes invariantes, pellizco ignorado sobre descripción, desplazamiento horizontal con columna fija y ausencia de cambios de datos/revisión. La simulación y el ancho móvil no certifican el comportamiento físico de un teléfono Android.
