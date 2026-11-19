@@ -51,3 +51,13 @@ body:has(.g-clean) #logout{display:none}
 .g-clean .g-board{flex:1;height:auto!important;min-height:0!important}
 .g-clean .g-horizontal{flex:none}
 .g-clean .g-grid-head{position:sticky;top:0}
+
+/* Keep the viewport fixed even when the date grid is thousands of pixels wide. */
+body:has(.g-clean){width:100%;max-width:100%;touch-action:pan-x pan-y}
+body:has(.g-clean)>.wrap,body:has(.g-clean) #app,body:has(.g-clean) #content{min-width:0;max-width:100%}
+body:has(.g-clean) #content{overflow:hidden}
+.g-clean.g-workbench{min-width:0;max-width:100%;box-sizing:border-box;touch-action:pan-x pan-y}
+.g-clean .g-editable,.g-clean .g-board{min-width:0;max-width:100%;width:100%;box-sizing:border-box}
+.g-clean .g-board,.g-clean .g-bar,.g-clean .g-track,.g-clean .g-axis{touch-action:pan-x pan-y}
+.g-mobile-compact{display:none}
+@media(max-width:700px){.g-mobile-compact{display:inline-block}.g-clean .g-column-resize{width:20px;right:-10px}.g-clean .g-column-resize::after{content:'';position:absolute;left:9px;top:8px;bottom:8px;border-left:2px solid #6e879e}.g-clean .g-table-head>span:first-child{padding-right:16px}}
