@@ -59,3 +59,13 @@ Priorizar herramientas básicas, simplicidad, privacidad y bajo coste. Comenzar 
 Aplicar `incidents-schema.sql` antes de publicar esta interfaz. Los partes originales se conservan; la copia de incidencias es idempotente por parte/posición y mantiene el JSON de evidencia. El vínculo opcional al parte usa clave compuesta por propietario y obra y solo anula `report_id` al eliminar el parte. No retirar la tabla al revertir la interfaz. Las incidencias nuevas permanecerían disponibles al volver al cliente compatible.
 
 La ficha general de Empresa y la asignación por obra reutilizan `registry-schema.sql`; no duplicar la tabla del directorio ni confundir la asignación con condiciones contractuales por actividad. El rediseño completo del Parte y los filtros de fecha de su historial continúan pendientes. Ver `WORK-ACTIONS-REVIEW.md`.
+
+## Parte diario por actividad
+
+Aplicar `daily-report-activities.sql` después de Partes y las migraciones vigentes de Gantt, antes de cargar `daily-report.js`. La migración añade columnas con valores neutros, no migra porcentajes globales a actividades y no modifica registros ni planificación. La RPC bloquea por propietario, comprueba revisiones del parte y del plan y permite solo los cuatro datos físicos por actividad. Obtiene nombres/fechas/relaciones del plan bloqueado y reutiliza el guardado canónico; no admite presupuestos ni fechas del cliente. Un fallo posterior al guardado del plan revierte toda la transacción.
+
+Las observaciones se sustituyen solo en la fecha del parte. Para editar porcentajes existentes se exige que su medición original no haya cambiado desde Gantt. Editar solo recursos u observaciones no pisa la medición. El estado actual deriva de la medición más reciente, incluidas las posteriores a un parte atrasado. Una actividad terminada requiere reapertura expresa en Gantt antes de reducir su avance actual; no se retiran fechas reales desde Partes. Se conservan actividades históricas desaparecidas y todos los campos del formato anterior. Obras archivadas se consultan sin edición.
+
+El formulario no calcula costes. Las actividades manuales sin cronograma permanecen en el parte; no se inventan actividades de Gantt ni se atribuye su porcentaje a toda la obra. Las escrituras directas de partes del formato nuevo se rechazan: usar `elite_save_daily_activities`. La cuenta solo puede operar sus propias obras.
+
+Reversión: conservar tabla, nuevas columnas y RPC. Una interfaz anterior puede consultar los registros, pero su guardado directo de partes nuevos será rechazado para evitar desincronización. No retirar las columnas ni volver a habilitar escrituras directas. Usar una revisión compatible para mantener la edición. Ver `DAILY-REPORT-REVIEW.md`.
