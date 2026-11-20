@@ -22,7 +22,7 @@ No está certificada una separación física entre este proyecto Supabase y cual
 
 El backlog vigente está en Drive, «TU CONTROLAS — Mejoras pendientes». Seguir sus prioridades, con incidencias críticas de acceso/datos primero y las instrucciones nuevas del propietario por encima de especificaciones anteriores. No marcar Verificado usando solo pruebas estáticas o una simulación táctil.
 
-La modificación del 18/11/2026 sitúa el botón grande «Tareas de Gantt» junto a los contadores. Las tareas vinculadas pendientes se agrupan en Próximas conservando sus fechas reales. Las completadas siguen accesibles en Completadas. La vista específica del cronograma incluye contenedores, hojas e hitos y no crea copias al navegar.
+El botón grande «Tareas de Gantt» está junto a los contadores. Según la corrección del 19/11/2026, las tareas Gantt se excluyen únicamente de Próximas y su contador; Hoy y Vencidas conservan su clasificación por fecha. Las completadas siguen accesibles en Completadas. La vista específica del cronograma incluye contenedores, hojas e hitos y no crea copias al navegar.
 
 La antigua bandeja de aprendizajes se retira de la interfaz y de sus consultas; sus tablas históricas permanecen intactas. La campana muestra avisos operativos reales. No confundirla con el asistente independiente de voz ni con una futura IA generativa.
 
@@ -43,3 +43,11 @@ Ante una sesión no renovable se vuelve al acceso. Salir limpia primero la sesi�
 ## IA y costes
 
 Priorizar herramientas básicas, simplicidad, privacidad y bajo coste. Comenzar con Supabase Free; no contratar Pro ni infraestructura adicional antes de necesitarlos. La IA futura utilizará OpenAI desde servidor, con consumo controlado; los clientes no necesitarán ChatGPT. No contratar créditos, ampliar plugins ni activar IA de pago por una mejora de interfaz. El plugin, el micrófono nuevo y el alquiler siguen la prioridad del backlog.
+
+## Dependencias e impresión · 20/11/2026
+
+`depends_on` conserva los identificadores de predecesoras. `dependency_links`, cuando existe, contiene exactamente un `{id,type,lag}` por identificador; `type` es FS o SS y `lag` un entero de −3660 a 3660 días laborables. Un plan antiguo sin ese campo mantiene FI y su demora común `lag_days`. No imponer metadatos nuevos a planes existentes al desplegar. Los dos extremos de un vínculo editan el mismo registro de la sucesora, sin invertir el signo.
+
+`gantt-dependencies.sql` amplía los helpers privados y el validador canónico después de las migraciones de calendario y festivos. No añade permisos públicos ni modifica registros existentes. Conserva las RPC existentes y sus comprobaciones de autenticación, propiedad, revisión y capacidad. Antes de aplicarlo comparar las funciones desplegadas con la versión fuente para no sustituir cambios ajenos. Las fechas resultantes se validan también en PostgreSQL. La igualdad tras recargar compara los vínculos normalizados; no el orden de claves de JSONB.
+
+`gantt-print.js` genera PDF vectorial local desde el plan guardado o desde una revisión contractual aprobada. No captura el DOM ni depende del scroll, filtros o zoom. La salida contractual toma solo nombre/fechas/hito aprobados y no reutiliza la ejecución interna. Las pruebas cubren cobertura por fila/periodo, páginas A3/A4 y estructura PDF; revisar también las páginas renderizadas y descargar desde la interfaz.
