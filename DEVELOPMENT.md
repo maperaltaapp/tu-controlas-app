@@ -51,3 +51,11 @@ Priorizar herramientas básicas, simplicidad, privacidad y bajo coste. Comenzar 
 `gantt-dependencies.sql` amplía los helpers privados y el validador canónico después de las migraciones de calendario y festivos. No añade permisos públicos ni modifica registros existentes. Conserva las RPC existentes y sus comprobaciones de autenticación, propiedad, revisión y capacidad. Antes de aplicarlo comparar las funciones desplegadas con la versión fuente para no sustituir cambios ajenos. Las fechas resultantes se validan también en PostgreSQL. La igualdad tras recargar compara los vínculos normalizados; no el orden de claves de JSONB.
 
 `gantt-print.js` genera PDF vectorial local desde el plan guardado o desde una revisión contractual aprobada. No captura el DOM ni depende del scroll, filtros o zoom. La salida contractual toma solo nombre/fechas/hito aprobados y no reutiliza la ejecución interna. Las pruebas cubren cobertura por fila/periodo, páginas A3/A4 y estructura PDF; revisar también las páginas renderizadas y descargar desde la interfaz.
+
+## Accesos rápidos e incidencias
+
+`work-actions.js` toma el contexto de `selectedSection`, no de una obra recordada por otra herramienta. Las lecturas de apertura y guardado están protegidas por época de sesión, navegación y formulario vigente. La cabecera solo muestra la creación durante una sesión.
+
+Aplicar `incidents-schema.sql` antes de publicar esta interfaz. Los partes originales se conservan; la copia de incidencias es idempotente por parte/posición y mantiene el JSON de evidencia. El vínculo opcional al parte usa clave compuesta por propietario y obra y solo anula `report_id` al eliminar el parte. No retirar la tabla al revertir la interfaz. Las incidencias nuevas permanecerían disponibles al volver al cliente compatible.
+
+La ficha general de Empresa y la asignación por obra reutilizan `registry-schema.sql`; no duplicar la tabla del directorio ni confundir la asignación con condiciones contractuales por actividad. El rediseño completo del Parte y los filtros de fecha de su historial continúan pendientes. Ver `WORK-ACTIONS-REVIEW.md`.
