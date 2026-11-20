@@ -7,12 +7,15 @@ ctx.window=ctx;vm.runInContext(fs.readFileSync(__dirname+'/work-calendar.js','ut
 const rows=[t('t1',{title:'Revisar planos cimentación',priority:'urgent',labels:['material']}),t('t2',{title:'Comprar acero'}),t('no-date',{title:'Verificar sin fecha',due_at:null}),t('done',{title:'Terminada',completed:true,status:'done'}),t('arch',{title:'Archivada',deleted_at:'2026-10-11T08:00Z'}),t('hidden-work',{work_id:'w2',title:'Obra archivada'}),t('gantt',{title:'Hormigón limpieza',stage:'Gantt',start_at:'2026-10-10T07:00Z'}),t('personal',{work_id:null,category:'personal',title:'Comprar fruta'}),t('future',{title:'Tarea ordinaria futura',due_at:new Date(Date.now()+2*86400000).toISOString()})];
 ctx.fixtures=rows;run("OWN_TASKS=fixtures;NATIVE_WORKS=[{id:'w1',name:'Obra prueba',execution_state:'execution',stages:['Preparación']},{id:'w2',name:'Obra archivo',archived_at:'2026-10-10'}];nativeReady=true;render()");
 const contains=id=>el('taskResults').innerHTML.includes(`data-hold-id="${id}"`);
-assert.equal(run('mode'),'tasks');assert.equal(run('taskFilter'),'all');assert(contains('t1'));assert(contains('no-date'));assert(!contains('done'));assert(!contains('arch'));assert(!contains('hidden-work'));assert(!contains('gantt'));assert(contains('future'));const upcoming=el('taskResults').innerHTML.split('id="home-future"')[1].split('</section>')[0];assert(upcoming.includes('data-hold-id="future"'));assert(!upcoming.includes('data-hold-id="gantt"'));assert.equal(run("homeGroup(fixtures.find(t=>t.id==='gantt'))"),'gantt');
+assert.equal(run('mode'),'tasks');assert.equal(run('taskFilter'),'all');assert(contains('t1'));assert(contains('no-date'));assert(!contains('done'));assert(!contains('arch'));assert(!contains('hidden-work'));assert(contains('gantt'));assert(contains('future'));const upcoming=el('taskResults').innerHTML.split('id="home-future"')[1].split('</section>')[0];assert(upcoming.includes('data-hold-id="future"'));assert(!upcoming.includes('data-hold-id="gantt"'));assert.equal(run("homeGroup(fixtures.find(t=>t.id==='gantt'))"),'overdue');
+assert.equal(run("homeGroup({...fixtures.find(t=>t.id==='gantt'),due_at:'2026-11-20T12:00:00Z'},'2026-11-20')"),'today');
+assert.equal(run("homeGroup({...fixtures.find(t=>t.id==='gantt'),due_at:'2026-11-21T12:00:00Z'},'2026-11-20')"),'gantt');
+assert.equal(run("homeGroup({...fixtures.find(t=>t.id==='future'),due_at:'2026-11-21T12:00:00Z'},'2026-11-20')"),'future');
 assert(!el('homeCounts').innerHTML.includes('Urgente de hoy'));assert(el('homeCounts').innerHTML.includes('Hoy'));
 run("tasks('done')");assert(contains('done'));assert(!contains('t1'));run("tasks('archived')");assert(contains('arch'));
 run("tasks('all');taskPriority='urgent';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
 run("taskPriority='all';taskQuery='material';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
-run("taskQuery='';taskSource='gantt';renderTaskResults()");assert(!contains('gantt'));assert(!contains('t1'));
+run("taskQuery='';taskSource='gantt';renderTaskResults()");assert(contains('gantt'));assert(!contains('t1'));
 run("taskSource='all';CHECKLIST_ITEMS=[{id:'check',work_id:'w1',title:'Verificar ferralla',due_date:'2026-11-18'}];tasks()");assert(contains('check'));assert.equal((el('taskResults').innerHTML.match(/data-hold-id="check"/g)||[]).length,1);
 assert.equal(run("safeChatUrl('javascript:alert(1)')"),'');assert.equal(run("safeChatUrl('https://chatgpt.com.evil.example/c/123')"),'');assert.equal(run("safeChatUrl('https://chatgpt.com/c/123')"),'https://chatgpt.com/c/123');
 run("openTaskForm('t1')");assert(el('taskDialog').innerHTML.includes('Revisar planos cimentación'));assert(el('taskDialog').innerHTML.includes('Checklists'));
@@ -33,3 +36,11 @@ vm.runInContext(fs.readFileSync(__dirname+'/auth-session.js','utf8'),ctx);run("s
 let unblock;ctx.deferred=new Promise(resolve=>unblock=resolve);run("session={access_token:'fixture'};readAll=async()=>deferred");const obsolete=run('load()');run("sessionViewEnded('Prueba de sesión cambiada')");unblock([{id:'old-user-row'}]);await obsolete;assert.equal(run('NATIVE_WORKS.length'),0);assert.equal(run('OWN_TASKS.length'),0);
 console.log('PASS: current task views, Gantt filter, checklist dates, archived isolation, safe links, date validation, hidden fields, Partes, deletion weights, stale-edit protection, completion roundtrip and failure rollback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
+// Checklist dates use the canonical field, including Madrid midnight and date removal.
+run("CHECKLIST_ITEMS=[{id:'dated-check',work_id:'w1',title:'Planos QA',due_date:'2026-11-20'}]");
+assert.equal(run("homeGroup(homeCards().find(c=>c.id==='dated-check'),'2026-11-20')"),'today');
+run("CHECKLIST_ITEMS[0].due_date='2026-11-21'");assert.equal(run("homeGroup(homeCards().find(c=>c.id==='dated-check'),'2026-11-20')"),'future');
+run("CHECKLIST_ITEMS[0].due_date='2026-11-19'");assert.equal(run("homeGroup(homeCards().find(c=>c.id==='dated-check'),'2026-11-20')"),'overdue');
+run("CHECKLIST_ITEMS[0].due_date=null");assert.equal(run("homeCards().filter(c=>c.id==='dated-check').length"),0);
+assert.equal(run("homeGroup({due_at:'2026-11-19T23:30:00Z'},'2026-11-20')"),'today');
+assert.equal(run("cardDue({due_at:'2026-11-20',due:'2020-01-01'})"),'2026-11-20');
