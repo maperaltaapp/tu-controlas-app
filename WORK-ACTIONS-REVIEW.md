@@ -27,3 +27,11 @@ Pruebas de navegación: obra de la pantalla actual, ausencia de contexto archiva
 Navegador con datos ficticios: incidencia creada, resuelta y recargada con el mismo identificador; ficha de proveedor guardada y asignada a obra; Parte de hoy reutilizado sin duplicarlo y sin campos de incidencia. A 390 × 844, los cuatro botones caben, Calendario/campana siguen visibles y la prueba de zoom/columna del Gantt pasa. No equivale a Android físico.
 
 TC-046 y TC-020 (nuevo Parte diario e historial con filtros de fechas) son el siguiente bloque. Este cambio todavía conserva los datos y controles de recursos del Parte anterior, excepto Incidencias; no lo presenta como un Parte inteligente terminado.
+
+## Historial TC-020 · publicado por separado
+
+`report-history.js` añade accesos compactos a Nuevo parte e Historial, filtro de obra combinado con todas las fechas, un día o intervalo inclusivo. Admite límites abiertos, avisa de intervalos invertidos y mantiene disponibles obras archivadas con partes. No modifica filas al filtrar. El día concreto seleccionado se propone al crear; si hay un parte de esa obra/día, lo abre para editar. Los filtros se conservan al guardar y volver al historial y se limpian al cerrar sesión. Las respuestas obsoletas por navegación, cuenta o petición posterior no cambian la pantalla ni el caché.
+
+Validación: 19 suites, filtros combinados y límites, orden estable, originales sin cambios, reutilización de partes, concurrencia de lectura y cierre de sesión. Navegador QA aislado: parte del 19/11 creado, reabierto con el mismo contexto, editado, recargado y consultado por día e intervalo. A 390 px, controles dentro de pantalla, contenido aprovecha el ancho y acceso Historial enfoca sin ocultarlo bajo la cabecera. No se han modificado partes reales ni esquema de base de datos. Android físico pendiente.
+
+TC-046 (nuevo formulario inteligente y transacción con Gantt) continúa pendiente.
