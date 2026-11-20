@@ -7,7 +7,7 @@ Producto profesional independiente de ChatGPT, con datos estructurados en Supaba
 ## Herramientas actuales
 
 - Tareas, búsqueda, obra, prioridad y tipo; vistas Activas, Completadas y Archivadas. Checklist con fecha se refleja desde el mismo registro.
-- Botón grande «Tareas de Gantt» junto a Hoy, Vencidas, Próximas y Sin fecha. Las tareas vinculadas pendientes se agrupan en Próximas con sus fechas originales.
+- Botón grande «Tareas de Gantt» junto a Hoy, Vencidas, Próximas y Sin fecha. Las tareas futuras vinculadas al Gantt no aparecen ni cuentan en Próximas; Hoy, Vencidas, Completadas y Archivadas conservan sus reglas. La vista propia incluye el cronograma completo sin duplicarlo.
 - Gantt con tres niveles, dependencias, selección y arrastre explícitos, fechas y tareas sincronizadas, snapshots, línea base y revisiones contractuales con PDF.
 - Campana de capacidad basada en obras y fechas, con revisión persistida «Está OK».
 - Panel de obra, checklist, directorio, partes e historial existentes. Los indicadores económicos sin fuente identificada se muestran sin datos; no se inventan costes ni ingresos.
@@ -25,16 +25,18 @@ Las comprobaciones a ancho móvil y los eventos táctiles simulados no sustituye
 
 ## Calendario laboral y duración (TC-014 / TC-063)
 
-Cada obra puede activar su calendario desde Gantt → Calendario laboral o Calendario → Días laborables y festivos. Se indica una fecha inicial, los días habituales de trabajo y las excepciones fechadas (festivo/no laborable o jornada especial laborable). Los festivos se introducen expresamente; no se supone la localidad ni se descargan calendarios oficiales.
+Las obras nuevas heredan los festivos comunes. Gantt → Calendario laboral permite cambiar la semana de trabajo y las excepciones de esa obra; Calendario → Festivos edita los días compartidos por todas las obras de la cuenta.
 
-Tras configurarlo, + Actividad pide nombre y duración laborable. Vincula por defecto con la actividad ejecutable anterior (Fin–Inicio); las excepciones permiten trabajo paralelo. El calendario muestra los días por nombre y el Gantt los raya. Cambiar el calendario presenta las fechas afectadas y, al aplicar, sincroniza calendario, Gantt y Tareas en una transacción.
++ Actividad pide nombre y duración laborable y vincula por defecto con la actividad ejecutable anterior mediante Fin–Inicio sin espera. Dependencias permite Fin–Inicio (FI) o Inicio–Inicio (II), con desfase negativo, cero o positivo para cada vínculo, desde Predecesoras o Sucesoras. Ambos extremos editan la misma relación. FI 0 comienza en la siguiente jornada tras el fin inclusivo; II 0 solicita el mismo inicio, sujeto a las demás restricciones. La vista previa advierte si otra predecesora impide esa simultaneidad. Reordenar no crea ni modifica vínculos.
 
-Los planes existentes conservan sus fechas hasta que se activa su calendario con una propuesta revisada. La primera adaptación convierte sus duraciones naturales actuales en duraciones laborables sin imponer nuevos vínculos. Las actividades terminadas, fechas reales, mediciones y líneas base se conservan. La nueva columna no activa ni reprograma obras por el mero despliegue. Las funciones de servidor validan las fechas con el mismo algoritmo, bloquean escrituras directas de fechas vinculadas desde Tareas y mantienen el aislamiento por propietario.
+El calendario, los festivos y las dependencias usan días laborables. Las actividades completadas, fechas reales, mediciones, línea base e historial se conservan. Una migración de código no reprograma obras por sí sola. Los guardados comprueban revisión, fechas, permisos y sincronización transaccional con Tareas.
 
-`npm test` incluye trece suites. `test-work-calendar.cjs` contrasta JavaScript con PostgreSQL y prueba festivos, sábados excepcionales, duración, cadenas, paralelos, ciclos, año bisiesto, cambio de año, rollback, snapshots, línea base, completar/reabrir y aislamiento. La comprobación de interfaz usa una base local con datos ficticios. Android físico sigue pendiente.
+Imprimir / PDF genera el cronograma guardado en A3 o A4 horizontal, completo o para un intervalo, con ajuste de todo el periodo o escala diaria/semanal/mensual. La paginación repite cabeceras y conserva nombres completos, fechas, duraciones, barras, hitos y vínculos. La versión interna puede incluir avance y subcontrata. La contractual utiliza exclusivamente la revisión aprobada, sin datos económicos ni empresas internas. Se genera en el dispositivo; no se envía ningún documento a otro servicio.
+
+`npm test` incluye dieciséis suites. Las comprobaciones en navegador usan PostgreSQL/PGlite con datos ficticios y una vista móvil de 390 × 844. Android físico sigue pendiente.
 
 ### Festivos comunes
 
 Calendario muestra los festivos de España aplicables a la Comunidad Valenciana (base oficial 2026 y 2027), sin selector de obra. «Festivos» permite añadir, modificar o quitar un día y revisar el efecto antes de guardar todos los Gantt y tareas de la cuenta en una operación. Cada Gantt mantiene su semana laboral y sus excepciones propias, que prevalecen sobre el calendario común. Las nuevas obras heredan la base sin configuración previa. No se añaden por defecto fiestas municipales ni se adivinan otros años.
 
-Aplicar `gantt-shared-holidays.sql` después de `gantt-working-calendar.sql` antes de publicar el frontend. La instalación no modifica las fechas de planes existentes; su adopción se hace mediante la RPC con vista previa o al guardar un plan desde el cliente actual. No retirar la migración mientras haya calendarios con metadatos de herencia; volver al frontend anterior requiere conservar sus archivos JS y revisar esta compatibilidad. Ver fuentes, pruebas y límites en `GANTT-REVIEW.md`.
+Aplicar `gantt-shared-holidays.sql` después de `gantt-working-calendar.sql` y `gantt-dependencies.sql` después de ambos antes de publicar el frontend. La instalación no modifica las fechas de planes existentes; su adopción se hace mediante la RPC con vista previa o al guardar un plan desde el cliente actual. No retirar la migración mientras haya calendarios con metadatos de herencia; volver al frontend anterior requiere conservar sus archivos JS y revisar esta compatibilidad. Ver fuentes, pruebas y límites en `GANTT-REVIEW.md`.
