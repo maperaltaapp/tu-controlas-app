@@ -2,7 +2,7 @@
   "name": "tu-controlas-app",
   "private": true,
   "scripts": {
-    "test": "node test-app.cjs && node test-database.cjs && node test-planning.cjs && node test-planning-database.cjs && node test-work-dashboard.cjs && node test-interactions.cjs && node test-gantt-sync.cjs && node test-gantt-completion.cjs && node test-contract-pdf.cjs && node test-auth-session.cjs && node test-ai.cjs && node test-gantt-navigation.cjs && node test-work-calendar.cjs && node test-shared-holidays.cjs && node test-gantt-dependencies.cjs && node test-gantt-print.cjs",
+    "test": "node test-app.cjs && node test-database.cjs && node test-planning.cjs && node test-planning-database.cjs && node test-work-dashboard.cjs && node test-interactions.cjs && node test-gantt-sync.cjs && node test-gantt-completion.cjs && node test-contract-pdf.cjs && node test-auth-session.cjs && node test-ai.cjs && node test-gantt-navigation.cjs && node test-work-calendar.cjs && node test-shared-holidays.cjs && node test-gantt-dependencies.cjs && node test-gantt-print.cjs && node test-incidents.cjs && node test-work-actions.cjs",
     "qa:gantt": "node qa-gantt-prepare.cjs && node qa-gantt-server.cjs"
   },
   "devDependencies": {
