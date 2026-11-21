@@ -35,3 +35,5 @@ TC-046 y TC-020 (nuevo Parte diario e historial con filtros de fechas) son el si
 Validación: 19 suites, filtros combinados y límites, orden estable, originales sin cambios, reutilización de partes, concurrencia de lectura y cierre de sesión. Navegador QA aislado: parte del 19/11 creado, reabierto con el mismo contexto, editado, recargado y consultado por día e intervalo. A 390 px, controles dentro de pantalla, contenido aprovecha el ancho y acceso Historial enfoca sin ocultarlo bajo la cabecera. No se han modificado partes reales ni esquema de base de datos. Android físico pendiente.
 
 TC-046 (nuevo formulario inteligente y transacción con Gantt) continúa pendiente.
+
+TC-046 queda desarrollado en `daily-report.js` y `daily-report-activities.sql`, con validación separada en `DAILY-REPORT-REVIEW.md`; las menciones anteriores a pendiente describen el alcance de las publicaciones previas.

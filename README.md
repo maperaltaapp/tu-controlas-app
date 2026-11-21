@@ -7,6 +7,7 @@ Producto profesional independiente de ChatGPT, con datos estructurados en Supaba
 ## Herramientas actuales
 
 - Cabecera con accesos compactos a Tarea, Parte, Incidencia y Empresa; Calendario y campana permanecen visibles.
+- Parte diario por actividad con avance acumulado, observaciones, operarios y máquinas; selección prevista por día y guardado conjunto con Gantt/Tareas. Los recursos no calculan costes y los datos anteriores se conservan.
 - Partes con accesos compactos a Nuevo parte e Historial, filtros combinados por obra y día o intervalo, y reapertura del parte existente sin duplicarlo.
 - Incidencias independientes de Partes, con seguimiento, filtros por obra/estado y conservación de las antiguas.
 - Tareas, búsqueda, obra, prioridad y tipo; vistas Activas, Completadas y Archivadas. Checklist con fecha se refleja desde el mismo registro.
@@ -36,7 +37,7 @@ El calendario, los festivos y las dependencias usan días laborables. Las activi
 
 Imprimir / PDF genera el cronograma guardado en A3 o A4 horizontal, completo o para un intervalo, con ajuste de todo el periodo o escala diaria/semanal/mensual. La paginación repite cabeceras y conserva nombres completos, fechas, duraciones, barras, hitos y vínculos. La versión interna puede incluir avance y subcontrata. La contractual utiliza exclusivamente la revisión aprobada, sin datos económicos ni empresas internas. Se genera en el dispositivo; no se envía ningún documento a otro servicio.
 
-`npm test` incluye diecinueve suites. Las comprobaciones en navegador usan PostgreSQL/PGlite con datos ficticios y una vista móvil de 390 × 844. Android físico sigue pendiente.
+`npm test` incluye veintiuna suites. Las comprobaciones en navegador usan PostgreSQL/PGlite con datos ficticios y una vista móvil de 390 × 844. Android físico sigue pendiente.
 
 ### Festivos comunes
 
