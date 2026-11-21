@@ -80,3 +80,10 @@ Reversión: conservar tabla, nuevas columnas y RPC. Una interfaz anterior puede 
 La cabecera Gantt no incluye Buscar, botones de zoom, porcentaje de zoom, Resumir, Ajustar ni Deshacer. Se mantienen escala temporal, Columnas, Cliente, Calendario laboral, actividad y PDF. El pellizco afecta únicamente a la línea temporal; ampliar Actividad revela más texto. No reintroducir controles equivalentes al simplificar.
 
 El editor compara fechas, duración efectiva, jerarquía, ancla y vínculos normalizados antes de reprogramar. Cambiar solo nombre, subcontrata, estado o avance conserva fechas y no convierte automáticamente planes antiguos al calendario por defecto. Las modificaciones de fechas/duración/dependencias mantienen el recálculo y la revisión de impacto.
+
+
+## Calendario móvil · 21/11/2026
+
+Las fechas y horas de tareas se agrupan y presentan en Europe/Madrid, también en semana/mes y al pulsar Hoy. No usar getDate/getMonth de un vencimiento con hora para clasificarlo: la zona del dispositivo puede cambiar el día. Los días de la cuadrícula son fechas civiles y mantienen su construcción local a mediodía. `test-calendar-ui.cjs` comprueba cuatro zonas del dispositivo, medianoche, cambios de mes/año y horario de verano.
+
+El rango visual de calendario es 50–200 % tanto en botones como en pellizco y preferencia guardada. Cancelar el gesto restaura la escala anterior. La escala se limita al cuadro del calendario; no modifica cabecera, tareas ni fechas de Gantt. El grupo normal de tareas Gantt usa el mismo tratamiento visual de encabezado y contador que los otros grupos.
