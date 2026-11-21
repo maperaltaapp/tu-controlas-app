@@ -22,7 +22,7 @@ No está certificada una separación física entre este proyecto Supabase y cual
 
 El backlog vigente está en Drive, «TU CONTROLAS — Mejoras pendientes». Seguir sus prioridades, con incidencias críticas de acceso/datos primero y las instrucciones nuevas del propietario por encima de especificaciones anteriores. No marcar Verificado usando solo pruebas estáticas o una simulación táctil.
 
-El botón grande «Tareas de Gantt» está junto a los contadores. Según la corrección del 19/11/2026, las tareas Gantt se excluyen únicamente de Próximas y su contador; Hoy y Vencidas conservan su clasificación por fecha. Las completadas siguen accesibles en Completadas. La vista específica del cronograma incluye contenedores, hojas e hitos y no crea copias al navegar.
+«Tareas de Gantt» es un grupo del listado Activas (corrección del 21/11/2026), no una pestaña ni una vista separada. Las actividades se excluyen de Hoy, Vencidas, Próximas y Sin fecha para evitar duplicados. Se proyectan desde el plan, con sus nombres y fechas canónicos. Hojas e hitos conservan el identificador de su tarea y su casilla; los contenedores son referencias no completables. No crear registros al navegar. Completar sincroniza actividad, tarea y Panel; reabrir recupera el avance previo o requiere una medición explícita.
 
 La antigua bandeja de aprendizajes se retira de la interfaz y de sus consultas; sus tablas históricas permanecen intactas. La campana muestra avisos operativos reales. No confundirla con el asistente independiente de voz ni con una futura IA generativa.
 
@@ -58,7 +58,7 @@ Priorizar herramientas básicas, simplicidad, privacidad y bajo coste. Comenzar 
 
 Aplicar `incidents-schema.sql` antes de publicar esta interfaz. Los partes originales se conservan; la copia de incidencias es idempotente por parte/posición y mantiene el JSON de evidencia. El vínculo opcional al parte usa clave compuesta por propietario y obra y solo anula `report_id` al eliminar el parte. No retirar la tabla al revertir la interfaz. Las incidencias nuevas permanecerían disponibles al volver al cliente compatible.
 
-La ficha general de Empresa y la asignación por obra reutilizan `registry-schema.sql`; no duplicar la tabla del directorio ni confundir la asignación con condiciones contractuales por actividad. El rediseño completo del Parte y los filtros de fecha de su historial continúan pendientes. Ver `WORK-ACTIONS-REVIEW.md`.
+La ficha general de Empresa y la asignación por obra reutilizan `registry-schema.sql`; no duplicar la tabla del directorio ni confundir la asignación con condiciones contractuales por actividad. El Parte por actividad y los filtros combinados de fecha/obra de su historial ya están implementados; consultar las secciones siguientes para sus límites. Ver `WORK-ACTIONS-REVIEW.md`.
 
 ## Parte diario por actividad
 
@@ -69,3 +69,14 @@ Las observaciones se sustituyen solo en la fecha del parte. Para editar porcenta
 El formulario no calcula costes. Las actividades manuales sin cronograma permanecen en el parte; no se inventan actividades de Gantt ni se atribuye su porcentaje a toda la obra. Las escrituras directas de partes del formato nuevo se rechazan: usar `elite_save_daily_activities`. La cuenta solo puede operar sus propias obras.
 
 Reversión: conservar tabla, nuevas columnas y RPC. Una interfaz anterior puede consultar los registros, pero su guardado directo de partes nuevos será rechazado para evitar desincronización. No retirar las columnas ni volver a habilitar escrituras directas. Usar una revisión compatible para mantener la edición. Ver `DAILY-REPORT-REVIEW.md`.
+
+
+## Propuestas del cliente y reapertura · 21/11/2026
+
+`gantt-client-dates.sql` añade propuestas privadas por obra (`elite_contract_plan_drafts`), con RLS de lectura por propietario y escritura solo mediante RPC con validación de propietario, revisión y selección sin solapamientos. La aprobación conserva la firma de `elite_approve_contract_plan`, valida fechas propias y guarda nuevas revisiones inmutables. Ni la propuesta ni la aprobación mueven ejecución o línea base. Se exige referencia documental y confirmación expresa del cliente en la interfaz; el sistema no verifica externamente el documento ni congela tipos/desfases de dependencias. La comparación y el PDF usan las fechas aprobadas.
+
+`gantt-reopen-progress.sql` sustituye el trigger de sincronización conservando sus validaciones de calendario y vínculos. Al completar desde Tareas guarda `completion_restore_percent`, incluido un porcentaje de ese mismo día; si no existía medición guarda ausencia. Al reabrir recupera ese valor o una medición histórica válida menor del 100 %, o exige un porcentaje explícito. El editor de Gantt y `gProgressDraft` usan el mismo criterio. No confundir ausencia con cero ni usar mediciones futuras como avance previo. La ruta canónica de Gantt conserva este metadato y lo retira al registrar un nuevo avance inferior al 100 %.
+
+La cabecera Gantt no incluye Buscar, botones de zoom, porcentaje de zoom, Resumir, Ajustar ni Deshacer. Se mantienen escala temporal, Columnas, Cliente, Calendario laboral, actividad y PDF. El pellizco afecta únicamente a la línea temporal; ampliar Actividad revela más texto. No reintroducir controles equivalentes al simplificar.
+
+El editor compara fechas, duración efectiva, jerarquía, ancla y vínculos normalizados antes de reprogramar. Cambiar solo nombre, subcontrata, estado o avance conserva fechas y no convierte automáticamente planes antiguos al calendario por defecto. Las modificaciones de fechas/duración/dependencias mantienen el recálculo y la revisión de impacto.
