@@ -11,8 +11,9 @@ Producto profesional independiente de ChatGPT, con datos estructurados en Supaba
 - Partes con accesos compactos a Nuevo parte e Historial, filtros combinados por obra y día o intervalo, y reapertura del parte existente sin duplicarlo.
 - Incidencias independientes de Partes, con seguimiento, filtros por obra/estado y conservación de las antiguas.
 - Tareas, búsqueda, obra, prioridad y tipo; vistas Activas, Completadas y Archivadas. Checklist con fecha se refleja desde el mismo registro.
-- Botón grande «Tareas de Gantt» junto a Hoy, Vencidas, Próximas y Sin fecha. Las tareas futuras vinculadas al Gantt no aparecen ni cuentan en Próximas; Hoy, Vencidas, Completadas y Archivadas conservan sus reglas. La vista propia incluye el cronograma completo sin duplicarlo.
+- Grupo «Tareas de Gantt» dentro del listado Activas, con filas normales, filtros comunes y fechas canónicas. Las actividades vinculadas no se duplican en los otros grupos activos. Las hojas e hitos se completan con casilla; los contenedores son referencias sin casilla. Las completadas aparecen en Completadas con su vínculo intacto.
 - Gantt con tres niveles, dependencias, selección y arrastre explícitos, fechas y tareas sincronizadas, snapshots, línea base y revisiones contractuales con PDF.
+- Plan de cliente con fechas independientes del interno, propuestas guardadas sin aprobación y revisiones aprobadas inmutables. Al reabrir una actividad se recupera su avance anterior o se solicita uno explícito; no se inventa 0 %.
 - Campana de capacidad basada en obras y fechas, con revisión persistida «Está OK».
 - Panel de obra, checklist, directorio, partes e historial existentes. Los indicadores económicos sin fuente identificada se muestran sin datos; no se inventan costes ni ingresos.
 - Notificaciones push por dispositivo. El dictado existente no equivale a IA generativa.
