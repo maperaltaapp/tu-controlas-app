@@ -26,6 +26,9 @@ El backlog vigente está en Drive, «TU CONTROLAS — Mejoras pendientes». Segu
 
 La antigua bandeja de aprendizajes se retira de la interfaz y de sus consultas; sus tablas históricas permanecen intactas. La campana muestra avisos operativos reales. No confundirla con el asistente independiente de voz ni con una futura IA generativa.
 
+## Separación de sesiones entre aplicaciones
+La sesión del navegador de TU CONTROLAS se guarda exclusivamente en `tc_session_v1` (API: `TCAuth.storageKey`), no en la antigua clave `elite_session`. No migrar automáticamente la sesión anterior: el primer acceso tras publicar requerirá entrar de nuevo. No borrar `elite_session` ni otras preferencias de la aplicación laboral. Una clave distinta evita colisiones accidentales, pero **no aísla criptográficamente dos aplicaciones en el mismo origen**: antes de comercializar, usar un origen propio separado y revisar políticas de contenido y sesiones.
+
 ## Sesiones
 
 `auth-session.js` serializa renovaciones locales y entre pestañas mediante Web Locks cuando está disponible. Los navegadores anteriores disponen de una concesión breve de almacenamiento y recuperación de una rotación más reciente. La renovación tiene un tiempo máximo; no se rebajan las protecciones de reutilización de tokens del proveedor.
