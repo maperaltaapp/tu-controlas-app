@@ -122,6 +122,11 @@ async function main(){
  assert.ok(task.deleted_at,'Borrado reversible usa deleted_at');
  assert.deepEqual(Object.keys(patches.at(-1)),['deleted_at']);
  assert.equal(sandbox.OWN_TASKS[0].id,tid,'Nunca modifica otras tareas');
- console.log('PASS: selección cancelable, edición de 3 campos, validación, cancelación/error sin escrituras y eliminación reversible');
+ sandbox.openQuickTaskEditor(tid);
+ assert.match(lastDialog.content,/>Restaurar</,'Una tarea archivada tiene acción de recuperación');
+ await lastDialog.remove.onclick();
+ assert.equal(task.deleted_at,null,'La tarea vuelve a Activas al restaurarla');
+ assert.deepEqual(Object.keys(patches.at(-1)),['deleted_at']);
+ console.log('PASS: selección cancelable, edición de 3 campos, validación, errores, borrado reversible y restauración');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
