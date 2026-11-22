@@ -299,6 +299,7 @@ let tcExportBusy=false;
 async function exportOwnData(){
  if(tcExportBusy)return;
  if(!nativeReady||!session?.user?.id){statusMessage('Inicia sesión y espera a que se carguen tus datos.',true);return}
+ if(typeof window.confirm==='function'&&!window.confirm('El JSON contiene datos privados de tus obras SIN CIFRAR. En un móvil compartido, otras personas podrían abrirlo desde Descargas. Guárdalo en un lugar privado. ¿Descargar?'))return;
  tcExportBusy=true;
  const owner=session.user.id,epoch=sessionEpoch,button=$('exportClientData');
  if(button)button.disabled=true;
@@ -310,7 +311,7 @@ async function exportOwnData(){
   const result=await TCExport.build({userId:owner,guard,read:async(table,query)=>{guard();const rows=await readAll(table,query);guard();return rows}});
   guard();await TCExport.verify(result.snapshot,owner);guard();
   TCExport.download(result);
-  statusMessage('Exportación descargada: guarda el JSON en tu PC o Drive. No incluye documentos y todavía no permite restaurar.');
+  statusMessage('Archivo JSON descargado SIN CIFRAR: guárdalo en una ubicación privada y elimina la copia de Descargas si compartes el móvil. No incluye documentos ni permite restaurar.');
  }catch(error){statusMessage('No se pudo exportar: '+error.message,true)}
  finally{tcExportBusy=false;if(button?.isConnected)button.disabled=false}
 }

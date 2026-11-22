@@ -54,6 +54,12 @@ const fixedTime=new Date('2026-11-22T12:00:00.000Z');
  const html=fs.readFileSync(__dirname+'/index.html','utf8');
  assert.ok(html.includes('src="client-export.js"'));
  assert.ok(html.includes('id="exportClientData" onclick="exportOwnData()"'));
+ const exportHandler=html.slice(html.indexOf('async function exportOwnData()'),html.indexOf('async function inspectBackupFile('));
+ assert.ok(exportHandler.includes('window.confirm'),'Sensitive backup must require explicit acknowledgement');
+ assert.ok(exportHandler.includes('SIN CIFRAR'),'User must be told the export is not encrypted');
+ assert.ok(exportHandler.indexOf('window.confirm')<exportHandler.indexOf('TCExport.build'),'Do not read data if the user cancels');
+ assert.ok(html.includes('elimina la copia de Descargas'),'Shared-phone export warning must explain deletion');
+
  assert.ok(html.includes('const owner=session.user.id,epoch=sessionEpoch'));
  assert.ok(html.includes('readAll(table,query)'));
  assert.ok(html.includes('await TCExport.verify(result.snapshot,owner)'));
