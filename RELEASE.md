@@ -5,7 +5,7 @@
 2. Ejecutar `npm test` en un entorno de prueba con datos **ficticios**. La batería incluye autenticación, cierre de sesión, recuperación de acceso, persistencia de tareas/Gantt, RLS local y verificación estática de archivos.
 3. Un merge solo se realiza tras autorización del propietario, QA en verde y evaluación del alcance.
 4. Una migración de datos requiere respaldo previo, prueba en clon, validación de RLS y una reversión verificada. **No mezclar una migración con cambios de interfaz en un único despliegue**.
-5. Tras cada push a `main`, el flujo `.github/workflows/qa.yml` comprueba los archivos **realmente publicados** en GitHub Pages: `node release-smoke.cjs`. Contrasta SHA-256 del HTML y 11 scripts públicos (12 recursos en total), rechazando archivos antiguos, 404 y contenido diferente; espera un tiempo limitado por la propagación.
+5. Tras cada push a `main`, el flujo `.github/workflows/qa.yml` comprueba los archivos **realmente publicados** en GitHub Pages: `node release-smoke.cjs`. Contrasta SHA-256 del HTML y 12 scripts públicos (13 recursos en total), rechazando archivos antiguos, 404 y contenido diferente; espera un tiempo limitado por la propagación.
 6. No declarar un despliegue correcto si falla el control web. La verificación de archivos no significa que el inicio de sesión o la UX móvil funcionen: probar manualmente en un navegador real.
 7. Confirmar en Android y PC: acceso con cuenta de prueba, recarga, cambio de cuenta, tareas, partes, Gantt, cierres de sesión, reconexión y restauración de un dato **de prueba**.
 8. Registrar en Google Drive el commit de código, resultados QA, comprobación de Pages, pruebas físicas y resultado. No marcar «Verificado» si faltan evidencias.
