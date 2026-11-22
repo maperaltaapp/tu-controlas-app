@@ -52,7 +52,7 @@ function edit(id){
  +'<label>Nombre<input name="title" maxlength="240" required value="'+title+'"></label>'
  +'<label>Vencimiento<input name="due" type="'+type+'" value="'+esc(dateValue)+'"></label>'
  +'<label>Recordatorio<select name="reminder">'
- +[['none','Sin aviso'],['0','Al vencimiento'],['15','15 minutos antes'],['60','1 hora antes'],['1440','1 día antes'],['custom','Elegir día y hora']].map(row=>'<option value="'+row[0]+'"'+(row[0]===reminder?' selected':'')+'>'+row[1]+'</option>').join('')
+ +[['none','Sin aviso'],['0','Al vencimiento'],['5','5 minutos antes'],['15','15 minutos antes'],['30','30 minutos antes'],['60','1 hora antes'],['1440','1 día antes'],['custom','Elegir día y hora']].map(row=>'<option value="'+row[0]+'"'+(row[0]===reminder?' selected':'')+'>'+row[1]+'</option>').join('')
  +'</select></label>'
  +'<label id="tcQuickCustomRow"'+(reminder==='custom'?'':' hidden')+'>Fecha y hora del recordatorio<input name="custom" type="datetime-local" value="'+esc(localDateTime(task.remind_at))+'"></label>'
  +info+extras+'<div id="tcQuickError" class="status err" role="alert"></div>'
