@@ -9,9 +9,9 @@ try{
  create table public.elite_plan_versions(id int primary key,snapshot jsonb not null);
  create table public.elite_history(id int primary key,title text not null,fields jsonb not null);
  insert into public.elite_works values('11111111-1111-4111-8111-111111111111','aaaa1111-1111-4111-8111-111111111111','Obra de prueba','board123');
- insert into public.elite_tasks values('22222222-2222-4222-8222-222222222222','aaaa1111-1111-4111-8111-111111111111','Tarea de prueba','card123','https://'`+provider+`.com/c/test');
- insert into public.elite_plan_versions values(1,'{"user_id":"aaaa1111-1111-4111-8111-111111111111","linked_tasks":[{"id":"task","trello_id":"card123","title":"Tarea","source_url":"https://'`+provider+`.com/c/test"}]}');
- insert into public.elite_history values(1,'Importación desde '`+provider+`,'{"task_id":"22222222-2222-4222-8222-222222222222"}');`);
+ insert into public.elite_tasks values('22222222-2222-4222-8222-222222222222','aaaa1111-1111-4111-8111-111111111111','Tarea de prueba','card123','https://`+provider+`.com/c/test');
+ insert into public.elite_plan_versions values(1,'{"user_id":"aaaa1111-1111-4111-8111-111111111111","linked_tasks":[{"id":"task","trello_id":"card123","title":"Tarea","source_url":"https://`+provider+`.com/c/test"}]}');
+ insert into public.elite_history values(1,'Importación desde `+provider+`,'{"task_id":"22222222-2222-4222-8222-222222222222"}');`);
  const migration=fs.readFileSync(__dirname+'/remove-legacy-provider-metadata.sql','utf8');
  await db.exec(migration);
  const works=(await db.query('select id,user_id,name from elite_works')).rows;
