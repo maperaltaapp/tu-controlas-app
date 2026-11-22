@@ -163,7 +163,7 @@ selectHeldForDelete=function(host,kind,id){
   const b=document.createElement('button');b.type='button';b.className=css;b.textContent=label;b.onclick=async e=>{e.stopPropagation();await action()};actions.append(b);
  };
  button('Editar','light',()=>edit(id));
- button('Eliminar','tc-action-delete',async()=>{const ok=await deleteHeldItem('task',id);if(ok)selectionClear()});
+ if(OWN_TASKS.some(t=>t.id===id&&!t.control_id&&!t.deleted_at))button('Eliminar','tc-action-delete',async()=>{const ok=await deleteHeldItem('task',id);if(ok)selectionClear()});
  button('Cancelar','light',selectionClear);
  host.insertAdjacentElement('afterend',actions);
 };
