@@ -4,7 +4,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const SITE='https://maperaltaapp.github.io/tu-controlas-app/';
 const ASSETS=Object.freeze([
- 'index.html','auth-session.js','account-recovery.js','work-calendar.js',
+ 'index.html','auth-session.js','account-recovery.js','client-export.js','work-calendar.js',
  'shared-holidays.js','work-dashboard.js','work-actions.js','task-quick-editor.js',
  'task-order.js','gantt-workbench.js','daily-report.js','sw.js'
 ]);
@@ -43,7 +43,7 @@ async function run({attempts=24,delayMs=15000,check=checkOnce}={}){
  for(let attempt=1;attempt<=attempts;attempt++){
   mismatches=await check();
   if(mismatches.length===0){
-   console.log('PASS: GitHub Pages entrega exactamente los 12 recursos de este commit de main.');
+   console.log('PASS: GitHub Pages entrega exactamente los 13 recursos de este commit de main.');
    return true;
   }
   console.log('Comprobación pública '+attempt+'/'+attempts+': '+mismatches.slice(0,5).join('; '));
