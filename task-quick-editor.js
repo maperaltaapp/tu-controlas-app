@@ -41,6 +41,8 @@ function edit(id){
   statusMessage('La tarea ya no está disponible. Actualizá la lista.',true);return;
  }
  if(task.control_id)return originalTaskForm(id);
+ const editorEpoch=sessionEpoch,editorOwner=session?.user?.id;
+ const sameSession=()=>sessionEpoch===editorEpoch&&session?.user?.id===editorOwner;
  const linked=linkFor(id),due=linked?linked.row.end:localDateTime(task.due_at);
  const reminder=task.remind_at?'custom':(!task.due_at&&!linked?'none':task.remind_minutes==null?'none':String(task.remind_minutes));
  const title=esc(task.title||'');
@@ -62,19 +64,22 @@ function edit(id){
  form.elements.reminder.onchange=switchCustom;
  form.querySelector('[data-cancel]').onclick=closeTaskDialog;
  form.querySelector('[data-delete]').onclick=async()=>{
-  if(busy)return;
+  if(busy||!sameSession())return;
   if(task.deleted_at){
    if(task.stage==='Gantt'){showHistory(id);return}
    busy=true;
-   try{await patchNativeTask(task,{deleted_at:null});await fetchOwnTasks();if(dialog.isConnected)closeTaskDialog();if(mode==='tasks')tasks();else render();statusMessage('Tarea restaurada.')}
-   catch(e){form.querySelector('#tcQuickError').textContent=e.message}
+   try{
+    await patchNativeTask(task,{deleted_at:null});if(!sameSession())return;
+    await fetchOwnTasks();if(!sameSession()||!dialog.isConnected)return;
+    closeTaskDialog();if(mode==='tasks')tasks();else render();statusMessage('Tarea restaurada.');
+   }catch(e){if(sameSession()&&dialog.isConnected)form.querySelector('#tcQuickError').textContent=e.message}
    finally{busy=false}
    return;
   }
-  const ok=await deleteHeldItem('task',id);if(ok&&dialog.isConnected)closeTaskDialog();
+  const ok=await deleteHeldItem('task',id);if(ok&&sameSession()&&dialog.isConnected)closeTaskDialog();
  };
  form.onsubmit=async event=>{
-  event.preventDefault();if(busy)return;
+  event.preventDefault();if(busy||!sameSession())return;
   const title=form.elements.title.value.trim(),selectedDue=form.elements.due.value,reminderMode=form.elements.reminder.value;
   const error=form.querySelector('#tcQuickError');
   try{
@@ -116,6 +121,7 @@ function edit(id){
     if(G2.busy||G2.draft)throw Error('Termina los cambios abiertos del Gantt antes de editar esta tarea.');
     G2.work=task.work_id;
     const ok=await gCommit(rows,{reschedule:false});
+    if(!sameSession())return;
     if(!ok)throw Error(G2.message||'No se pudo guardar el Gantt.');
     planSaved=true;
    }
@@ -125,18 +131,27 @@ function edit(id){
     if(Object.keys(reminderPatch).length){
      const fresh=OWN_TASKS.find(t=>t.id===id);
      if(!fresh)throw Error('No se encontró la tarea vinculada después de actualizar el Gantt.');
+     if(!sameSession())return;
      await patchNativeTask(fresh,reminderPatch);
+     if(!sameSession())return;
     }
-   }else await patchNativeTask(task,add);
+   }else{
+    if(!sameSession())return;
+    await patchNativeTask(task,add);
+    if(!sameSession())return;
+   }
    await fetchOwnTasks();
-   if(dialog.isConnected)closeTaskDialog();
+   if(!sameSession()||!dialog.isConnected)return;
+   closeTaskDialog();
    if(mode==='tasks')tasks();else render();
    statusMessage('Tarea guardada y comprobada.');
   }catch(e){
-   error.textContent=e.message;
-   if(linked&&G2.draft)G2.draft=null;
-   form.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);
-   switchCustom();
+   if(sameSession()&&dialog.isConnected){
+    error.textContent=e.message;
+    if(linked&&G2.draft)G2.draft=null;
+    form.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);
+    switchCustom();
+   }
   }finally{busy=false}
  };
  form.elements.title.focus();
