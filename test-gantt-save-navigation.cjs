@@ -11,6 +11,12 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
 (async()=>{
  // Session ends while the write is in flight: no old reads or state resurrection.
  setup();let gate=deferred();ctx.gate=gate.promise;run('eliteRequest=()=>gate');let pending=run('savedCommit([phase],{reschedule:false})');assert.equal(run('G2.busy'),true);run("sessionViewEnded('cerrada')");gate.resolve({});assert.equal(await pending,false);assert.equal(run('readCount'),0);assert.equal(run('OWN_TASKS.length'),0);assert.equal(run('WORK_PLANS.length'),0);assert.equal(run('G2.busy'),false);assert.equal(run('mode'),'tasks');
+ // Editing a Gantt-linked task from Tareas must not navigate to the Gantt while saving.
+ setup();run("mode='tasks';eliteRequest=async()=>({})");
+ assert.equal(await run('savedCommit([phase],{reschedule:false})'),true);
+ assert.equal(run('mode'),'tasks','Un guardado iniciado en Tareas no debe cambiar de pantalla');
+ assert.equal(run('renderCount'),0,'El guardado de Gantt en segundo plano no debe redibujar Gantt');
+ assert.equal(run('planOf("w1").revision'),2);
  // A response from the previous account cannot clear the next account's busy save.
  setup();gate=deferred();ctx.gate=gate.promise;run('eliteRequest=()=>gate');pending=run('savedCommit([phase],{reschedule:false})');run("sessionEpoch++;G2.work='w2';G2.saveToken=Symbol('new-save');G2.busy=true;G2.draft=[{id:'new-draft'}];OWN_TASKS=[{id:'new-task'}];WORK_PLANS=[{work_id:'w2',revision:9}]");gate.resolve({});assert.equal(await pending,false);assert.equal(run('G2.busy'),true);assert.equal(run('OWN_TASKS[0].id'),'new-task');assert.equal(run('G2.draft[0].id'),'new-draft');assert.equal(run('readCount'),0);
  // Sign-out after the write succeeded, but before its three readbacks complete.
