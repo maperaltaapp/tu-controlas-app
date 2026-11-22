@@ -1,7 +1,7 @@
 /* Coordinates rotating sessions without logging credentials. */
 (function(root){
 'use strict';
-const SESSION='elite_session';
+const SESSION='tc_session_v1';
 function readSession(storage){try{const value=JSON.parse(storage.getItem(SESSION)||'null');return value&&typeof value.access_token==='string'?value:null}catch{return null}}
 function create({storage,fetch,base,key,getSession,setSession,onExpired,locks,now=Date.now,delay=ms=>new Promise(r=>setTimeout(r,ms))}){
  let pending=null;
@@ -39,5 +39,5 @@ function create({storage,fetch,base,key,getSession,setSession,onExpired,locks,no
  function refresh(force=false){if(pending)return pending;const original=getSession();pending=locked(force,original).finally(()=>pending=null);return pending}
  return {refresh,expire,valid};
 }
-root.TCAuth={readSession,create};if(typeof module!=='undefined')module.exports=root.TCAuth;
+root.TCAuth={readSession,create,storageKey:SESSION};if(typeof module!=='undefined')module.exports=root.TCAuth;
 })(typeof window==='undefined'?globalThis:window);
