@@ -87,3 +87,10 @@ El editor compara fechas, duración efectiva, jerarquía, ancla y vínculos norm
 Las fechas y horas de tareas se agrupan y presentan en Europe/Madrid, también en semana/mes y al pulsar Hoy. No usar getDate/getMonth de un vencimiento con hora para clasificarlo: la zona del dispositivo puede cambiar el día. Los días de la cuadrícula son fechas civiles y mantienen su construcción local a mediodía. `test-calendar-ui.cjs` comprueba cuatro zonas del dispositivo, medianoche, cambios de mes/año y horario de verano.
 
 El rango visual de calendario es 50–200 % tanto en botones como en pellizco y preferencia guardada. Cancelar el gesto restaura la escala anterior. La escala se limita al cuadro del calendario; no modifica cabecera, tareas ni fechas de Gantt. El grupo normal de tareas Gantt usa el mismo tratamiento visual de encabezado y contador que los otros grupos.
+
+
+## Guardado de Gantt y sesiones · 22/11/2026
+
+Cada guardado captura la época de sesión, la obra y un identificador de operación. Tras la escritura y tras las lecturas de comprobación debe seguir siendo la operación vigente para actualizar cachés o mensajes. Cerrar sesión vacía borrador/selección, invalida el identificador y libera el estado ocupado. Una respuesta antigua no repuebla datos ni interfiere en un guardado de otra cuenta. Cambiar de pantalla dentro de la sesión conserva la pantalla elegida; no renderizar Gantt incondicionalmente al terminar.
+
+El editor de actividad captura obra, sesión, formulario y revisión al abrirse. Si la revisión cambió, exige volver a abrir la actividad; no reutiliza sus filas antiguas con el número de revisión nuevo. Desactiva los controles durante el guardado y descarta respuestas destinadas a un formulario anterior. `test-gantt-save-navigation.cjs` prueba las carreras de escritura/lectura, sesión, navegación y formulario. El caso de salida durante guardado de la página QA usa una escritura real en PostgreSQL local y retiene su respuesta antes de vaciar la sesión.
