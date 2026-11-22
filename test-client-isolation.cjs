@@ -40,7 +40,7 @@ const activity='33333333-3333-4333-8333-333333333333';
    assert.ok((f.proconfig||[]).some(s=>s.startsWith('search_path=')),
     'SECURITY DEFINER has no fixed search_path: '+f.proname);
    if(f.signed_in){
-    assert.match(f.source,/auth\\.uid\\(\\)/,'Missing auth.uid() in '+f.proname);
+    assert.ok(f.source.includes('auth.uid()'),'Missing auth.uid() in '+f.proname);
     assert.match(f.source,/user_id/,'Missing owner check in '+f.proname);
    }
   }
