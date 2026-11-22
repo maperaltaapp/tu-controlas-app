@@ -14,6 +14,25 @@ for(const ref of assets){
  assert.ok(location.startsWith(root+path.sep),'No se permite una ruta externa: '+ref);
  assert.ok(fs.existsSync(location),'Falta recurso referenciado en index.html: '+ref);
 }
+
+// Detect real JWT separators (.) and fail the test if this guard regresses.
+// Both examples are synthetic, not authentication credentials.
+const jwtPattern=/eyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{20,}/g;
+function containsPrivilegedJwt(source){
+ for(const hit of source.matchAll(jwtPattern)){
+  try{
+   const payload=JSON.parse(Buffer.from(hit[0].split('.')[1],'base64url').toString('utf8'));
+   if(payload.role==='service_role')return true;
+  }catch{}
+ }
+ return false;
+}
+function syntheticJwt(role){
+ const encoded=payload=>Buffer.from(JSON.stringify(payload),'utf8').toString('base64url');
+ return [encoded({alg:'HS256',typ:'JWT'}),encoded({role,iss:'fixture.invalid'}),'a'.repeat(32)].join('.');
+}
+assert.equal(containsPrivilegedJwt(syntheticJwt('service_role')),true,'La prueba debe detectar credenciales privilegiadas sintéticas');
+assert.equal(containsPrivilegedJwt(syntheticJwt('anon')),false,'La clave publicable/anon no debe marcarse como service_role');
 const production=fs.readdirSync(root).filter(f=>f==='index.html'||(f.endsWith('.js')&&!f.startsWith('test-')&&!f.startsWith('qa-')));
 for(const f of production){
  const code=fs.readFileSync(path.join(root,f),'utf8');
@@ -21,11 +40,6 @@ for(const f of production){
  assert.doesNotMatch(code,/sb_secret_[a-zA-Z0-9_-]{10,}/,'Clave secreta de Supabase incrustada en '+f);
  assert.doesNotMatch(code,/sk-proj-[a-zA-Z0-9_-]{10,}/,'Clave secreta de OpenAI incrustada en '+f);
  // Publishable/anon keys are expected in a public client. A service_role JWT is not.
- for(const hit of code.matchAll(/eyJ[A-Za-z0-9_-]{15,}\\.eyJ[A-Za-z0-9_-]{15,}\\.[A-Za-z0-9_-]{20,}/g)){
-  try{
-   const payload=JSON.parse(Buffer.from(hit[0].split('.')[1],'base64url').toString('utf8'));
-   assert.notEqual(payload.role,'service_role','JWT service_role incrustado en '+f);
-  }catch(error){if(error?.code==='ERR_ASSERTION')throw error}
- }
+ assert.equal(containsPrivilegedJwt(code),false,'JWT service_role incrustado en '+f);
 }
 console.log('PASS: recursos estáticos locales presentes y sin credenciales privilegiadas expuestas');
