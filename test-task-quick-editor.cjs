@@ -44,6 +44,7 @@ function modal(content){
 const sandbox={
  document,window:null,console,Date,Set,Math,Number,String,Array,Object,Error,
  OWN_TASKS:[task],CHECKLIST_ITEMS:[],WORK_PLANS:[],
+ sessionEpoch:1,session:{user:{id:'owner-account'}},
  mode:'tasks',G2:{busy:false,draft:null,work:null},
  openTaskForm:()=>42,
  homeRow:()=>'<div class="home-row "><button class="home-open" data-hold-id="'+tid+'" onclick="void 0">Fila</button></div>',
@@ -147,6 +148,38 @@ async function main(){
  assert.match(lastDialog.error.textContent,/sucesoras/,'Debe proteger los vínculos de planificación');
  assert.equal(patches.length,beforeGantt,'No se modifica la tarea al rechazar una fecha Gantt');
  assert.match(lastDialog.content,/5 minutos antes/,'Preservar intervalos existentes de recordatorio');
- console.log('PASS: selección cancelable, editor mínimo, errores, borrado/restauración y fechas Gantt protegidas');
+ // An editor from a previous login must not save anything under a different account.
+ sandbox.openQuickTaskEditor(tid);
+ const savedEpoch=sandbox.sessionEpoch,savedSession=sandbox.session,oldPatches=patches.length,oldRender=renderCount;
+ sandbox.sessionEpoch=2;sandbox.session={user:{id:'second-account'}};
+ lastDialog.form.elements.title.value='NO guardar cuenta antigua';
+ await lastDialog.form.onsubmit({preventDefault(){}});
+ assert.equal(patches.length,oldPatches,'No escribir en otra sesión después de abrir editor');
+ assert.equal(renderCount,oldRender,'No renderizar datos de la sesión anterior');
+ sandbox.sessionEpoch=savedEpoch;sandbox.session=savedSession;
+ // A request already in flight may complete after logout; it cannot reopen or redraw the next account.
+ sandbox.openQuickTaskEditor(tid);
+ let releaseWrite;
+ const previousPatch=sandbox.patchNativeTask;
+ let wasCalled;
+ const enteredWrite=new Promise(resolve=>wasCalled=resolve);
+ sandbox.patchNativeTask=async(task,data)=>{
+   wasCalled();
+   await new Promise(resolve=>{releaseWrite=resolve});
+   return {...task,...data};
+ };
+ lastDialog.form.elements.title.value='Guardado simultáneo con cierre de sesión';
+ const renderedBefore=renderCount,priorMessages=messages.length,dialogAtStart=lastDialog.dialog;
+ const request=lastDialog.form.onsubmit({preventDefault(){}});
+ await enteredWrite;
+ sandbox.sessionEpoch=3;sandbox.session={user:{id:'new-owner'}};
+ releaseWrite();
+ await request;
+ assert.equal(renderCount,renderedBefore,'La respuesta tardía no debe redibujar pantalla ajena');
+ assert.equal(messages.length,priorMessages,'No mostrar mensajes de una cuenta diferente');
+ assert.equal(dialogAtStart.isConnected,true,'No cerrar involuntariamente el diálogo de otra cuenta');
+ sandbox.patchNativeTask=previousPatch;
+ sandbox.sessionEpoch=savedEpoch;sandbox.session=savedSession;
+ console.log('PASS: selección cancelable, editor mínimo, borrado/restauración, Gantt y aislamiento de sesión ante respuestas tardías');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
