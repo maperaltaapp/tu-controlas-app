@@ -56,3 +56,27 @@ jobs:
           echo 'Las regresiones automatizadas se ejecutaron correctamente.'
           echo 'Esto NO sustituye la prueba manual real en Android y ordenador.'
           echo 'No habilita la publicación comercial sin revisión de seguridad, RLS y restauración.'
+
+  live-publication:
+    name: Comprobar versión web realmente publicada
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: review-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Leer exclusivamente la versión aprobada
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Esperar publicación de GitHub Pages y comparar recursos
+        run: node release-smoke.cjs
+      - name: Alcance de la verificación
+        run: |
+          echo 'Se verificaron archivos públicos frente al commit de main, sin datos privados.'
+          echo 'No sustituye pruebas manuales de login, Android o aislamiento multi-cliente.'
