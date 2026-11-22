@@ -4,7 +4,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const SITE='https://maperaltaapp.github.io/tu-controlas-app/';
 const ASSETS=Object.freeze([
- 'index.html','auth-session.js','account-recovery.js','work-calendar.js',
+ 'index.html','auth-session.js','account-recovery.js','client-export.js','client-backup-preview.js','work-calendar.js',
  'shared-holidays.js','work-dashboard.js','work-actions.js','task-quick-editor.js',
  'task-order.js','gantt-workbench.js','daily-report.js','sw.js'
 ]);
