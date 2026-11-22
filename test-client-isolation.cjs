@@ -25,7 +25,8 @@ const activity='33333333-3333-4333-8333-333333333333';
   // Global invariants: client-exposed tables require RLS; private SQL APIs are not public.
   const tables=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='public' and c.relkind in ('r','p')`)).rows;
-  assert.ok(tables.length>=18,'Security fixture did not load principal tables');
+  for(const name of ['elite_works','elite_tasks','elite_work_plans','elite_daily_reports'])
+   assert.ok(tables.some(t=>t.relname===name),'Security fixture lacks '+name);
   assert.deepEqual(tables.filter(t=>!t.relrowsecurity),[],'A public table is missing RLS');
   const definer=(await db.query(`select p.proname,p.proconfig,
     has_function_privilege('anon',p.oid,'EXECUTE') as anonymous,
