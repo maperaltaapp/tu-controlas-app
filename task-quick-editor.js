@@ -64,7 +64,7 @@ function edit(id){
  form.querySelector('[data-delete]').onclick=async()=>{
   if(busy)return;
   if(task.deleted_at){
-   if(task.stage==='Gantt'){statusMessage('La actividad eliminada de Gantt conserva historial. No se restaura como una tarea desvinculada.',true);return}
+   if(task.stage==='Gantt'){showHistory(id);return}
    busy=true;
    try{await patchNativeTask(task,{deleted_at:null});await fetchOwnTasks();if(dialog.isConnected)closeTaskDialog();if(mode==='tasks')tasks();else render();statusMessage('Tarea restaurada.')}
    catch(e){form.querySelector('#tcQuickError').textContent=e.message}
