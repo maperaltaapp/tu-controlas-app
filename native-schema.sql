@@ -13,9 +13,9 @@ create table if not exists public.elite_works (
  id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users(id),
  name text not null check(length(trim(name)) between 1 and 160), description text not null default '',
  start_date date, end_date date, archived_at timestamptz, progress integer check(progress between 0 and 100),
- trello_id text, stages jsonb not null default '[]', chat_url text not null default '',
+ stages jsonb not null default '[]', chat_url text not null default '',
  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
- unique(user_id,trello_id), unique(id,user_id), check(end_date is null or start_date is null or end_date>=start_date),
+ unique(id,user_id), check(end_date is null or start_date is null or end_date>=start_date),
  check(jsonb_typeof(stages)='array' and jsonb_array_length(stages)<=100)
 );
 alter table public.elite_works enable row level security;
@@ -35,14 +35,12 @@ alter table public.elite_tasks
  add column if not exists recurrence text not null default 'none' check(recurrence in ('none','daily','weekly','monthly')),
  add column if not exists recurrence_timezone text not null default 'Europe/Madrid',
  add column if not exists previous_task_id uuid unique references public.elite_tasks(id),
- add column if not exists trello_id text,
  add column if not exists source_url text not null default '',
  add column if not exists position numeric not null default 0;
 -- Composite FK prevents linking a task to a different user's work.
 alter table public.elite_tasks add constraint elite_task_work_owner foreign key(work_id,user_id) references public.elite_works(id,user_id);
 alter table public.elite_tasks add constraint elite_task_dates check(start_at is null or due_at is null or start_at<=due_at);
 alter table public.elite_tasks add constraint elite_task_lightweight check(length(description)<=50000 and jsonb_typeof(labels)='array' and jsonb_array_length(labels)<=50 and jsonb_typeof(checklists)='array' and octet_length(checklists::text)<=250000);
-create unique index if not exists elite_task_trello_unique on public.elite_tasks(user_id,trello_id) where trello_id is not null;
 update public.elite_tasks set status='done' where completed;
 create table public.elite_history (
  id bigint generated always as identity primary key, user_id uuid not null, entity_id uuid not null,
