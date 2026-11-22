@@ -63,14 +63,14 @@ function edit(id){
  form.querySelector('[data-delete]').onclick=async()=>{if(busy)return;const ok=await deleteHeldItem('task',id);if(ok&&dialog.isConnected)closeTaskDialog()};
  form.onsubmit=async event=>{
   event.preventDefault();if(busy)return;
-  const title=form.elements.title.value.trim(),selectedDue=form.elements.due.value,mode=form.elements.reminder.value;
+  const title=form.elements.title.value.trim(),selectedDue=form.elements.due.value,reminderMode=form.elements.reminder.value;
   const error=form.querySelector('#tcQuickError');
   try{
    if(!title)throw Error('Escribe el nombre de la tarea.');
    let iso=linked?(selectedDue?selectedDue+'T12:00:00Z':null):validLocalDateTime(selectedDue);
    if(!linked&&iso&&task.start_at&&new Date(iso)<new Date(task.start_at))throw Error('El vencimiento no puede ser anterior al inicio.');
    if(!iso&&task.recurrence&&task.recurrence!=='none')throw Error('Las tareas repetitivas necesitan vencimiento.');
-   const r=reminderValues(task,mode,form.elements.custom.value,iso),add={};
+   const r=reminderValues(task,reminderMode,form.elements.custom.value,iso),add={};
    if(title!==task.title)add.title=title;
    if(!linked&&iso!==(task.due_at||null))add.due_at=iso;
    if(r.remind_minutes!==(task.remind_minutes??null)||r.remind_at!==(task.remind_at||null)){
