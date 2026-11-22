@@ -127,6 +127,21 @@ async function main(){
  await lastDialog.remove.onclick();
  assert.equal(task.deleted_at,null,'La tarea vuelve a Activas al restaurarla');
  assert.deepEqual(Object.keys(patches.at(-1)),['deleted_at']);
- console.log('PASS: selección cancelable, edición de 3 campos, validación, errores, borrado reversible y restauración');
+ const gantt={...task,id:'00000000-0000-4000-8000-000000000002',title:'Montaje de arquetas',stage:'Gantt',due_at:'2026-12-05T12:00:00.000Z',start_at:'2026-12-01T12:00:00.000Z',remind_minutes:null,deleted_at:null};
+ sandbox.OWN_TASKS.push(gantt);
+ sandbox.WORK_PLANS.push({work_id:'obra-prueba',phases:[
+  {id:'actividad-a',task_id:gantt.id,name:gantt.title,start:'2026-12-01',end:'2026-12-05',depends_on:[]},
+  {id:'actividad-b',task_id:'otra',name:'Actividad sucesora',start:'2026-12-07',end:'2026-12-08',depends_on:['actividad-a']}
+ ]});
+ sandbox.openQuickTaskEditor(gantt.id);
+ lastDialog.form.elements.title.value=gantt.title;
+ lastDialog.form.elements.due.value='2026-12-09';
+ lastDialog.form.elements.reminder.value='none';
+ const beforeGantt=patches.length;
+ await lastDialog.form.onsubmit({preventDefault(){}});
+ assert.match(lastDialog.error.textContent,/sucesoras/,'Debe proteger los vínculos de planificación');
+ assert.equal(patches.length,beforeGantt,'No se modifica la tarea al rechazar una fecha Gantt');
+ assert.match(lastDialog.content,/5 minutos antes/,'Preservar intervalos existentes de recordatorio');
+ console.log('PASS: selección cancelable, editor mínimo, errores, borrado/restauración y fechas Gantt protegidas');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
