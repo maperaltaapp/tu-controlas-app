@@ -24,8 +24,9 @@ function reminderValues(task,mode,custom,due){
  if(mode==='custom'){
   const iso=validLocalDateTime(custom);
   if(!iso)throw Error('Selecciona la fecha y hora del recordatorio.');
-  if(iso!==task.remind_at&&new Date(iso).getTime()<=Date.now())throw Error('El nuevo recordatorio debe estar en el futuro.');
-  return {remind_minutes:null,remind_at:iso};
+  const unchanged=task.remind_at&&localDateTime(task.remind_at)===custom;
+  if(!unchanged&&new Date(iso).getTime()<=Date.now())throw Error('El nuevo recordatorio debe estar en el futuro.');
+  return {remind_minutes:null,remind_at:unchanged?task.remind_at:iso};
  }
  const n=Number(mode);
  if(!['0','5','15','30','60','1440'].includes(mode))throw Error('Selecciona un recordatorio válido.');
@@ -41,7 +42,7 @@ function edit(id){
  }
  if(task.control_id)return originalTaskForm(id);
  const linked=linkFor(id),due=linked?linked.row.end:localDateTime(task.due_at);
- const reminder=task.remind_at?'custom':task.remind_minutes==null?'none':String(task.remind_minutes);
+ const reminder=task.remind_at?'custom':(!task.due_at&&!linked?'none':task.remind_minutes==null?'none':String(task.remind_minutes));
  const title=esc(task.title||'');
  const dateValue=due||'';
  const type=linked?'date':'datetime-local';
@@ -67,7 +68,7 @@ function edit(id){
   const error=form.querySelector('#tcQuickError');
   try{
    if(!title)throw Error('Escribe el nombre de la tarea.');
-   let iso=linked?(selectedDue?selectedDue+'T12:00:00Z':null):validLocalDateTime(selectedDue);
+   let iso=linked?(selectedDue?selectedDue+'T12:00:00Z':null):(selectedDue===localDateTime(task.due_at)?task.due_at||null:validLocalDateTime(selectedDue));
    if(!linked&&iso&&task.start_at&&new Date(iso)<new Date(task.start_at))throw Error('El vencimiento no puede ser anterior al inicio.');
    if(!iso&&task.recurrence&&task.recurrence!=='none')throw Error('Las tareas repetitivas necesitan vencimiento.');
    const r=reminderValues(task,reminderMode,form.elements.custom.value,iso),add={};
