@@ -35,6 +35,9 @@ const fixedTime=new Date('2026-11-22T12:00:00.000Z');
  // A regular SHA digest detects accidental alteration; it is not an authenticity signature.
  await assert.rejects(TCExport.build({userId:A,read:async name=>[{id:name,user_id:name==='elite_works'?B:A}]}),/otra cuenta/);
  await assert.rejects(TCExport.build({userId:A,read:async()=>[{user_id:A,metadata:{refresh_token:'secret-fixture'}}]}),/confidencial/);
+ for(const field of ['smtp_password','oauth_refresh_token','client_secret','api_key_backup','authorization_header','private_key','jwt_token']){
+  await assert.rejects(TCExport.build({userId:A,read:async()=>[{user_id:A,metadata:{[field]:'test-only'}}]}),/confidencial/);
+ }
  let guards=0;
  await assert.rejects(TCExport.build({userId:A,read:async()=>[],guard:()=>{if(++guards===3)throw Error('Sesión cerrada')}}),/Sesión cerrada/);
  assert.equal(guards,3);
