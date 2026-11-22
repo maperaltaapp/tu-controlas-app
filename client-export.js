@@ -22,7 +22,7 @@ const SOURCES=Object.freeze([
  ['elite_history','id']
 ]);
 const LIMIT_ROWS=120000,LIMIT_BYTES=60*1024*1024;
-const SECRET_KEY=/^(?:password|access_token|refresh_token|service_role|secret_key|api_key|authorization)$/i;
+const SECRET_KEY=/(?:^|_)(?:password|passwd|passphrase|credential|credentials|secret|token|jwt|api_key|private_key|service_role|authorization)(?:$|_)/i;
 const utf8=value=>new TextEncoder().encode(value);
 function ensureNoSecrets(value,depth=0){
  if(depth>45)throw Error('Datos demasiado anidados para una exportación segura.');
