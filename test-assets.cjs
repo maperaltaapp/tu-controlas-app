@@ -8,6 +8,7 @@ function refs(tag,attribute){
    .filter(v=>!v.startsWith('http:')&&!v.startsWith('https:')&&!v.startsWith('data:')&&!v.startsWith('#'));
 }
 const assets=[...refs('script','src'),...refs('link','href')];
+assert.doesNotMatch(html,/\/functions\/v1\/trello-obras\b/i,'The commercial app must not reference the legacy Trello proxy');
 assert.ok(assets.length>=15,'La aplicación debe cargar los módulos y estilos conocidos');
 for(const ref of assets){
  const clean=ref.split('?')[0].split('#')[0],location=path.resolve(root,clean);
