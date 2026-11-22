@@ -13,6 +13,23 @@ for(const filename of ['index.html','native-schema.sql']){
  const content=fs.readFileSync(path.join(root,filename),'utf8');
  assert.ok(!content.toLowerCase().includes(retiredProvider),'Provider remnants found in '+filename);
 }
+const ignoredDirectories=new Set(['.git','node_modules','.cache','dist','coverage']);
+const monitoredExtensions=new Set(['.html','.js','.cjs','.mjs','.ts','.json','.md','.sql','.yml','.yaml','.txt']);
+let checkedFiles=0;
+function checkRepositorySource(directory){
+ for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+  const full=path.join(directory,entry.name);
+  if(entry.isDirectory()){
+   if(!ignoredDirectories.has(entry.name))checkRepositorySource(full);
+  }else if(entry.isFile()&&monitoredExtensions.has(path.extname(entry.name).toLowerCase())){
+   const text=fs.readFileSync(full,'utf8');
+   assert.ok(!text.toLowerCase().includes(retiredProvider),'Old provider reference in '+path.relative(root,full));
+   checkedFiles++;
+  }
+ }
+}
+checkRepositorySource(root);
+assert.ok(checkedFiles>=70,'The repository guard must scan all release and test source files.');
 assert.ok(assets.length>=15,'La aplicación debe cargar los módulos y estilos conocidos');
 for(const ref of assets){
  const clean=ref.split('?')[0].split('#')[0],location=path.resolve(root,clean);
