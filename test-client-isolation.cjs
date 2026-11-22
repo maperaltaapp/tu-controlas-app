@@ -20,7 +20,7 @@ const activity='33333333-3333-4333-8333-333333333333';
    'gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql',
    'followup-schema.sql','registry-schema.sql','incidents-schema.sql',
    'daily-report-activities.sql','gantt-client-dates.sql','gantt-reopen-progress.sql',
-   'task-order.sql','delete-work.sql'];
+   'task-order.sql','delete-work.sql','tenant-reference-constraints.sql'];
   for(const f of migrations)await db.exec(fs.readFileSync(path.join(__dirname,f),'utf8'));
   // Global invariants: client-exposed tables require RLS; private SQL APIs are not public.
   const tables=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -48,6 +48,15 @@ const activity='33333333-3333-4333-8333-333333333333';
   const wA=(await db.query("insert into elite_works(user_id,name) values($1,'A - ficticia') returning id",[A])).rows[0].id;
   const wB=(await db.query("insert into elite_works(user_id,name) values($1,'B - ficticia') returning id",[B])).rows[0].id;
   const tB=(await db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'Solo B','work') returning id",[B,wB])).rows[0].id;
+
+  // Composite foreign keys must reject cross-tenant relationships even when a row's user_id is forged.
+  await assert.rejects(
+   db.query('insert into elite_plan_versions(work_id,user_id,revision,snapshot) values($1,$2,999,\'{}\'::jsonb)',[wB,A]),
+   /foreign key|violates/i,'A cannot attach its plan snapshot to B work');
+  const tA=(await db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'Solo A','work') returning id",[A,wA])).rows[0].id;
+  const tB2=(await db.query("insert into elite_tasks(user_id,work_id,title,category,previous_task_id) values($1,$2,'Otra B','work',$3) returning id",[B,wB,tB])).rows[0].id;
+  assert.ok(tB2,'Same-owner task predecessor must remain valid');
+
   const phase=[{id:activity,name:'Solo B - planificación',start:'2026-11-23',end:'2026-11-24',
    level:1,weight:100,depends_on:[],observations:[],economic_observations:[],budget:null,activity_status:'pending'}];
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${B}';`);
@@ -65,6 +74,11 @@ const activity='33333333-3333-4333-8333-333333333333';
   }
   assert.equal((await db.query('select * from elite_works where id=$1',[wB])).rows.length,0);
   assert.equal((await db.query('select * from elite_tasks where id=$1',[tB])).rows.length,0);
+
+  await assert.rejects(
+   db.query('update elite_tasks set previous_task_id=$1 where id=$2',[tB,tA]),
+   /foreign key|violates/i,'A cannot link a task to B predecessor');
+
   assert.equal((await db.query('select * from elite_work_plans where work_id=$1',[wB])).rows.length,0);
   assert.equal((await db.query("update elite_works set name='NO' where id=$1 returning id",[wB])).rows.length,0);
   await assert.rejects(db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'NO','work')",[B,wB]),/row-level security/i);
@@ -94,6 +108,6 @@ const activity='33333333-3333-4333-8333-333333333333';
   await db.exec('reset role');
   assert.equal(JSON.stringify((await bSnapshot()).rows[0]),before,'Foreign work/task/plan changed');
   assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,2);
-  console.log('PASS: public RLS, privileged API grants, 8 foreign-work RPCs, task ordering, shared calendar, Gantt reconciliation, no cross-client reads or writes');
+  console.log('PASS: public RLS, privileged API grants, 8 foreign-work RPCs, task ordering, shared calendar, Gantt reconciliation, cross-owner FK rejection, no cross-client reads or writes');
  }finally{await db.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
