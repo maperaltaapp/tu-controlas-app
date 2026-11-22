@@ -1,0 +1,58 @@
+name: TU CONTROLAS — QA antes de publicar
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tu-controlas-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Pruebas de regresión y base de datos local
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Obtener repositorio con historial
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+
+      - name: Ejecutar regresiones (datos ficticios y PostgreSQL local)
+        run: npm test
+
+      - name: Comprobar que las pruebas no han modificado archivos versionados
+        run: |
+          if ! git diff --quiet -- .; then
+            echo 'ERROR: las pruebas han modificado archivos del repositorio.'
+            git diff --stat
+            exit 1
+          fi
+
+  review-gate:
+    name: Estado de las pruebas automáticas
+    needs: regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Informar del alcance
+        run: |
+          echo 'Las regresiones automatizadas se ejecutaron correctamente.'
+          echo 'Esto NO sustituye la prueba manual real en Android y ordenador.'
+          echo 'No habilita la publicación comercial sin revisión de seguridad, RLS y restauración.'
