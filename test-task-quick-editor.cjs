@@ -67,7 +67,7 @@ vm.runInNewContext(source,sandbox,{filename:'task-quick-editor.js'});
 async function main(){
  assert.match(sandbox.homeRow({own:true,id:tid}),/openQuickTaskEditor\(this\.dataset\.holdId\)/);
  assert.equal(sandbox.openTaskForm(null),42,'Crear tareas no debe cambiar');
- const row=new Node();hosts.push(row);
+ const row=new Node();row.classList.add('home-row');hosts.push(row);
  sandbox.selectHeldForDelete(row,'task',tid);
  assert.equal(row.classList.contains('is-task-selected'),true);
  let bar=document.querySelectorAll('.tc-task-actions').at(-1);
