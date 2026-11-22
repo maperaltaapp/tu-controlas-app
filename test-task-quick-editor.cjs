@@ -83,6 +83,11 @@ async function main(){
  sandbox.selectHeldForDelete(row,'task',tid);
  sandbox.selectHeldForDelete(row,'task',tid);
  assert.equal(row.classList.contains('is-task-selected'),false,'Pulsación repetida debe alternar selección');
+ const checklistRow=new Node();checklistRow.classList.add('home-row');hosts.push(checklistRow);
+ sandbox.selectHeldForDelete(checklistRow,'task','checklist-test-id');
+ const checklistMenu=document.querySelectorAll('.tc-task-actions').at(-1);
+ assert.deepEqual(checklistMenu.children.map(b=>b.textContent),['Editar','Cancelar'],'Checklist sin función de eliminación no ofrece acción engañosa');
+ sandbox.tcClearTaskSelection();
  sandbox.openQuickTaskEditor(tid);
  assert.match(lastDialog.content,/>Nombre<input/);
  assert.match(lastDialog.content,/>Vencimiento<input/);
