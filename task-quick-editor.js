@@ -56,12 +56,23 @@ function edit(id){
  +'</select></label>'
  +'<label id="tcQuickCustomRow"'+(reminder==='custom'?'':' hidden')+'>Fecha y hora del recordatorio<input name="custom" type="datetime-local" value="'+esc(localDateTime(task.remind_at))+'"></label>'
  +info+extras+'<div id="tcQuickError" class="status err" role="alert"></div>'
- +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>Eliminar</button></div></form>';
+ +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
  const dialog=dialogForm(html),form=dialog.querySelector('#tcQuickTaskForm');
  const switchCustom=()=>{form.querySelector('#tcQuickCustomRow').hidden=form.elements.reminder.value!=='custom'};
  form.elements.reminder.onchange=switchCustom;
  form.querySelector('[data-cancel]').onclick=closeTaskDialog;
- form.querySelector('[data-delete]').onclick=async()=>{if(busy)return;const ok=await deleteHeldItem('task',id);if(ok&&dialog.isConnected)closeTaskDialog()};
+ form.querySelector('[data-delete]').onclick=async()=>{
+  if(busy)return;
+  if(task.deleted_at){
+   if(task.stage==='Gantt'){statusMessage('La actividad eliminada de Gantt conserva historial. No se restaura como una tarea desvinculada.',true);return}
+   busy=true;
+   try{await patchNativeTask(task,{deleted_at:null});await fetchOwnTasks();if(dialog.isConnected)closeTaskDialog();if(mode==='tasks')tasks();else render();statusMessage('Tarea restaurada.')}
+   catch(e){form.querySelector('#tcQuickError').textContent=e.message}
+   finally{busy=false}
+   return;
+  }
+  const ok=await deleteHeldItem('task',id);if(ok&&dialog.isConnected)closeTaskDialog();
+ };
  form.onsubmit=async event=>{
   event.preventDefault();if(busy)return;
   const title=form.elements.title.value.trim(),selectedDue=form.elements.due.value,reminderMode=form.elements.reminder.value;
@@ -176,7 +187,7 @@ deleteHeldItem=async function(kind,id){
   }
   await fetchOwnTasks();
   selectionClear();if(mode==='tasks')tasks();else render();
-  statusMessage('Tarea eliminada. Se conserva en Archivadas para recuperarla.');
+  statusMessage(linked?'Actividad eliminada de Gantt, con historial conservado.':'Tarea eliminada. Podrás restaurarla desde Archivadas.');
   return true;
  }catch(e){statusMessage(e.message,true);return false}finally{busy=false}
 };
