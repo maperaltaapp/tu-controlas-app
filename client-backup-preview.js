@@ -2,6 +2,7 @@
 (function(root){
 'use strict';
 const SIZE_LIMIT=60*1024*1024;
+const MAX_WARNINGS=20;
 async function inspect({file,userId,exportApi=root.TCExport}){
  if(!file||typeof file.text!=='function')throw Error('Selecciona un archivo JSON válido.');
  if(Number.isFinite(file.size)&&file.size>SIZE_LIMIT)throw Error('Archivo demasiado grande para comprobar en este dispositivo.');
@@ -11,28 +12,55 @@ async function inspect({file,userId,exportApi=root.TCExport}){
  let snapshot;
  try{snapshot=JSON.parse(raw)}catch{throw Error('El archivo no es un JSON válido.');}
  await exportApi.verify(snapshot,userId);
- const works=new Set(snapshot.tables.elite_works.map(row=>row.id));
- const counts=Object.fromEntries(exportApi.sources.map(([name])=>[name,snapshot.tables[name].length]));
+ const tables=snapshot.tables;
+ const works=new Set(tables.elite_works.map(row=>row.id));
+ const tasks=new Map(tables.elite_tasks.map(row=>[row.id,row]));
+ const contractors=new Set(tables.elite_contractors.map(row=>row.id));
+ const controls=new Map(tables.elite_work_contractors.map(row=>[row.id,row]));
+ const reports=new Map(tables.elite_daily_reports.map(row=>[row.id,row]));
+ const counts=Object.fromEntries(exportApi.sources.map(([name])=>[name,tables[name].length]));
  const warnings=[];
- let records=0;
+ let records=0,issueCount=0;
+ const warn=message=>{issueCount++;if(warnings.length<MAX_WARNINGS)warnings.push(message);};
  for(const [name,primary] of exportApi.sources){
   const keys=primary.split(',');
   const seen=new Set();
-  for(const row of snapshot.tables[name]){
+  for(const row of tables[name]){
    records++;
    const id=JSON.stringify(keys.map(k=>row[k]??null));
-   if(keys.some(k=>row[k]===undefined||row[k]===null))warnings.push(name+': registro sin clave completa');
-   if(seen.has(id))warnings.push(name+': clave duplicada');
+   if(keys.some(k=>row[k]===undefined||row[k]===null))warn(name+': registro sin clave completa');
+   if(seen.has(id))warn(name+': clave duplicada');
    seen.add(id);
-   if(name!=='elite_works'&&row.work_id&&!works.has(row.work_id))warnings.push(name+': referencia a obra ausente');
+   if(name!=='elite_works'&&row.work_id!=null&&!works.has(row.work_id))warn(name+': referencia a obra ausente');
+   if(name==='elite_tasks'){
+    if(row.previous_task_id!=null&&!tasks.has(row.previous_task_id))warn(name+': tarea predecesora ausente');
+    if(row.control_id!=null){
+     const control=controls.get(row.control_id);
+     if(!control||control.work_id!==row.work_id)warn(name+': asignación de empresa ausente o de otra obra');
+    }
+   }
+   if(name==='elite_work_contractors'&&row.contractor_id!=null&&!contractors.has(row.contractor_id))
+    warn(name+': empresa asignada ausente');
+   if(name==='elite_incidents'&&row.report_id!=null){
+    const report=reports.get(row.report_id);
+    if(!report||report.work_id!==row.work_id)warn(name+': parte vinculado ausente o de otra obra');
+   }
+   if(name==='elite_work_plans'&&Array.isArray(row.phases)){
+    for(const phase of row.phases){
+     if(!phase||typeof phase!=='object'||phase.task_id==null)continue;
+     const task=tasks.get(phase.task_id);
+     if(!task||task.work_id!==row.work_id)warn(name+': actividad Gantt vinculada a tarea ausente o de otra obra');
+    }
+   }
   }
  }
  return {
   valid:true,owner_id:snapshot.owner_id,version:snapshot.version,
   exported_at:snapshot.exported_at,table_count:exportApi.sources.length,
-  records,counts,warnings,
+  records,counts,warnings,issue_count:issueCount,
+  references_consistent:issueCount===0,warnings_truncated:issueCount>warnings.length,
   restoration_supported:false,
-  message:'Integridad del archivo comprobada en este dispositivo. No se han restaurado ni subido datos.'
+  message:'Integridad SHA-256 comprobada en este dispositivo. '+(issueCount?'Se detectaron incoherencias entre registros. ':'')+'No se han restaurado ni subido datos.'
  };
 }
 root.TCBackupPreview={inspect};
