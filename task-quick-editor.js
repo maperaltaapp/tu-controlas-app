@@ -186,26 +186,39 @@ deleteHeldItem=async function(kind,id){
  if(kind!=='task')return originalDelete(kind,id);
  const t=OWN_TASKS.find(row=>row.id===id);
  if(!t||t.deleted_at||t.control_id){statusMessage('No se puede eliminar esta tarea desde aquí.',true);return false}
+ const deleteEpoch=sessionEpoch,deleteOwner=session?.user?.id;
+ const sameSession=()=>!!deleteOwner&&sessionEpoch===deleteEpoch&&session?.user?.id===deleteOwner;
+ if(!sameSession())return false;
  const linked=linkFor(id);
  if(!confirm('¿Eliminar «'+t.title+'»'+(linked?' y su actividad vinculada de Gantt':'')+'? Podrás consultar el historial.'))return false;
+ if(!sameSession())return false;
  if(busy){statusMessage('Hay un guardado pendiente.',true);return false}
  busy=true;
  try{
   if(linked){
    if(G2.busy||G2.draft)throw Error('Termina primero los cambios abiertos en Gantt.');
    const rows=gHydrate(linked.plan.phases),next=await redistributeDeletedWeight(rows,linked.row.id);
+   if(!sameSession())return false;
+   if(G2.busy||G2.draft)throw Error('El Gantt cambió mientras se preparaba la eliminación.');
    G2.work=t.work_id;
-   if(!await gCommit(next,{reschedule:false,removeId:linked.row.id}))throw Error(G2.message||'No se pudo quitar la actividad Gantt.');
+   const saved=await gCommit(next,{reschedule:false,removeId:linked.row.id});
+   if(!sameSession())return false;
+   if(!saved)throw Error(G2.message||'No se pudo quitar la actividad Gantt.');
   }else{
-   const updated=await patchNativeTask(t,{deleted_at:new Date().toISOString()});
-   if(!updated?.deleted_at)throw Error('No se confirmó el archivado de la tarea.');
+   if(!sameSession())return false;
+   const archived=await patchNativeTask(t,{deleted_at:new Date().toISOString()});
+   if(!sameSession())return false;
+   if(!archived?.deleted_at)throw Error('No se confirmó el archivado de la tarea.');
   }
   await fetchOwnTasks();
+  if(!sameSession())return false;
   selectionClear();if(mode==='tasks')tasks();else render();
   statusMessage(linked?'Actividad eliminada de Gantt, con historial conservado.':'Tarea eliminada. Podrás restaurarla desde Archivadas.');
   return true;
- }catch(e){statusMessage(e.message,true);return false}finally{busy=false}
+ }catch(e){if(sameSession())statusMessage(e.message,true);return false}
+ finally{busy=false}
 };
+
 root.openQuickTaskEditor=edit;
 root.tcClearTaskSelection=selectionClear;
 document.addEventListener('pointerdown',e=>{
