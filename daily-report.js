@@ -11,9 +11,9 @@ const oldSection=selectSection;selectSection=function(...args){navigation++;retu
 const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){request++;draft=plan=original=followDraft=null;busy=followBusy=false;return oldEnd(...args)};
 editDailyReport=async function(id=null,workId=null,day=planningToday()){
  if(!session?.access_token||!nativeReady||busy)return;
- const epoch=sessionEpoch,nav=navigation,token=++request;
+ const epoch=sessionEpoch,account=session?.user?.id||null,nav=navigation,token=++request;
  dialogForm('<div id="dailyLoading"><p role="status">Cargando parte y actividades…</p><button id="closeTask" type="button" class="light">Cerrar</button></div>');
- const loading=$('dailyLoading'),current=()=>epoch===sessionEpoch&&nav===navigation&&token===request&&$('dailyLoading')===loading;
+ const loading=$('dailyLoading'),current=()=>epoch===sessionEpoch&&account===(session?.user?.id||null)&&nav===navigation&&token===request&&$('dailyLoading')===loading;
  try{
   const reports=await readAll('elite_daily_reports','order=report_date.desc,id.asc');if(!current())return;
   let saved=id?reports.find(r=>r.id===id):reports.find(r=>r.work_id===workId&&r.report_date===day);
@@ -53,11 +53,11 @@ renderFollowEditor=function(){
 };
 saveDailyReport=async function(event){
  event.preventDefault();if(busy||!draft)return;
- const form=$('dailyForm'),epoch=sessionEpoch,nav=navigation,active=()=>epoch===sessionEpoch&&nav===navigation&&$('dailyForm')===form;
+ const form=$('dailyForm'),epoch=sessionEpoch,account=session?.user?.id||null,nav=navigation,active=()=>epoch===sessionEpoch&&account===(session?.user?.id||null)&&nav===navigation&&$('dailyForm')===form;
  try{
-  collect();if(!draft.work_id||!draft.report_date||!draft.activities.length)throw Error('Elige obra, fecha y al menos una actividad.');
+  collect();if(!active())return;if(!draft.work_id||!draft.report_date||!draft.activities.length)throw Error('Elige obra, fecha y al menos una actividad.');if(!NATIVE_WORKS.some(w=>w.id===draft.work_id&&!w.archived_at))throw Error('La obra está archivada o no disponible.');if(!/^\d{4}-\d{2}-\d{2}$/.test(draft.report_date)||draft.report_date>planningToday()||!Number.isFinite(Date.parse(draft.report_date+'T00:00:00Z')))throw Error('Revisa la fecha del parte.');const unique=new Set();for(const a of draft.activities){const id=a.activity_id?'gantt:'+a.activity_id:'manual:'+a.activity_name.trim().toLocaleLowerCase('es-ES');if(unique.has(id))throw Error('Hay actividades repetidas en el parte.');unique.add(id);if(a.activity_id&&!leaves(plan).some(p=>p.id===a.activity_id))throw Error('La actividad vinculada ya no existe en el Gantt. Actualiza el parte.');}
   for(const a of draft.activities){if(!a.activity_name.trim()||!Number.isFinite(a.progress_pct)||a.progress_pct<0||a.progress_pct>100||![a.workers,a.machines].every(n=>Number.isInteger(n)&&n>=0&&n<=500))throw Error('Revisa avance, operarios y máquinas.');}
-  const expected=structuredClone(draft);busy=followBusy=true;form.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
+  if(!active())return;const expected=structuredClone(draft);busy=followBusy=true;form.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
   const result=await eliteRequest('/rest/v1/rpc/elite_save_daily_activities',{method:'POST',body:JSON.stringify({target_report:draft.id,target_work:draft.work_id,report_day:draft.report_date,new_activities:draft.activities,expected_updated_at:original?.updated_at||null,expected_plan_revision:plan?.revision||0})});
   if(!active())return;
   const [reports,plans,tasks]=await Promise.all([readAll('elite_daily_reports','id=eq.'+expected.id),readAll('elite_work_plans','work_id=eq.'+expected.work_id),readAll('elite_tasks','work_id=eq.'+expected.work_id)]);if(!active())return;
