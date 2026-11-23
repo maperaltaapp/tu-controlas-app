@@ -44,3 +44,11 @@ run("CHECKLIST_ITEMS[0].due_date='2026-11-19'");assert.equal(run("homeGroup(home
 run("CHECKLIST_ITEMS[0].due_date=null");assert.equal(run("homeCards().filter(c=>c.id==='dated-check').length"),0);
 assert.equal(run("homeGroup({due_at:'2026-11-19T23:30:00Z'},'2026-11-20')"),'today');
 assert.equal(run("cardDue({due_at:'2026-11-20',due:'2020-01-01'})"),'2026-11-20');
+assert.equal(run("cardDue({due_date:'2026-11-20'})"),'2026-11-20','Checklist date-only field must not display Sin fecha');
+assert.equal(run("cardDue({due_at:'2026-11-22T08:00:00Z',due_date:'2026-11-20'})"),'2026-11-22T08:00:00Z','Native timestamp wins if both fields exist');
+assert.equal(run("validTaskDate({due_date:'2026-11-20'}).toISOString()"),'2026-11-20T12:00:00.000Z','Date-only must be normalized to noon UTC for Madrid');
+assert.equal(run("homeGroup({due_date:'2026-11-20'},'2026-11-20')"),'today','Direct checklist view must recognize the date');
+assert.equal(run("homeGroup({due_date:'2026-11-19'},'2026-11-20')"),'overdue');
+assert.equal(run("homeGroup({due_date:'2026-11-21'},'2026-11-20')"),'future');
+assert.equal(run("validTaskDate({due_date:'fecha-inválida'})"),null,'Invalid checklist date cannot be rendered as a real date');
+
