@@ -65,3 +65,6 @@ body:has(.g-clean) #content{overflow:hidden}
 
 #gpInternal .gp-toggle{display:flex;align-items:center;gap:8px;margin:8px 0}#gpInternal input{width:auto;margin:0}#gpPreview .form-actions a{display:inline-block;padding:10px 14px;border-radius:8px;text-decoration:none}#gpPreview a.dark{background:#155fae;color:white}#gpPreview a.light{background:#e7edf4;color:#18344e}
 .g-deps .g-edge .form-pair label{display:flex;flex-direction:column;align-items:stretch;gap:4px;margin:0;font-size:12px}.g-deps .g-edge .form-pair{align-items:end}.g-deps .g-edge .form-pair select,.g-deps .g-edge .form-pair input{font-size:13px}
+
+/* Only warn about stored Gantt rows without a canonical task; do not auto-create duplicates. */
+.g-clean .g-link-warning{font-size:12px;line-height:1.4;padding:8px 10px;margin:8px 0;color:#744917;background:#fff7e9;border:1px solid #eddec5;border-radius:8px}
