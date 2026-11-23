@@ -86,7 +86,10 @@ async function build({userId,read,guard=()=>{},time=()=>new Date()}){
  snapshot.integrity={algorithm:'SHA-256',sha256,scope:'integridad accidental; no demuestra autenticidad',hash_encoding:'JSON.stringify sin metadatos de integridad'};
  const json=JSON.stringify(snapshot,null,2);
  if(utf8(json).byteLength>LIMIT_BYTES)throw Error('Exportación demasiado grande. Contacta con soporte.');
- return {snapshot,json,filename:'tu-controlas-datos-'+created.toISOString().slice(0,10)+'.json'};
+ // A shared device may export two different customers on the same day.
+// Use a content-derived, non-identifying suffix instead of a colliding daily name.
+ const stamp=created.toISOString().replace(/[:.]/g,'-');
+ return {snapshot,json,filename:'tu-controlas-datos-'+stamp+'-'+sha256.slice(0,12)+'.json'};
 }
 async function verify(snapshot,userId){
  check(snapshot,userId);

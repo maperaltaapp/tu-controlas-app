@@ -33,7 +33,11 @@ async function inspect({file,userId,exportApi=root.TCExport}){
    seen.add(id);
    if(name!=='elite_works'&&row.work_id!=null&&!works.has(row.work_id))warn(name+': referencia a obra ausente');
    if(name==='elite_tasks'){
-    if(row.previous_task_id!=null&&!tasks.has(row.previous_task_id))warn(name+': tarea predecesora ausente');
+    if(row.previous_task_id!=null){
+     const predecessor=tasks.get(row.previous_task_id);
+     if(!predecessor)warn(name+': tarea predecesora ausente');
+     else if(predecessor.work_id!==row.work_id)warn(name+': tarea predecesora de otra obra');
+    }
     if(row.control_id!=null){
      const control=controls.get(row.control_id);
      if(!control||control.work_id!==row.work_id)warn(name+': asignación de empresa ausente o de otra obra');
@@ -46,10 +50,36 @@ async function inspect({file,userId,exportApi=root.TCExport}){
     if(!report||report.work_id!==row.work_id)warn(name+': parte vinculado ausente o de otra obra');
    }
    if(name==='elite_work_plans'&&Array.isArray(row.phases)){
+    // Validate only the CURRENT plan. Historical baselines may legitimately refer
+    // to removed activities and must remain exportable for traceability.
+    const phaseIds=new Set(),linkedTasks=new Set();
     for(const phase of row.phases){
-     if(!phase||typeof phase!=='object'||phase.task_id==null)continue;
-     const task=tasks.get(phase.task_id);
-     if(!task||task.work_id!==row.work_id)warn(name+': actividad Gantt vinculada a tarea ausente o de otra obra');
+     if(!phase||typeof phase!=='object'||Array.isArray(phase)){
+      warn(name+': actividad Gantt no válida');continue;
+     }
+     if(phase.id!=null){
+      if(phaseIds.has(phase.id))warn(name+': identificador de actividad Gantt duplicado');
+      phaseIds.add(phase.id);
+     }
+    }
+    for(const phase of row.phases){
+     if(!phase||typeof phase!=='object'||Array.isArray(phase))continue;
+     if(phase.task_id!=null){
+      const task=tasks.get(phase.task_id);
+      if(!task||task.work_id!==row.work_id)warn(name+': actividad Gantt vinculada a tarea ausente o de otra obra');
+      if(linkedTasks.has(phase.task_id))warn(name+': tarea vinculada a varias actividades Gantt');
+      linkedTasks.add(phase.task_id);
+     }
+     if(phase.contractor_id!=null&&!contractors.has(phase.contractor_id))
+      warn(name+': actividad Gantt con subcontrata ausente');
+     if(phase.parent_id!=null&&!phaseIds.has(phase.parent_id))
+      warn(name+': actividad Gantt con fase principal ausente');
+     if(Array.isArray(phase.depends_on)){
+      for(const predecessor of phase.depends_on){
+       if(!phaseIds.has(predecessor)||predecessor===phase.id)
+        warn(name+': actividad Gantt con dependencia ausente o sobre sí misma');
+      }
+     }
     }
    }
   }
