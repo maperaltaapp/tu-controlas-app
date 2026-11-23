@@ -21,6 +21,46 @@ function tab(storage,locks,fetch){let session=readSession(storage),expired=0;con
  storage.setItem(storageKey,JSON.stringify(old));let release,started;const ready=new Promise(r=>started=r),inflight=tab(storage,locks,()=>{started();return new Promise(r=>release=r)}),pending=inflight.client.refresh();await ready;storage.removeItem(storageKey);release({ok:true,status:200,json:async()=>fresh});await assert.rejects(pending,/cerrada/);assert.equal(storage.getItem(storageKey),null);assert.equal(inflight.session,null);
  // A connection failure keeps the pair available for retry and never exposes raw provider errors.
  storage.setItem(storageKey,JSON.stringify(old));const offline=tab(storage,locks,async()=>{throw Error('network fixture')});await assert.rejects(offline.client.refresh(),/conexión/);assert.equal(offline.expired,0);assert.equal(offline.session.access_token,old.access_token);
+ // A different user in shared storage must never be adopted by a stale tab.
+ const other={access_token:'fixture-other',refresh_token:'fixture-other-refresh',expires_at:9999999999,user:{id:'b'}};
+ const switched=memory();switched.setItem(storageKey,JSON.stringify(old));
+ const stale=tab(switched,lock(),async()=>{throw Error('No network request expected');});
+ switched.setItem(storageKey,JSON.stringify(other));
+ await assert.rejects(stale.client.refresh(),/cuenta cambió/);
+ assert.equal(readSession(switched).user.id,'b');
+ assert.equal(stale.session.user.id,'a','Stale user must not silently become another user');
+ assert.throws(()=>stale.client.expire({access_token:old.access_token}),/cuenta cambió/);
+ assert.equal(readSession(switched).user.id,'b','Expiry of A must not delete B');
+ 
+ // A pending successful refresh after B signs in must not overwrite B.
+ const switching=memory();switching.setItem(storageKey,JSON.stringify(old));
+ let finishRefresh,beginRefresh;const refreshStarted=new Promise(r=>beginRefresh=r);
+ const changing=tab(switching,lock(),()=>{beginRefresh();return new Promise(r=>finishRefresh=r)});
+ const request=changing.client.refresh();await refreshStarted;
+ switching.setItem(storageKey,JSON.stringify(other));
+ finishRefresh({ok:true,status:200,json:async()=>fresh});
+ await assert.rejects(request,/cuenta cambió/);
+ assert.equal(readSession(switching).user.id,'b');
+ assert.equal(changing.session.user.id,'a');
+ 
+ // A 401 and refresh-token reuse after B signs in must not erase B either.
+ const rejectedStorage=memory();rejectedStorage.setItem(storageKey,JSON.stringify(old));
+ const rejected=tab(rejectedStorage,lock(),async()=>{
+  rejectedStorage.setItem(storageKey,JSON.stringify(other));
+  return {ok:false,status:401,json:async()=>({error_code:'refresh_token_not_found'})};
+ });
+ await assert.rejects(rejected.client.refresh(),/cuenta cambió/);
+ assert.equal(readSession(rejectedStorage).user.id,'b');
+ 
+ // Reject an unexpected server owner, even when the token is otherwise complete.
+ const inconsistentStorage=memory();inconsistentStorage.setItem(storageKey,JSON.stringify(old));
+ const inconsistent=tab(inconsistentStorage,lock(),async()=>({ok:true,status:200,json:async()=>other}));
+ await assert.rejects(inconsistent.client.refresh(),/verificar/);
+ assert.equal(readSession(inconsistentStorage).user.id,'a');
+ assert.equal(inconsistent.session.user.id,'a');
+ const malformedOwner=memory();malformedOwner.setItem(storageKey,JSON.stringify({access_token:'fixture',expires_at:9999999999}));
+ assert.equal(readSession(malformedOwner),null,'A token without a verified owner must not be treated as an authenticated session');
+
  storage.setItem(storageKey,'{broken');assert.equal(readSession(storage),null);
- console.log('PASS: concurrent and cross-tab refresh serialization, rotation adoption, expired recovery, no session resurrection after logout, offline retry and malformed storage.');
+ console.log('PASS: concurrent and cross-tab refresh serialization, rotation adoption, expired recovery, no session resurrection after logout, offline retry, cross-account rejection, no foreign-session deletion and malformed storage.');
 })().catch(e=>{console.error(e);process.exitCode=1});
