@@ -180,6 +180,49 @@ async function main(){
  assert.equal(dialogAtStart.isConnected,true,'No cerrar involuntariamente el diálogo de otra cuenta');
  sandbox.patchNativeTask=previousPatch;
  sandbox.sessionEpoch=savedEpoch;sandbox.session=savedSession;
- console.log('PASS: selección cancelable, editor mínimo, borrado/restauración, Gantt y aislamiento de sesión ante respuestas tardías');
+ // Deletion started under A must not refresh or redraw B after its write returns.
+ const initialPatch=sandbox.patchNativeTask,initialFetch=sandbox.fetchOwnTasks;
+ let startDeleting,finishDeleting;
+ const deletionStarted=new Promise(resolve=>startDeleting=resolve);
+ let unexpectedReads=0;
+ sandbox.patchNativeTask=async (row,data)=>{startDeleting();return new Promise(resolve=>{finishDeleting=()=>resolve({...row,...data})});};
+ sandbox.fetchOwnTasks=async()=>{unexpectedReads++};
+ const beforeDeletionRender=renderCount,beforeDeletionMessages=messages.length;
+ const oldTaskSession=sandbox.session,oldTaskEpoch=sandbox.sessionEpoch;
+ const slowDelete=sandbox.deleteHeldItem('task',tid);await deletionStarted;
+ sandbox.sessionEpoch=oldTaskEpoch+10;sandbox.session={user:{id:'another-account'}};
+ finishDeleting();
+ assert.equal(await slowDelete,false,'Old-account deletion must stop after session changed');
+ assert.equal(unexpectedReads,0,'No data refresh under the new owner');
+ assert.equal(renderCount,beforeDeletionRender,'Do not redraw another owner from a late deletion');
+ assert.equal(messages.length,beforeDeletionMessages,'No stale success toast');
+ sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
+
+ // The same rule applies when the data refresh, rather than the write, is delayed.
+ sandbox.patchNativeTask=async(row,data)=>({...row,...data});
+ let releaseRead,enteredRead;const readStarted=new Promise(resolve=>enteredRead=resolve);
+ sandbox.fetchOwnTasks=async()=>{enteredRead();await new Promise(resolve=>releaseRead=resolve)};
+ const readingDelete=sandbox.deleteHeldItem('task',tid);await readStarted;
+ const renderWhileReading=renderCount,messagesWhileReading=messages.length;
+ sandbox.sessionEpoch=oldTaskEpoch+11;sandbox.session={user:{id:'another-account'}};
+ releaseRead();assert.equal(await readingDelete,false);
+ assert.equal(renderCount,renderWhileReading);
+ assert.equal(messages.length,messagesWhileReading);
+ sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
+ sandbox.fetchOwnTasks=initialFetch;sandbox.patchNativeTask=initialPatch;
+
+ // A delayed Gantt preparation must not issue a save under a switched identity.
+ let beganPrepare,finishPrepare,commits=0;
+ const prepareStarted=new Promise(resolve=>beganPrepare=resolve);
+ sandbox.redistributeDeletedWeight=async()=>{beganPrepare();return new Promise(resolve=>finishPrepare=()=>resolve([]))};
+ sandbox.gCommit=async()=>{commits++;return true};
+ const ganttDelete=sandbox.deleteHeldItem('task',gantt.id);await prepareStarted;
+ sandbox.sessionEpoch=oldTaskEpoch+12;sandbox.session={user:{id:'another-account'}};
+ finishPrepare();
+ assert.equal(await ganttDelete,false);
+ assert.equal(commits,0,'Never start a Gantt write after switching accounts');
+ sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
+
+ console.log('PASS: selección cancelable, editor mínimo, borrado/restauración, Gantt y aislamiento de sesión en guardado y borrado tardío');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
