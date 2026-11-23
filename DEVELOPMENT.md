@@ -7,7 +7,7 @@ TU CONTROLAS es un producto profesional independiente de ChatGPT, preparado para
 - Una infraestructura Supabase del propietario del servicio; autenticación y RLS por propietario/cliente desde el principio. No usar `user_metadata` para autorizar.
 - Usuarios, obras, tareas, Gantt, partes y costes son datos estructurados. Los documentos permanecen en Drive, PC o móvil de cada cliente; guardar únicamente sus referencias cuando corresponda.
 - La administración habitual gestiona cuentas, suscripciones, consumo y funcionamiento técnico. No diseñar pantallas para consultar obras ajenas. El acceso técnico excepcional debe justificarse, limitarse y auditarse. El administrador de Supabase conserva capacidad técnica potencial; no prometer inaccesibilidad absoluta sin cifrado adicional.
-- Mantener exportación y restauración individual como pendientes hasta implementarlas y probarlas. No afirmar que ya existen copias/restauración por cliente por disponer de snapshots del Gantt.
+- La exportación individual estructurada y la comprobación local JSON v2 (16 tablas, SHA-256 de integridad accidental) están incorporadas. El archivo es **sin cifrar**, no es una instantánea transaccional, no contiene documentos externos y **no puede restaurarse** todavía. La restauración individual, los controles Android y pruebas A/B siguen pendientes. No confundir exportar con disponer de una copia recuperable.
 - Credenciales de servidor y claves OpenAI nunca van al navegador. La clave Supabase publicable del frontend requiere RLS; no equivale a una clave administrativa.
 
 ## Infraestructura y aislamiento de pruebas
@@ -19,6 +19,9 @@ Repositorio de este producto: `maperaltaapp/tu-controlas-app`. Proyecto Supabase
 No está certificada una separación física entre este proyecto Supabase y cualquier despliegue laboral que no se haya inventariado. No migrar, renombrar tablas ni extraer obras basándose solo en sus nombres. Cotejar titularidad y dependencias antes de una separación de infraestructura.
 
 ## Prioridad y cambios
+
+La primera pestaña del [Plan priorizado](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091) agrupa 64 trabajos en **Pendiente / Bloqueado / Hecho**. `Hecho` exige evidencia de pruebas y aceptación; código fusionado pero no verificado en Android permanece `Pendiente`. Los bloqueados requieren una dependencia externa o la validación final. La hoja `Pendientes` conserva auditoría y orden histórico. Mantener ambos registros actualizados al fusionar cambios.
+
 
 El backlog vigente está en Drive, «TU CONTROLAS — Mejoras pendientes». Seguir sus prioridades, con incidencias críticas de acceso/datos primero y las instrucciones nuevas del propietario por encima de especificaciones anteriores. No marcar Verificado usando solo pruebas estáticas o una simulación táctil.
 

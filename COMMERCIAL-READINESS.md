@@ -1,6 +1,6 @@
 # TU CONTROLAS — Control de lanzamiento comercial
 
-**Estado al 22/11/2026: NO APTO PARA COMERCIALIZACIÓN.** El hecho de incorporar exportación sin escritura no cierra los bloqueos siguientes.
+**Estado al 23/11/2026: NO APTO PARA COMERCIALIZACIÓN.** El hecho de incorporar exportación sin escritura no cierra los bloqueos siguientes.
 
 Este registro distingue **código fusionado**, **funciones probadas localmente**, **despliegue público comprobado** y **apto para clientes reales**. Una prueba automatizada en PGlite no certifica que dos usuarios reales no puedan acceder a datos ajenos.
 
@@ -18,9 +18,9 @@ Los tests SQL ficticios confirman RLS y rechazos de RPC seleccionadas; no equiva
 
 **Aceptar solo si:** dos cuentas reales *de prueba* no comparten ninguna obra, tarea, contrato, parte, Gantt, coste, URL de documento, mensaje, consulta o archivo; pruebas de altas, lectura, modificación, eliminación, RPC, consultas filtradas, restauración y permisos de administrador. Auditoría de excepciones y acciones sensibles, separación de claves de servicio y controles de costes/abuso.
 
-## 3. Datos y copias: EN DESARROLLO (TC-024, TC-025)
+## 3. Datos y copias: EXPORTACIÓN PARCIAL PUBLICADA / RESTAURACIÓN BLOQUEANTE (TC-024, TC-025)
 
-El desarrollo de exportación v2 utiliza 16 tablas estructuradas relacionadas con obras, tareas, Gantt, partes, subcontratas, calendarios e historial operativo. Excluye explícitamente tablas históricas de IA, push, credenciales y binarios. Las lecturas llevan filtro `user_id` más RLS y se abortan si cambia la cuenta. El JSON incluye SHA-256 para detectar alteración **accidental** (no autenticidad) y permite comprobar el archivo **localmente** antes de futuras restauraciones. La comprobación local revisa claves y referencias, sin enviar el archivo a servidores. **No es restaurable ni una copia transaccional certificada**. La función requiere pruebas reales de A/B y Android antes de marcarse verificada.
+La exportación v2, incorporada en `main` y comprobada en GitHub Pages, utiliza 16 tablas estructuradas relacionadas con obras, tareas, Gantt, partes, subcontratas, calendarios e historial operativo. Excluye explícitamente tablas históricas de IA, push, credenciales y binarios. Las lecturas llevan filtro `user_id` más RLS y se abortan si cambia la cuenta. El JSON incluye SHA-256 para detectar alteración **accidental** (no autenticidad) y permite comprobar el archivo **localmente** antes de futuras restauraciones. La comprobación local revisa claves y referencias, sin enviar el archivo a servidores. **No es restaurable ni una copia transaccional certificada**. La función requiere pruebas reales de A/B y Android antes de marcarse verificada.
 
 **Aceptar solo si:** exportación paginada en dos cuentas de prueba, cobertura y coherencia de datos, validación de tamaño; guardar el archivo en PC/Drive del cliente; diseñar e implementar un importador restaurador con vista previa, integridad, claves relacionadas, idempotencia, aislamiento, rollback, control de conflictos y ensayos reales de recuperación. No prometer restauración sin demostrarla.
 
@@ -41,6 +41,8 @@ El código aún contiene lógica heredada para almacenar/descargar archivos desd
 ## 6. RGPD y condiciones: BLOQUEANTE
 
 Elaborar y revisar aviso de privacidad, base jurídica, derechos de los clientes, plazos de conservación, seguridad, comunicación de incidentes, condiciones de servicio, encargados/subencargados (Supabase, eventual IA y hosting), transferencias internacionales aplicables y contratos pertinentes. Preparar los flujos de baja, exportación y supresión. La revisión legal debe ser específica al tratamiento real y no se sustituye por un texto genérico.
+
+Consulta el [Plan priorizado de Drive](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091). Las pruebas físicas y de dos cuentas distintas en el mismo móvil se documentan en `PRUEBAS-PRIVACIDAD-DOS-CUENTAS.md`; las pruebas de lectura bajo identidad sintética no reemplazan ensayos autenticados reales.
 
 ## Regla de decisión
 

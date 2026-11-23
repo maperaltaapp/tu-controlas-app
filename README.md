@@ -4,6 +4,8 @@ Aplicación de gestión de obras: https://maperaltaapp.github.io/tu-controlas-ap
 
 Producto profesional independiente de ChatGPT, con datos estructurados en Supabase y acceso por propietario mediante autenticación y RLS. Los documentos del cliente permanecen en su Drive, PC o móvil. La arquitectura y los límites vigentes se describen en [DEVELOPMENT.md](DEVELOPMENT.md).
 
+**Estado:** prototipo en desarrollo, **no apto todavía para clientes comerciales**. Para pendientes y prioridades, consultar el [Plan priorizado en Drive](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091). Los bloqueos de venta están en [COMMERCIAL-READINESS.md](COMMERCIAL-READINESS.md); el código probado no sustituye pruebas A/B ni Android físico.
+
 ## Herramientas actuales
 
 - Cabecera con accesos compactos a Tarea, Parte, Incidencia y Empresa; Calendario y campana permanecen visibles.
@@ -39,7 +41,7 @@ El calendario, los festivos y las dependencias usan días laborables. Las activi
 
 Imprimir / PDF genera el cronograma guardado en A3 o A4 horizontal, completo o para un intervalo, con ajuste de todo el periodo o escala diaria/semanal/mensual. La paginación repite cabeceras y conserva nombres completos, fechas, duraciones, barras, hitos y vínculos. La versión interna puede incluir avance y subcontrata. La contractual utiliza exclusivamente la revisión aprobada, sin datos económicos ni empresas internas. Se genera en el dispositivo; no se envía ningún documento a otro servicio.
 
-`npm test` incluye veintiuna suites. Las comprobaciones en navegador usan PostgreSQL/PGlite con datos ficticios y una vista móvil de 390 × 844. Android físico sigue pendiente.
+`npm test` ejecuta las suites automatizadas actuales del repositorio. Las comprobaciones en navegador usan PostgreSQL/PGlite con datos ficticios y una vista móvil de 390 × 844. Android físico sigue pendiente.
 
 ### Festivos comunes
 
