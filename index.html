@@ -246,14 +246,32 @@ function sessionViewEnded(message='Tu sesión caducó. Vuelve a entrar.'){
 function sessionClient(){return authManager??=TCAuth.create({storage:localStorage,fetch:(...args)=>fetch(...args),base:BASE,key:KEY,getSession:()=>session,setSession:value=>{const changed=session?.user?.id&&value?.user?.id&&session.user.id!==value.user.id;if(changed)sessionViewEnded('La cuenta cambió en otra pestaña.');session=value;if(changed){show();load();}},onExpired:()=>sessionViewEnded(),locks:navigator.locks})}
 async function refreshSession(force=false){return sessionClient().refresh(force)}
 async function eliteRequest(path,options={},retry=true){
- if(!session?.access_token)throw Error('Vuelve a entrar para continuar.');const epoch=sessionEpoch;
+ if(!session?.access_token)throw Error('Vuelve a entrar para continuar.');
+ const epoch=sessionEpoch,owner=session.user?.id||null;
+ const sameSession=()=>epoch===sessionEpoch&&!!session?.access_token&&(session.user?.id||null)===owner;
  if(session.expires_at&&session.expires_at*1000<Date.now()+30000)await refreshSession();
- if(epoch!==sessionEpoch||!session?.access_token)throw Error('La sesión cambió. Vuelve a entrar.');const sent=session.access_token;
+ if(!sameSession())throw Error('La sesión cambió. Vuelve a entrar.');
+ const sent=session.access_token;
  const r=await fetch(BASE+path,{...options,headers:{apikey:KEY,Authorization:'Bearer '+sent,'Content-Type':'application/json',...options.headers}});
- if(epoch!==sessionEpoch)throw Error('La sesión cambió. Vuelve a intentarlo.');
- if(r.status===401&&retry){const shared=TCAuth.readSession(localStorage);if(shared?.access_token&&shared.access_token!==sent)session=shared;else await refreshSession(true);return eliteRequest(path,options,false)}
+ if(!sameSession())throw Error('La sesión cambió. Vuelve a intentarlo.');
+ if(r.status===401&&retry){
+  const shared=TCAuth.readSession(localStorage);
+  if(shared?.access_token&&shared.access_token!==sent){
+   // Never retry an API call (especially a write) under a different customer's identity.
+   if((shared.user?.id||null)!==owner)throw Error('La cuenta cambió. Vuelve a entrar.');
+   session=shared;
+  }else await refreshSession(true);
+  if(!sameSession())throw Error('La sesión cambió. Vuelve a entrar.');
+  return eliteRequest(path,options,false);
+ }
  if(r.status===401){sessionClient().expire({access_token:sent});throw Error('Tu sesión caducó. Vuelve a entrar.');}
- let d;const text=await r.text();try{d=text?JSON.parse(text):null}catch{throw Error('Respuesta no válida del servidor')}if(!r.ok)throw Error(d?.message||d?.error||'No se pudo guardar ('+r.status+')');return d;
+ let d;
+ const text=await r.text();
+ if(!sameSession())throw Error('La sesión cambió. Vuelve a intentarlo.');
+ try{d=text?JSON.parse(text):null}catch{throw Error('Respuesta no válida del servidor')}
+ if(!sameSession())throw Error('La sesión cambió. Vuelve a intentarlo.');
+ if(!r.ok)throw Error(d?.message||d?.error||'No se pudo guardar ('+r.status+')');
+ return d;
 }
 window.addEventListener?.('storage',event=>{if(event.key&&event.key!==TCAuth.storageKey)return;const shared=TCAuth.readSession(localStorage),oldOwner=session?.user?.id,newOwner=shared?.user?.id;if(!shared){sessionViewEnded('Sesión cerrada en otra pestaña.');return}if(oldOwner&&newOwner&&oldOwner!==newOwner){sessionViewEnded('La cuenta cambió en otra pestaña.');session=shared;show();load();}else session=shared;});
 function localDateTime(value){if(!value)return '';const d=new Date(value);return taskDayKey(d)+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
@@ -279,7 +297,13 @@ const STATUS_NAMES={pending:'Pendiente',doing:'En curso',blocked:'Bloqueada',don
 const PRIORITY_NAMES={low:'Baja',normal:'Normal',high:'Alta',urgent:'Urgente'};
 async function readAll(table,query=''){let rows=[],offset=0;for(;;){const page=await eliteRequest('/rest/v1/'+table+'?select=*&'+query+(query?'&':'')+'limit=500&offset='+offset);rows.push(...page);if(page.length<500)return rows;offset+=500;if(offset>100000)throw Error('Demasiados registros. Contacta con soporte.')}}
 async function load(){const epoch=sessionEpoch;nativeReady=false;$('sync').textContent='Actualizando…';try{const [works,tasks,plans,contractors,controls,checklist,holidays]=await Promise.all([readAll('elite_works','order=created_at.asc,id.asc'),readAll('elite_tasks','order=position.asc,created_at.asc,id.asc'),readAll('elite_work_plans','order=work_id.asc'),readAll('elite_contractors','order=name.asc,id.asc'),readAll('elite_work_contractors','order=created_at.asc,id.asc'),readAll('elite_work_checklist_items','order=position.asc,created_at.asc,id.asc'),readAll('elite_holiday_calendars')]);if(epoch!==sessionEpoch)return;SHARED_HOLIDAYS=holidays[0]||null;NATIVE_WORKS=works;OWN_TASKS=tasks;WORK_PLANS=plans;CONTRACTORS=contractors;WORK_CONTRACTORS=controls;CHECKLIST_ITEMS=checklist;ownLoadError='';nativeReady=true;DATA=nativeBoards();$('sync').textContent='Actualizado · TU CONTROLAS';$('sync').className='status ok';render();const id=new URLSearchParams(location.search).get('task');if(id&&OWN_TASKS.some(t=>t.id===id)){openTaskForm(id);history.replaceState(null,'',location.pathname)}}catch(e){if(epoch!==sessionEpoch)return;ownLoadError=e.message;$('sync').textContent='No se pudieron cargar los datos: '+e.message;$('sync').className='status err';if(!OWN_TASKS.length)$('content').innerHTML='<div class="panel">No se han cargado tus tareas. Recarga la página para volver a intentarlo.</div>'}if($('newOwn'))$('newOwn').disabled=!nativeReady}
-async function fetchOwnTasks(){OWN_TASKS=await readAll('elite_tasks','order=position.asc,created_at.asc,id.asc');ownLoadError='';DATA=nativeBoards()}
+async function fetchOwnTasks(){
+ const epoch=sessionEpoch,owner=session?.user?.id||null;
+ const tasks=await readAll('elite_tasks','order=position.asc,created_at.asc,id.asc');
+ if(epoch!==sessionEpoch||!session?.access_token||(session.user?.id||null)!==owner)
+  throw Error('La sesión cambió. Vuelve a entrar.');
+ OWN_TASKS=tasks;ownLoadError='';DATA=nativeBoards();
+}
 function nativeCard(t){return {...t,name:t.title,due:t.due_at||t.start_at,start:t.start_at,dueComplete:t.completed,closed:!!t.deleted_at,idList:t.stage||'General',own:true,work_name:'',url:''}}
 function nativeBoards(includeArchived=false){return NATIVE_WORKS.filter(w=>includeArchived||!w.archived_at).map(w=>({...w,lists:[...new Set([...(w.stages||[]),...OWN_TASKS.filter(t=>t.work_id===w.id).map(t=>t.stage||'General')])].map(name=>({id:name,name})),cards:OWN_TASKS.filter(t=>t.work_id===w.id&&(!t.control_id||t.due_at||t.start_at)).map(nativeCard)}))}
 function ownBoards(){return ['personal','work'].map(type=>({id:'own-'+type,name:type==='personal'?'Personal':'Trabajo sin obra',lists:[],cards:OWN_TASKS.filter(t=>!t.work_id&&t.category===type).map(nativeCard)}))}
