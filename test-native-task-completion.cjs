@@ -7,7 +7,7 @@ const implementation=html.slice(from,to);
 const state={locks:[],patches:[],requests:[],prompts:[],refresh:0,render:0,close:0,messages:[],errors:[],failure:null,answers:[]};
 const feedback={textContent:''};
 const sandbox={
- taskCompletionBusy:new Set(),
+ taskCompletionBusy:new Set(),sessionEpoch:0,session:{user:{id:'fixture-a'},access_token:'token-a'},
  WORK_PLANS:[],console,Number,Date,Error,
  lockOwnForm:value=>state.locks.push(value),
  gReopenProgress:phase=>phase.completion_restore_percent??null,
@@ -31,7 +31,7 @@ const sandbox={
 const handler=vm.runInNewContext(implementation+';completeNativeTask',sandbox);
 function reset(){
  state.locks.length=0;state.patches.length=0;state.requests.length=0;state.refresh=0;state.render=0;state.close=0;state.messages.length=0;state.failure=null;state.answers.length=0;
- feedback.textContent='';sandbox.WORK_PLANS=[];sandbox.taskCompletionBusy.clear();
+ feedback.textContent='';sandbox.WORK_PLANS=[];sandbox.taskCompletionBusy.clear();sandbox.sessionEpoch=0;sandbox.session={user:{id:'fixture-a'},access_token:'token-a'};
 }
 const task=(completed,stage='General')=>({id:'task-1',title:'Colocar anclajes',updated_at:'revision-5',stage,completed});
 (async()=>{
@@ -73,5 +73,35 @@ const task=(completed,stage='General')=>({id:'task-1',title:'Colocar anclajes',u
  reset();
  sandbox.taskCompletionBusy.add('task-1');await handler(task(false));
  assert.equal(state.requests.length,0);assert.equal(state.locks.length,0);
- console.log('PASS: task dialogs use one atomic completion RPC, preserve Gantt progress and always unlock on cancel/failure.');
+ // In-flight success from A must never close B's dialog, redraw or display a toast.
+ reset();
+ let allowReply,signalReply;const begun=new Promise(resolve=>signalReply=resolve);
+ sandbox.eliteRequest=async()=>{signalReply();return new Promise(resolve=>allowReply=resolve)};
+ const late=handler(task(false,'General'));await begun;
+ sandbox.sessionEpoch++;sandbox.session={user:{id:'fixture-b'},access_token:'token-b'};
+ allowReply({});await late;
+ assert.equal(state.refresh,0);assert.equal(state.render,0);assert.equal(state.close,0);
+ assert.equal(state.messages.length,0);assert.deepEqual(state.locks,[true],'Do not unlock B dialog from A');
+ assert.equal(sandbox.taskCompletionBusy.size,0);
+
+ // A late rejection after logout cannot write into B's error feedback either.
+ reset();feedback.textContent='';let rejectLate,startedError;const errorStarted=new Promise(resolve=>startedError=resolve);
+ sandbox.eliteRequest=async()=>{startedError();return new Promise((_resolve,reject)=>rejectLate=reject)};
+ const failing=handler(task(false));await errorStarted;
+ sandbox.sessionEpoch++;sandbox.session={user:{id:'fixture-b'},access_token:'token-b'};
+ rejectLate(Error('Error de cuenta antigua'));await failing;
+ assert.equal(feedback.textContent,'');
+ assert.equal(state.messages.length,0);assert.equal(state.close,0);
+
+ // An old response waiting for post-write refresh must not redraw B either.
+ reset();sandbox.eliteRequest=async()=>({});
+ let finishRead,enteredRead;const readStarted=new Promise(resolve=>enteredRead=resolve);
+ sandbox.fetchOwnTasks=async()=>{state.refresh++;enteredRead();return new Promise(resolve=>finishRead=resolve)};
+ const waitingRead=handler(task(false));await readStarted;
+ sandbox.sessionEpoch++;sandbox.session={user:{id:'fixture-b'},access_token:'token-b'};
+ finishRead();await waitingRead;
+ assert.equal(state.refresh,1);assert.equal(state.close,0);assert.equal(state.render,0);
+ assert.equal(state.messages.length,0);
+
+ console.log('PASS: task dialogs atomic completion, Gantt reopen, cancellation, stale-session isolation and unlock safety.');
 })().catch(error=>{console.error(error);process.exitCode=1});
