@@ -34,6 +34,39 @@ run("OWN_TASKS=fixtures;WORK_PLANS=[];workDetailId=null;mode='tasks';taskFilter=
 run('OWN_TASKS=fixtures');ctx.completionCheckbox={checked:true,disabled:false};ctx.fetch=async()=>({ok:false,status:500,text:async()=>JSON.stringify({message:'Error de prueba'})});await run("toggleTaskComplete('t1',completionCheckbox)");assert.equal(ctx.completionCheckbox.checked,false);assert.equal(ctx.completionCheckbox.disabled,false);
 vm.runInContext(fs.readFileSync(__dirname+'/auth-session.js','utf8'),ctx);run("session={access_token:'fixture',user:{id:'a'}};currentSubscription=async()=>{throw Error('offline')};OWN_TASKS=fixtures");await run('logoutElite()');assert.equal(run('session'),null);assert.equal(run('OWN_TASKS.length'),0);assert.equal(el('loginStatus').textContent,'Sesión cerrada.');
 let unblock;ctx.deferred=new Promise(resolve=>unblock=resolve);run("session={access_token:'fixture'};readAll=async()=>deferred");const obsolete=run('load()');run("sessionViewEnded('Prueba de sesión cambiada')");unblock([{id:'old-user-row'}]);await obsolete;assert.equal(run('NATIVE_WORKS.length'),0);assert.equal(run('OWN_TASKS.length'),0);
+
+// A partial task reload must never restore data from the previous customer after logout/switch.
+let releaseTasks;
+ctx.deferred=new Promise(resolve=>releaseTasks=resolve);
+run("session={access_token:'fixture-a',user:{id:'a'}};OWN_TASKS=[];readAll=async()=>deferred");
+const staleTasks=run('fetchOwnTasks()');
+run("sessionViewEnded('Sesión anterior cerrada');session={access_token:'fixture-b',user:{id:'b'}}");
+releaseTasks([{id:'private-task-from-A',user_id:'a',title:'Confidencial A'}]);
+await assert.rejects(staleTasks,/sesión cambió/);
+assert.equal(run('OWN_TASKS.length'),0,'Stale task response must not populate customer B view');
+assert.equal(run("session.user.id"),'b');
+
+// An HTTP response body finishing after logout must also be discarded, including success.
+let releaseBody;
+const bodyPending=new Promise(resolve=>releaseBody=resolve);
+ctx.fetch=async()=>({ok:true,status:200,text:()=>bodyPending});
+run("session={access_token:'fixture-a2',user:{id:'a'}}");
+const slowResponse=run("eliteRequest('/rest/v1/elite_tasks')");
+await Promise.resolve();
+run("sessionViewEnded('Sesión terminada')");
+releaseBody(JSON.stringify([{id:'sensitive-task',user_id:'a'}]));
+await assert.rejects(slowResponse,/sesión cambió/);
+assert.equal(run('OWN_TASKS.length'),0);
+
+// A retry of a POST on HTTP 401 must never be replayed using another customer's token.
+let requestsAfter401=0;
+const stored={access_token:'fixture-b',refresh_token:'rotated-b',user:{id:'b'}};
+ctx.localStorage.getItem=(key)=>key==='tc_session_v1'?JSON.stringify(stored):null;
+ctx.fetch=async()=>{requestsAfter401++;return{ok:false,status:401,text:async()=>JSON.stringify({code:'401'})}};
+run("session={access_token:'fixture-a3',user:{id:'a'}}");
+await assert.rejects(run("eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:'{}'})"),/cuenta cambió/);
+assert.equal(requestsAfter401,1,'Never replay a write under a different customer account');
+
 console.log('PASS: current task views, Gantt filter, checklist dates, archived isolation, safe links, date validation, hidden fields, Partes, deletion weights, stale-edit protection, completion roundtrip and failure rollback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
 // Checklist dates use the canonical field, including Madrid midnight and date removal.
