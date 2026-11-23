@@ -347,7 +347,7 @@ async function inspectBackupFile(input){
   if(!owner||!nativeReady)throw Error('Accede a tu cuenta antes de verificar la copia.');
   const result=await TCBackupPreview.inspect({file,userId:owner});
   if(epoch!==sessionEpoch||session?.user?.id!==owner||TCAuth.readSession(localStorage)?.user?.id!==owner)throw Error('La sesión cambió.');
-  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas.'+(result.warnings.length?' Revisar '+result.warnings.length+' referencias o claves antes de restaurar.':' Integridad SHA-256 correcta.')+' La restauración todavía no está disponible.',!!result.warnings.length);
+  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas. Huella SHA-256 correcta.'+(result.issue_count?' Aviso: '+result.issue_count+' incoherencias en referencias o claves (ejemplos: '+result.warnings.slice(0,2).join('; ')+').':' Sin incoherencias detectadas en las relaciones comprobadas.')+' La restauración todavía no está disponible.',!!result.issue_count);
  }catch(error){if(epoch===sessionEpoch)statusMessage('No se pudo comprobar la copia: '+error.message,true)}
  finally{input.value='';input.disabled=false}
 }

@@ -30,5 +30,45 @@ const asFile=text=>({size:Buffer.byteLength(text),text:async()=>text});
  assert.ok(html.includes('id="backupCheckInput"'));
  assert.ok(html.includes('TCBackupPreview.inspect({file,userId:owner})'));
  assert.ok(!fs.readFileSync(__dirname+'/client-backup-preview.js','utf8').includes('/rest/v1/'));
- console.log('PASS: local-only archive inspect, integrity verification, foreign-account denial, malformed/oversized safety, no restore.');
+
+ // SHA-256 alone does not prove that record references are restorable.
+ const brokenRows={
+  elite_works:[{id:work,user_id:A}],
+  elite_tasks:[{id:'task-1',work_id:work,user_id:A,previous_task_id:'missing-task',control_id:'missing-control'}],
+  elite_work_plans:[{work_id:work,user_id:A,phases:[{task_id:'missing-task'}]}],
+  elite_work_contractors:[{id:'control-1',work_id:work,user_id:A,contractor_id:'missing-contractor'}],
+  elite_incidents:[{id:'incident-1',work_id:work,user_id:A,report_id:'missing-report'}]
+ };
+ const brokenArchive=await E.build({userId:A,read:async table=>brokenRows[table]||[]});
+ const inconsistent=await P.inspect({file:asFile(brokenArchive.json),userId:A});
+ assert.equal(inconsistent.valid,true,'SHA-256 must still verify even with invalid relationships');
+ assert.equal(inconsistent.references_consistent,false);
+ assert.equal(inconsistent.issue_count,5,'All five broken references must be detected');
+ assert.ok(inconsistent.warnings.some(s=>s.includes('predecesora')));
+ assert.ok(inconsistent.warnings.some(s=>s.includes('empresa asignada ausente')));
+ assert.ok(inconsistent.warnings.some(s=>s.includes('actividad Gantt')));
+ assert.ok(inconsistent.warnings.some(s=>s.includes('parte vinculado')));
+ assert.equal(inconsistent.restoration_supported,false);
+ // Existing links to an entity of a different work must also be flagged.
+ const otherWork='55555555-5555-4555-8555-555555555555';
+ const mismatchedRows={
+  elite_works:[{id:work,user_id:A},{id:otherWork,user_id:A}],
+  elite_tasks:[{id:'task-2',work_id:work,user_id:A,control_id:'control-2'}],
+  elite_work_contractors:[{id:'control-2',work_id:otherWork,user_id:A}],
+  elite_daily_reports:[{id:'report-2',work_id:otherWork,user_id:A}],
+  elite_incidents:[{id:'incident-2',work_id:work,report_id:'report-2',user_id:A}],
+  elite_work_plans:[{work_id:otherWork,user_id:A,phases:[{task_id:'task-2'}]}]
+ };
+ const mismatched=await E.build({userId:A,read:async table=>mismatchedRows[table]||[]});
+ const inspected=await P.inspect({file:asFile(mismatched.json),userId:A});
+ assert.equal(inspected.issue_count,3,'Cross-work references must not be silently accepted');
+ assert.equal(inspected.references_consistent,false);
+ // Bound diagnostic output even if a corrupted but correctly hashed file contains many missing keys.
+ const many=await E.build({userId:A,read:async table=>table==='elite_tasks'?Array.from({length:35},()=>({user_id:A,work_id:work})):table==='elite_works'?[{id:work,user_id:A}]:[]});
+ const largeWarnings=await P.inspect({file:asFile(many.json),userId:A});
+ assert.ok(largeWarnings.issue_count>=35);
+ assert.ok(largeWarnings.warnings.length<=20);
+ assert.equal(largeWarnings.warnings_truncated,true);
+
+ console.log('PASS: local-only archive inspect, integrity verification, foreign-account denial, malformed/oversized safety, relation checks, bounded warnings, no restore.');
 })().catch(e=>{console.error(e);process.exitCode=1});
