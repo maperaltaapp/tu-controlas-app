@@ -65,7 +65,7 @@ ctx.localStorage.getItem=(key)=>key==='tc_session_v1'?JSON.stringify(stored):nul
 ctx.fetch=async()=>{requestsAfter401++;return{ok:false,status:401,text:async()=>JSON.stringify({code:'401'})}};
 run("session={access_token:'fixture-a3',user:{id:'a'}}");
 await assert.rejects(run("eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:'{}'})"),/cuenta cambió/);
-assert.equal(requestsAfter401,1,'Never replay a write under a different user's authentication');
+assert.equal(requestsAfter401,1,'Never replay a write under a different customer account');
 
 console.log('PASS: current task views, Gantt filter, checklist dates, archived isolation, safe links, date validation, hidden fields, Partes, deletion weights, stale-edit protection, completion roundtrip and failure rollback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
