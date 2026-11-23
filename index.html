@@ -382,7 +382,56 @@ function detail(id){const w=NATIVE_WORKS.find(w=>w.id===id);if(!w)return;workDet
 
 let workDetailId=null;const taskCompletionBusy=new Set();
 let draggedWorkId=null,workDragClickUntil=0,workMoveBusy=false;
-async function toggleTaskComplete(id,checkbox){const checklist=CHECKLIST_ITEMS.find(x=>x.id===id);const t=OWN_TASKS.find(t=>t.id===id);if(checklist){if(taskCompletionBusy.has(id))return;taskCompletionBusy.add(id);checkbox.disabled=true;try{const rows=await eliteRequest('/rest/v1/elite_work_checklist_items?id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(checklist.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({completed_at:checklist.completed_at?null:new Date().toISOString()})});if(rows?.length!==1)throw Error('El elemento cambió en otro dispositivo. Actualiza y vuelve a intentarlo.');CHECKLIST_ITEMS=CHECKLIST_ITEMS.map(x=>x.id===id?rows[0]:x);render()}catch(e){checkbox.checked=!!checklist.completed_at;checkbox.disabled=false;statusMessage(e.message,true)}finally{taskCompletionBusy.delete(id)}return}if(!t||taskCompletionBusy.has(id)){checkbox.checked=!!t?.completed;return}const detailId=workDetailId,scroll=window.scrollY;taskCompletionBusy.add(id);checkbox.disabled=true;try{if(t.completed){const data={completed:false,status:'pending'};if(t.stage==='Gantt'){const p=WORK_PLANS.flatMap(plan=>plan.phases||[]).find(p=>p.task_id===t.id),prior=p?gReopenProgress(p):null;if(p&&(prior==null||prior>=100)){const value=prompt('No hay un avance anterior registrado. Indica el porcentaje actual para reabrir (0 a 99,99):');if(value===null){checkbox.checked=true;checkbox.disabled=false;return}const percent=Number(value.trim().replace(',','.'));if(!value.trim()||!Number.isFinite(percent)||percent<0||percent>=100)throw Error('Indica un porcentaje entre 0 y 99,99.');data.progress_pct=percent}}await patchNativeTask(t,data)}else await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:t.id,expected_updated_at:t.updated_at})});await fetchOwnTasks();if(detailId&&mode==='works')detail(detailId);else render();if(window.scrollTo)window.scrollTo(0,scroll);statusMessage(t.completed?'Tarea reabierta.':'Tarea completada. Disponible en Finalizadas.')}catch(e){checkbox.checked=!!t.completed;checkbox.disabled=false;statusMessage(e.message,true)}finally{taskCompletionBusy.delete(id)}}
+async function toggleTaskComplete(id,checkbox){
+ const checklist=CHECKLIST_ITEMS.find(x=>x.id===id),task=OWN_TASKS.find(t=>t.id===id);
+ const epoch=sessionEpoch,account=session?.user?.id||null;
+ const current=()=>!!account&&sessionEpoch===epoch&&session?.user?.id===account;
+ if(!current()||taskCompletionBusy.has(id))return;
+ if(checklist){
+  taskCompletionBusy.add(id);checkbox.disabled=true;
+  try{
+   const rows=await eliteRequest('/rest/v1/elite_work_checklist_items?id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(checklist.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({completed_at:checklist.completed_at?null:new Date().toISOString()})});
+   if(!current())return;
+   if(rows?.length!==1)throw Error('El elemento cambió en otro dispositivo. Actualiza y vuelve a intentarlo.');
+   CHECKLIST_ITEMS=CHECKLIST_ITEMS.map(x=>x.id===id?rows[0]:x);
+   render();
+  }catch(e){
+   if(current()){checkbox.checked=!!checklist.completed_at;checkbox.disabled=false;statusMessage(e.message,true)}
+  }finally{taskCompletionBusy.delete(id)}
+  return;
+ }
+ if(!task){checkbox.checked=false;return}
+ const detailId=workDetailId,scroll=window.scrollY;
+ taskCompletionBusy.add(id);checkbox.disabled=true;
+ try{
+  if(task.completed){
+   const data={completed:false,status:'pending'};
+   if(task.stage==='Gantt'){
+    const phase=WORK_PLANS.flatMap(plan=>plan.phases||[]).find(p=>p.task_id===task.id),prior=phase?gReopenProgress(phase):null;
+    if(phase&&(prior==null||prior>=100)){
+     const value=prompt('No hay un avance anterior registrado. Indica el porcentaje actual para reabrir (0 a 99,99):');
+     if(value===null||!current()){if(current()){checkbox.checked=true;checkbox.disabled=false}return}
+     const percent=Number(value.trim().replace(',','.'));
+     if(!value.trim()||!Number.isFinite(percent)||percent<0||percent>=100)throw Error('Indica un porcentaje entre 0 y 99,99.');
+     data.progress_pct=percent;
+    }
+   }
+   if(!current())return;
+   await patchNativeTask(task,data);
+  }else{
+   if(!current())return;
+   await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:task.id,expected_updated_at:task.updated_at})});
+  }
+  if(!current())return;
+  await fetchOwnTasks();
+  if(!current())return;
+  if(detailId&&mode==='works')detail(detailId);else render();
+  if(window.scrollTo)window.scrollTo(0,scroll);
+  statusMessage(task.completed?'Tarea reabierta.':'Tarea completada. Disponible en Finalizadas.');
+ }catch(e){
+  if(current()){checkbox.checked=!!task.completed;checkbox.disabled=false;statusMessage(e.message,true)}
+ }finally{taskCompletionBusy.delete(id)}
+}
 function startWorkDrag(event,id){if(workMoveBusy){event.preventDefault();return}draggedWorkId=id;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',id);event.currentTarget.classList.add('dragging')}
 function endWorkDrag(){draggedWorkId=null;workDragClickUntil=Date.now()+250;document.querySelectorAll('.dragging,.drop-target').forEach(e=>e.classList.remove('dragging','drop-target'))}
 function overWorkState(event,section){if(workArchive||!draggedWorkId||!Object.hasOwn(WORK_STATES,section.dataset.workState))return;event.preventDefault();event.dataTransfer.dropEffect='move';section.classList.add('drop-target')}
@@ -403,6 +452,9 @@ async function patchNativeTask(t,data){const rows=await eliteRequest('/rest/v1/e
 async function saveOwnTask(e){e.preventDefault();lockOwnForm(true);try{const data=collectNativeTask();if(!data.title)throw Error('Escribe el nombre.');const shouldComplete=data.completed&&(!editingTask||!editingTask.completed)&&data.recurrence!=='none';if(shouldComplete){data.completed=false;data.status='pending'}let saved;if(editingTask)saved=await patchNativeTask(editingTask,data);else saved=(await eliteRequest('/rest/v1/elite_tasks',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(data)}))[0];editingTask=saved;if(shouldComplete)await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:saved.id,expected_updated_at:saved.updated_at})});await fetchOwnTasks();if(!OWN_TASKS.some(task=>task.id===saved.id))throw Error('No se pudo verificar la tarea guardada.');closeTaskDialog();render();statusMessage('Tarea guardada.');return true}catch(err){$('ownFormStatus').textContent=err.message;lockOwnForm(false);return false}}
 async function completeNativeTask(t){
  if(!t?.id||taskCompletionBusy.has(t.id))return;
+ const epoch=sessionEpoch,account=session?.user?.id||null;
+ const current=()=>!!account&&sessionEpoch===epoch&&session?.user?.id===account;
+ if(!current())return;
  taskCompletionBusy.add(t.id);
  lockOwnForm(true);
  try{
@@ -413,27 +465,32 @@ async function completeNativeTask(t){
     const previous=activity?gReopenProgress(activity):null;
     if(activity&&(previous==null||previous>=100)){
      const input=prompt('No hay un avance anterior registrado. Indica el porcentaje actual para reabrir (0 a 99,99):');
-     if(input===null)return;
+     if(input===null||!current())return;
      const value=input.trim(),percent=Number(value.replace(',','.'));
      if(!value||!Number.isFinite(percent)||percent<0||percent>=100)throw Error('Indica un porcentaje entre 0 y 99,99.');
      data.progress_pct=percent;
     }
    }
+   if(!current())return;
    await patchNativeTask(t,data);
   }else{
+   if(!current())return;
    await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:t.id,expected_updated_at:t.updated_at})});
   }
+  if(!current())return;
   await fetchOwnTasks();
+  if(!current())return;
   closeTaskDialog();
   render();
   statusMessage(t.completed?'Tarea reabierta.':'Tarea completada.');
  }catch(error){
+  if(!current())return;
   const status=$('ownFormStatus');
   if(status)status.textContent=error.message;
   else statusMessage(error.message,true);
  }finally{
   taskCompletionBusy.delete(t.id);
-  lockOwnForm(false);
+  if(current())lockOwnForm(false);
  }
 }
 async function changeOwnTask(data){lockOwnForm(true);try{await patchNativeTask(editingTask,data);await fetchOwnTasks();closeTaskDialog();render();statusMessage(data.deleted_at?'Tarea archivada. Puedes restaurarla desde Archivo.':'Tarea restaurada.')}catch(e){$('ownFormStatus').textContent=e.message;lockOwnForm(false)}}
