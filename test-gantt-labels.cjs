@@ -40,7 +40,7 @@ const {timelineAnchor,timelineOffset}=model.TCGantt;
 for(const width of [360,820,1440]){
  for(const fixed of [130,220,510]){
   for(const px of [3,12,32,64]){
-   const viewport=width,day=20330.25,start=20300;
+   const viewport=width,day=21000.25,start=20000;
    const scroll=timelineOffset(day,viewport,fixed,px,start);
    const restored=timelineAnchor(scroll,viewport,fixed,px,start);
    assert.ok(Math.abs(restored-day)<.001,'The calendar day must survive changing zoom/column width');
