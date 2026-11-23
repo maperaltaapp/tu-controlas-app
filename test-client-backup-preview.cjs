@@ -70,5 +70,41 @@ const asFile=text=>({size:Buffer.byteLength(text),text:async()=>text});
  assert.ok(largeWarnings.warnings.length<=20);
  assert.equal(largeWarnings.warnings_truncated,true);
 
+ // A snapshot can have valid SHA and intact tables but inconsistent Gantt hierarchy.
+ const workTwo='66666666-6666-4666-8666-666666666666';
+ const planIssues={
+  elite_works:[{id:work,user_id:A},{id:workTwo,user_id:A}],
+  elite_tasks:[
+   {id:'task-work-1',work_id:work,user_id:A,previous_task_id:'task-work-2'},
+   {id:'task-work-2',work_id:workTwo,user_id:A}
+  ],
+  elite_work_plans:[{
+   work_id:work,user_id:A,phases:[
+    {id:'phase-1',task_id:'task-work-1',parent_id:'removed-parent',contractor_id:'missing-subcontractor',depends_on:['removed-dependency','phase-1']},
+    {id:'phase-2',task_id:'task-work-1'},
+    {id:'phase-2'}
+   ]
+  }]
+ };
+ const inconsistentPlan=await E.build({userId:A,read:async table=>planIssues[table]||[]});
+ const planPreview=await P.inspect({file:asFile(inconsistentPlan.json),userId:A});
+ assert.equal(planPreview.valid,true,'SHA alone is not proof of safe restoration');
+ assert.equal(planPreview.references_consistent,false);
+ assert.equal(planPreview.issue_count,7,'Detect cross-work recurrence, missing parent and contractor, invalid dependencies, duplicated task and phase');
+ for(const label of ['otra obra','fase principal','subcontrata','dependencia','varias actividades','duplicado']){
+  assert.ok(planPreview.warnings.some(w=>w.includes(label)),'Missing diagnostic for '+label);
+ }
+ assert.equal(planPreview.restoration_supported,false);
+ const safePlan={
+  elite_works:[{id:work,user_id:A}],
+  elite_tasks:[{id:'safe-task',work_id:work,user_id:A}],
+  elite_contractors:[{id:'safe-contractor',user_id:A}],
+  elite_work_plans:[{work_id:work,user_id:A,phases:[{id:'group-1',is_group:true},{id:'leaf-1',task_id:'safe-task',contractor_id:'safe-contractor',parent_id:'group-1',depends_on:[]}]}]
+ };
+ const safeArchive=await E.build({userId:A,read:async table=>safePlan[table]||[]});
+ const safePreview=await P.inspect({file:asFile(safeArchive.json),userId:A});
+ assert.equal(safePreview.issue_count,0,'Do not reject coherent hierarchy and valid contractor references');
+ assert.equal(safePreview.references_consistent,true);
+
  console.log('PASS: local-only archive inspect, integrity verification, foreign-account denial, malformed/oversized safety, relation checks, bounded warnings, no restore.');
 })().catch(e=>{console.error(e);process.exitCode=1});
