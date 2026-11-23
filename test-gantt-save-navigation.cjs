@@ -27,5 +27,34 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
  setup();gate=deferred();ctx.gate=gate.promise;run('eliteRequest=()=>gate');pending=run('savedCommit([phase],{reschedule:false})');run("sessionEpoch++;G2.work='w2';G2.message='Nueva cuenta';G2.error=false");gate.reject(Error('old account failure'));assert.equal(await pending,false);assert.equal(run('G2.message'),'Nueva cuenta');assert.equal(run('G2.error'),false);
  // A form opened for revision 1 cannot submit its old rows over revision 2.
  setup();run("tcCalendarForWork=()=>({anchor:'2026-11-20',weekdays:[1,2,3,4,5],exceptions:[]});tcDependencyFields=()=>'';CONTRACTORS=[];dialogForm=()=>{};gEdit('activity');WORK_PLANS[0].revision=2;writeCount=0;gCommit=async()=>{writeCount++;return true}");await el('gActivityForm').onsubmit({preventDefault(){}});assert.equal(run('writeCount'),0);assert(el('gaError').textContent.includes('La planificación cambió'));
- console.log('PASS: Gantt writes/readbacks ignore old sessions and accounts, preserve current navigation, clear logout busy state and reject stale activity forms.');
+ // V1 Step 2: existing legacy activities must never spawn linked tasks on a passive save.
+ setup();run("WORK_PLANS[0].phases[0].task_id=null");
+ let confirmations=[],writes=0;
+ ctx.confirm=(message)=>{confirmations.push(message);return false};
+ run("eliteRequest=async()=>{writeCounter++;return {}};writeCounter=0");
+ const denied=await run("savedCommit([phase],{reschedule:false})");
+ assert.equal(denied,false);assert.equal(run('writeCounter'),0,'No server write without explicit approval');
+ assert.equal(run('G2.busy'),false);
+ assert.equal(run('planOf("w1").revision'),1);
+ assert.equal(run('planOf("w1").phases[0].task_id'),null);
+ assert.equal(confirmations.length,1);
+ assert.match(confirmations[0],/actividades antiguas sin tarea vinculada/);
+ // An explicit user confirmation permits the normal transactional save.
+ setup();run("WORK_PLANS[0].phases[0].task_id=null");
+ confirmations=[];
+ ctx.confirm=(message)=>{confirmations.push(message);return true};
+ run("eliteRequest=async()=>{writeCounter++;return {}};writeCounter=0");
+ assert.equal(await run("savedCommit([phase],{reschedule:false})"),true);
+ assert.equal(confirmations.length,1);
+ assert.equal(run('writeCounter'),1);
+ assert.equal(run('planOf("w1").revision'),2);
+ assert.equal(run('planOf("w1").phases[0].task_id'),'task');
+ // If work dates verification fails, do not update either cache from a partial readback.
+ setup();run("eliteRequest=async()=>({});readAll=async table=>{readCount++;if(table==='elite_work_plans')return [{work_id:'w1',revision:2,phases:[structuredClone(phase)]}];if(table==='elite_tasks')return OWN_TASKS;return [{id:'w1',start_date:'2026-01-01',end_date:'2026-01-02'}]}");
+ assert.equal(await run("savedCommit([phase],{reschedule:false})"),false);
+ assert.equal(run('planOf("w1").revision'),1,'Do not commit plans when work-card verification fails');
+ assert.equal(run('OWN_TASKS[0].id'),'task');
+ assert.equal(run('G2.busy'),false);
+
+ console.log('PASS: Gantt saves handle session switches, explicit approval of legacy links, consistent caches and stale edits.');
 })().catch(e=>{console.error(e);process.exitCode=1});
