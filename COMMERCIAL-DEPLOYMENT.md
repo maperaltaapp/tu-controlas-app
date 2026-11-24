@@ -11,7 +11,7 @@ La app actual `https://maperaltaapp.github.io/tu-controlas-app/` funciona con el
 - Para los futuros clientes, una sola infraestructura Supabase, protegida por RLS y pruebas A/B reales. **Tener RLS activada no certifica todavía el aislamiento de todos los endpoints y funciones.**
 - **No renombrar por estética** tablas SQL `elite_*`, funciones RPC, buckets ni identificadores utilizados por la app: cambiar esos nombres sin plan completo rompería el trabajo diario.
 - Mantener como datos del cliente los documentos. Existe un adjunto histórico dentro de Storage; no eliminarlo. Antes de comercializar, excluir subidas pesadas nuevas en el frontend comercial y preparar la gestión segura de referencias de archivos externos.
-- No retirar por el nombre las Edge Functions heredadas (`elite-mail`, `elite-mcp`, `elite-notifications`, `trello-obras`). Primero comprobar llamadas externas, permisos y dependencias; eliminarlas es una operación independiente y potencialmente disruptiva.
+- No retirar por el nombre las Edge Functions heredadas (`elite-mail`, `elite-mcp`, `elite-notifications` y otra función de un proveedor ya retirado). Primero comprobar llamadas externas, permisos y dependencias; eliminarlas es una operación independiente y potencialmente disruptiva.
 
 ## Preparación del futuro acceso comercial, SIN otro Supabase
 
