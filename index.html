@@ -403,7 +403,7 @@ async function inspectBackupFile(input){
   try{result=await TCBackupPreview.inspect({file,userId:owner,exportApi:TCBackupV3})}
   catch(err){if(!/Copia V3 incompatible/.test(err.message))throw err;result=await TCBackupPreview.inspect({file,userId:owner})}
   if(epoch!==sessionEpoch||session?.user?.id!==owner||TCAuth.readSession(localStorage)?.user?.id!==owner)throw Error('La sesión cambió.');
-  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas. Huella SHA-256 correcta.'+(result.issue_count?' Aviso: '+result.issue_count+' incoherencias en referencias o claves (ejemplos: '+result.warnings.slice(0,2).join('; ')+').':' Sin incoherencias detectadas en las relaciones comprobadas.')+' La restauración todavía no está disponible.',!!result.issue_count);
+  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas. Huella SHA-256 correcta.'+(result.issue_count?' Aviso: '+result.issue_count+' incoherencias en referencias o claves (ejemplos: '+result.warnings.slice(0,2).join('; ')+').':' Sin incoherencias detectadas en las relaciones comprobadas.')+(result.version===3?' Recuperación posible solamente en una cuenta vacía, desde «Recuperar copia».':' Las copias antiguas V2 solo se pueden comprobar.'),!!result.issue_count);
  }catch(error){if(epoch===sessionEpoch)statusMessage('No se pudo comprobar la copia: '+error.message,true)}
  finally{input.value='';input.disabled=false}
 }
