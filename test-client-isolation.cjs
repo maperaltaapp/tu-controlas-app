@@ -68,9 +68,21 @@ const activity='33333333-3333-4333-8333-333333333333';
    (select to_jsonb(w) from public.elite_works w where w.id=$1) as work`,[wB,B]);
   const before=JSON.stringify((await bSnapshot()).rows[0]);
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${A}';`);
-  for(const table of ['elite_works','elite_tasks','elite_work_plans','elite_contractors','elite_daily_reports']){
-   const rows=(await db.query('select user_id from public.'+table)).rows;
-   assert.ok(rows.every(r=>r.user_id===A),'Cross-account read from '+table);
+  // Exhaustive table matrix: every public table reachable by an authenticated
+  // user needs an owner column and an owner-scoped RLS policy. Test all tables,
+  // not only the five core tables that existed when the first suite was written.
+  const exposed=(await db.query(`select c.relname,c.relrowsecurity,
+    has_table_privilege('authenticated',c.oid,'SELECT') as can_select,
+    exists(select 1 from pg_attribute a where a.attrelid=c.oid and a.attname='user_id' and not a.attisdropped) as owner_col
+    from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relkind in ('r','p') order by c.relname`)).rows;
+  assert.ok(exposed.length>=15,'Expected client-exposed project tables');
+  for(const entry of exposed){
+   assert.equal(entry.relrowsecurity,true,'Missing RLS on '+entry.relname);
+   if(!entry.can_select)continue;
+   assert.equal(entry.owner_col,true,'Authenticated read of table without owner column: '+entry.relname);
+   const rows=(await db.query('select distinct user_id::text as uid from public."'+entry.relname+'"')).rows;
+   assert.ok(rows.every(r=>r.uid===A),'Cross-account read from '+entry.relname);
   }
   assert.equal((await db.query('select * from elite_works where id=$1',[wB])).rows.length,0);
   assert.equal((await db.query('select * from elite_tasks where id=$1',[tB])).rows.length,0);
