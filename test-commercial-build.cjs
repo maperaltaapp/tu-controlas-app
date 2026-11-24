@@ -1,11 +1,11 @@
 // V1 step 6: build a commercial artifact without exposing/copying any legacy customer data.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const B=require('./commercial-build.cjs'),root=__dirname,output=path.join(root,'dist-commercial-qa');
-const env={TC_COMMERCIAL_SUPABASE_REF:'abcdefghijklmnopqrst',TC_COMMERCIAL_PUBLISHABLE_KEY:'sb_publishable_123456789012345678901234567890',TC_COMMERCIAL_SITE_URL:'https://tu-controlas-staging.pages.dev/'};
+const env={TC_COMMERCIAL_SUPABASE_REF:'vyswxgbbqyffnduhhrvz',TC_COMMERCIAL_PUBLISHABLE_KEY:'sb_publishable_123456789012345678901234567890',TC_COMMERCIAL_SITE_URL:'https://tu-controlas-staging.pages.dev/'};
 const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 const originalIndex=hash(path.join(root,'index.html')),originalAuth=hash(path.join(root,'auth-session.js'));
 const mustFail=(changes,pattern)=>assert.throws(()=>B.commercialConfig({...env,...changes}),pattern);
-mustFail({TC_COMMERCIAL_SUPABASE_REF:'vyswxgbbqyffnduhhrvz'},/distinta|laboral/i);
+mustFail({TC_COMMERCIAL_SUPABASE_REF:'abcdefghijklmnopqrst'},/único proyecto/i);
 mustFail({TC_COMMERCIAL_SUPABASE_REF:''},/Supabase/);
 mustFail({TC_COMMERCIAL_PUBLISHABLE_KEY:'sb_secret_EJEMPLO'},/publicable/);
 mustFail({TC_COMMERCIAL_PUBLISHABLE_KEY:''},/publicable/);
@@ -23,9 +23,10 @@ try{
  assert(result.files.length>=20);
  for(const asset of result.files)assert(fs.existsSync(path.join(output,asset)),'Missing bundled '+asset);
  const html=fs.readFileSync(path.join(output,'index.html'),'utf8');
- assert(html.includes('https://abcdefghijklmnopqrst.supabase.co'));
+ assert(html.includes('https://vyswxgbbqyffnduhhrvz.supabase.co'));
  assert(html.includes(env.TC_COMMERCIAL_PUBLISHABLE_KEY));
- assert(!html.includes('vyswxgbbqyffnduhhrvz'));
+ assert(!html.includes('https://abcdefghijklmnopqrst.supabase.co'));
+ assert(!html.includes('elite-mail'));
  assert(!html.includes('elite-work-files'));
  assert(!html.includes('/storage/v1/object'));
  assert(!html.includes('uploadWorkFiles('));
