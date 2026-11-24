@@ -89,7 +89,7 @@ async function inspect({file,userId,exportApi=root.TCExport}){
   exported_at:snapshot.exported_at,table_count:exportApi.sources.length,
   records,counts,warnings,issue_count:issueCount,
   references_consistent:issueCount===0,warnings_truncated:issueCount>warnings.length,
-  restoration_supported:false,
+  restoration_supported:snapshot.version===3&&snapshot.restoration_supported===true,
   message:'Integridad SHA-256 comprobada en este dispositivo. '+(issueCount?'Se detectaron incoherencias entre registros. ':'')+'No se han restaurado ni subido datos.'
  };
 }

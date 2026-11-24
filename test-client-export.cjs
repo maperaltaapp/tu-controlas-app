@@ -66,7 +66,7 @@ const fixedTime=new Date('2026-11-22T12:00:00.000Z');
  assert.ok(html.includes('elimina la copia de Descargas'),'Shared-phone export warning must explain deletion');
 
  assert.ok(html.includes('const owner=session.user.id,epoch=sessionEpoch'));
- assert.ok(html.includes('readAll(table,query)'));
+ assert.ok(html.includes('tc_export_owner_v3'),'Export V3 must read one RLS-owned snapshot');
  assert.ok(html.includes('await TCBackupV3.verify(result.snapshot,owner)'));
  assert.ok(html.includes('active?.user?.id!==owner'));
  assert.ok(!html.includes("localStorage.setItem('elite_session'"));

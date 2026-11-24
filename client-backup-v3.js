@@ -44,7 +44,7 @@ async function build({userId,read,guard=()=>{}}={}){
   format:'tu-controlas-structured-export',version:3,owner_id:uid,
   exported_at:payload.exported_at,scope:'22 tablas estructuradas del cliente, incluidos costes y conocimientos de IA',
   excluded:['archivos y documentos externos','suscripciones push y claves de dispositivos','contraseñas, sesiones y credenciales de Auth'],
-  restoration_supported:false,
+  restoration_supported:true,restoration_mode:'empty_account_only',
   consistency:'instantánea consistente de una única transacción de consulta de PostgreSQL',
   counts:payload.counts,tables:payload.tables
  };
