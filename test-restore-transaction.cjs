@@ -34,6 +34,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   const sourceCounts={works:1,tasks:1};
   await db.query('delete from public.elite_tasks where user_id=$1',[A]);
   await db.query('delete from public.elite_works where user_id=$1',[A]);
+  // Audit triggers retain their own per-account history, so reset that fixture too.
+  // Only fictitious local rows are deleted; production never runs this test.
+  await db.query('delete from public.elite_history where user_id=$1',[A]);
   const beforeB=JSON.stringify((await db.query('select id,name from public.elite_works where user_id=$1',[B])).rows);
   const beforeBT=JSON.stringify((await db.query('select id,title from public.elite_tasks where user_id=$1',[B])).rows);
   await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
@@ -54,6 +57,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   // Rollback on cross-owner FK: fresh fictitious target A after removing A data.
   await db.query('delete from public.elite_tasks where user_id=$1',[A]);
   await db.query('delete from public.elite_works where user_id=$1',[A]);
+  // Audit triggers retain their own per-account history, so reset that fixture too.
+  // Only fictitious local rows are deleted; production never runs this test.
+  await db.query('delete from public.elite_history where user_id=$1',[A]);
   const damaged=JSON.parse(JSON.stringify(archive.snapshot));
   damaged.tables.elite_tasks[0].work_id=wB;
   await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
