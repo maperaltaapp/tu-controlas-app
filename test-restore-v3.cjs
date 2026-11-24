@@ -55,7 +55,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   await assert.rejects(restore(archived),/no coincide|deshecho|contenido restaurado/i);
   for(const [t] of V3.sources)assert.equal((await db.query('select count(*)::int n from public."'+t+'" where user_id=$1',[A])).rows[0].n,0,'Atomic rollback on '+t);
   const tampered=structuredClone(archived);tampered.tables.elite_tasks[0].user_id=B;
-  await assert.rejects(restore(tampered),/otra cuenta/i);
+  await assert.rejects(restore(tampered),/otra cuenta|otro propietario/i);
   await db.exec('reset role;set role anon');
   await assert.rejects(restore(archived),/permission denied/i);
   await db.exec('reset role');
