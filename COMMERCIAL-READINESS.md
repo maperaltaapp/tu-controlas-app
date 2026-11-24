@@ -4,13 +4,13 @@
 
 Este registro distingue **código fusionado**, **funciones probadas localmente**, **despliegue público comprobado** y **apto para clientes reales**. Una prueba automatizada en PGlite no certifica que dos usuarios reales no puedan acceder a datos ajenos.
 
-## 1. Separación de infraestructura: BLOQUEANTE (TC-010)
+## 1. Infraestructura única TU CONTROLAS: IDENTIDAD PENDIENTE (TC-010)
 
-La aplicación actual apunta a Supabase `vyswxgbbqyffnduhhrvz`, cuyo nombre registrado es «App Obras Elite». La denominación histórica de tablas `elite_*` tampoco demuestra por sí sola que los datos sean compartidos, pero **la separación física respecto a sistemas laborales no ha sido certificada**.
+**Decisión 24/11/2026:** conservar el único proyecto Supabase existente (referencia `vyswxgbbqyffnduhhrvz`) y todos los registros de la cuenta que utiliza TU CONTROLAS diariamente. **NO crear otro proyecto, NO migrar obras, NO borrar datos, NO cambiar las URLs ni las claves del frontend.** El nombre visible histórico «App Obras Elite» debe cambiarse en Supabase Dashboard por «TU CONTROLAS»; no hay acción de renombrado disponible en el conector. Un cambio de nombre visible no exige modificar las tablas técnicas `elite_*`.
 
-**Aceptar solo si:** se identifica el proyecto comercial exclusivo, sus esquemas y titularidad; se reproducen tablas, políticas, funciones, índices y despliegues en entorno separado; se migran únicamente registros identificados como propios y con autorización; se prueba con cuentas ficticias y se verifica que ningún otro producto deja de funcionar. No reutilizar ni copiar datos laborales por asociación de nombres. La arquitectura mantiene **una sola infraestructura comercial multi-cliente**, no una por cliente.
+**Condiciones de aceptación:** comprobar después del renombrado visual que la referencia del proyecto y los datos permanecen iguales, y que la cuenta entra y trabaja con Tareas, Gantt, Partes e Incidencias sin interrupciones. Inventariar por separado las Edge Functions históricas y adjuntos existentes; no eliminarlos por su nombre. Mantener un solo proyecto Supabase para los múltiples clientes y aplicar RLS comprobada, sin confundir prefijos heredados con aislamiento de usuarios.
 
-El origen GitHub Pages `maperaltaapp.github.io` comparte almacenamiento de navegador entre rutas del mismo origen. `tc_session_v1` evita una colisión accidental de clave, pero no proporciona aislamiento de origen. **Para vender se exige origen/dominio exclusivo**, HTTPS, comprobación de cabeceras, recuperación de contraseña y renovación segura de sesión.
+**Antes de vender:** habilitar un origen HTTPS exclusivo para clientes, independiente de `maperaltaapp.github.io`, usando el **mismo proyecto Supabase**. El paquete `commercial-build.cjs` excluye el código de subidas pesadas y páginas de correo laboral, aísla el almacenamiento de sesiones y rechaza que se configure otra base. No desplegar a clientes hasta probar permisos A/B, OAuth, restauración, documentos, RGPD y servicio técnico. El proyecto actual no cambia mientras tanto.
 
 ## 2. Seguridad de clientes: BLOQUEANTE (TC-008, TC-009, TC-023, TC-029)
 

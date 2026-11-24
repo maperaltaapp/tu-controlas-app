@@ -1,43 +1,41 @@
-# TU CONTROLAS V1 — Separación de infraestructura comercial
+# TU CONTROLAS V1 — Un único Supabase, con datos actuales conservados
 
-**Estado: preparada la compilación aislada, sin activar aún el proyecto comercial ni desplegar un sitio público para clientes.**
+**Decisión del propietario (24/11/2026): no crear ningún otro proyecto de Supabase. Mantener la cuenta y todas las obras que utiliza diariamente.**
 
-El 24/11/2026 se verificó que el prototipo publicado `maperaltaapp.github.io/tu-controlas-app` usa un Supabase existente llamado «App Obras Elite». **No transferir, copiar ni borrar ninguna obra, parte, usuario, adjunto o coste de ese proyecto.** Las coincidencias de nombres de tablas no prueban titularidad de los datos.
+La app actual `https://maperaltaapp.github.io/tu-controlas-app/` funciona con el proyecto existente, cuya referencia técnica es `vyswxgbbqyffnduhhrvz`. Actualmente figura en Supabase con el nombre visible histórico «App Obras Elite». **Ese nombre no define el producto ni la titularidad de los datos.** Es la única base que seguirá utilizando TU CONTROLAS.
 
-## Decisiones técnicas
+## Qué está acordado
 
-- Un **solo proyecto Supabase comercial**, vacío al comenzar, para todos los clientes de TU CONTROLAS. Aislamiento por cuenta/cliente con RLS y pruebas de permisos; no un proyecto por cliente.
-- El proyecto comercial debe ser **distinto** del proyecto actual del prototipo/laboral; la app existente seguirá funcionando sin modificarse.
-- El sitio comercial debe tener **origen HTTPS distinto** de `https://maperaltaapp.github.io`; usar otra ruta del mismo origen no aísla localStorage, Service Workers o políticas de navegador.
-- Documentos en Drive/PC/móvil del cliente, no en Storage de Supabase. El compilador comercial **retira por completo** el código de subir/abrir/borrar adjuntos heredados; por ahora muestra un aviso. Los enlaces a documentos propios requieren diseño posterior con validación de propiedad.
-- El código puede incluir en cliente la **clave publicable** (no es una contraseña de administrador); una clave service_role, secret o de OpenAI nunca debe entrar en el frontend.
-- La app comercial se genera desde el mismo código fuente con `commercial-build.cjs` para facilitar actualizaciones; **no se publica en GitHub Pages actual**. El resultado generado no se sube a Git.
+- **Conservar íntegros** cuentas, obras, tareas, Gantt, partes, costes, documentos heredados, políticas y credenciales operativas. No resetear, eliminar, pausar, transferir ni duplicar el proyecto.
+- **Identidad comercial TU CONTROLAS.** Cambiar únicamente el nombre visible del proyecto en Supabase Dashboard, si el propietario lo desea, a través de `Settings → General`. El conector usado para el desarrollo **no ofrece una operación de renombrado**. No confundir el nombre visible con el **Project Reference ID**, la URL del API ni las claves.
+- Para los futuros clientes, una sola infraestructura Supabase, protegida por RLS y pruebas A/B reales. **Tener RLS activada no certifica todavía el aislamiento de todos los endpoints y funciones.**
+- **No renombrar por estética** tablas SQL `elite_*`, funciones RPC, buckets ni identificadores utilizados por la app: cambiar esos nombres sin plan completo rompería el trabajo diario.
+- Mantener como datos del cliente los documentos. Existe un adjunto histórico dentro de Storage; no eliminarlo. Antes de comercializar, excluir subidas pesadas nuevas en el frontend comercial y preparar la gestión segura de referencias de archivos externos.
+- No retirar por el nombre las Edge Functions heredadas (`elite-mail`, `elite-mcp`, `elite-notifications` y otra función de un proveedor ya retirado). Primero comprobar llamadas externas, permisos y dependencias; eliminarlas es una operación independiente y potencialmente disruptiva.
 
-## Coste y elección de organización
+## Preparación del futuro acceso comercial, SIN otro Supabase
 
-La única organización conectada hoy es «Elite Eutomotive Proyects», plan Supabase **Free**, con un proyecto activo. La consulta de precio del 24/11/2026 devolvió **0 USD/mes** por crear otro proyecto en esa organización; la cotización puede variar. Supabase documenta hasta dos proyectos Free activos entre organizaciones donde el usuario es propietario o administrador.
+El script `commercial-build.cjs` es **opcional para el lanzamiento comercial posterior**. Construye un frontend estático separado por origen web, **obligatoriamente conectado al MISMO Supabase** existente. Protege las sesiones del nuevo dominio y omite en el paquete de publicación las pantallas y el código antiguo de correo laboral y subida de documentos.
 
-**No se crea el segundo proyecto sin elegir expresamente la organización de destino.** Se puede usar la existente, si el propietario así lo prefiere, o preparar una organización comercial propia si está disponible. Un proyecto en organización distinta puede favorecer la administración separada, pero no elimina el acceso técnico del propietario del backend.
+Para ejecutarlo, configurar una URL HTTPS exclusiva y únicamente la **clave publicable** del proyecto actual; no guardar claves en Git ni exponer `service_role`:
 
-## Procedimiento técnico reproducible
+```bash
+TC_COMMERCIAL_SUPABASE_REF="vyswxgbbqyffnduhhrvz" \
+TC_COMMERCIAL_PUBLISHABLE_KEY="<CLAVE_PUBLICABLE_DEL_MISMO_PROYECTO>" \
+TC_COMMERCIAL_SITE_URL="https://<DOMINIO_COMERCIAL_INDEPENDIENTE>/" \
+npm run build:commercial
+```
 
-1. Seleccionar la organización donde residirá TU CONTROLAS comercial, sin reutilizar la BD antigua. Consultar coste nuevamente; no asumir 0 € para decisiones futuras.
-2. Crear **un proyecto comercial nuevo y vacío**, de preferencia en la región UE apropiada. Verificar estado saludable. Registrar su referencia y solo su clave publicable.
-3. Desplegar el esquema base vigente del repositorio **en orden de dependencias**, revisar vistas/RPC/SECURITY DEFINER, políticas RLS, permisos, claves foráneas, triggers e índices, sin exportar registros laborales. Ejecutar advisor de seguridad y pruebas con cuentas ficticias A/B.
-4. Generar el sitio estático comercial, sin grabar claves en Git:
-   ```bash
-   TC_COMMERCIAL_SUPABASE_REF="<REF_COMERCIAL>" \
-   TC_COMMERCIAL_PUBLISHABLE_KEY="<SB_PUBLISHABLE_COMERCIAL>" \
-   TC_COMMERCIAL_SITE_URL="https://<DOMINIO_COMERCIAL>/" \
-   npm run build:commercial
-   ```
-   El comando crea `dist-commercial/` sin credenciales privadas. **Falla** si apunta al Supabase del prototipo, si el origen es GitHub Pages actual o si todavía conserva código de subida de archivos a Storage.
-5. Desplegar el contenido de `dist-commercial/` con un hosting estático HTTPS de **origen independiente** (p. ej. Cloudflare Pages en un subdominio exclusivo; verificar condiciones actuales antes de usar). Configurar la URL del sitio y las redirecciones Auth **en el nuevo Supabase**. No exponer al cliente el OAuth de correo laboral ni la app antigua.
-6. Validar sin datos reales: inicio y cierre de sesión, recuperación de contraseña, Tareas ↔ Gantt, Partes, Incidencias, Panel de Control, importación económica, exportación, permisos de referencias y caducidad de sesión. Probar cuentas A/B y teléfonos/PC, así como accesos directos a la API que intenten leer o modificar recursos ajenos.
-7. Mantener **NO APTO PARA VENTA** hasta completar restauración individual, seguridad multi-tenant, documentos privados, RGPD y pruebas reales Android/PC. Conservar un procedimiento de rollback y copia recuperable.
+La compilación **rechaza** otra referencia de Supabase y el origen actual de GitHub Pages. Genera `dist-commercial/` local; no crea tablas, usuarios, proyectos ni despliegues. Las sesiones del dominio actual permanecen intactas.
 
-## Límites
+**No desplegar todavía para clientes reales.** La URL del nuevo frontend, los redireccionamientos Auth, las cabeceras de seguridad, los controles de documentos y el aislamiento multiusuario real deben verificarse antes del lanzamiento. Un dominio independiente aislará el almacenamiento de navegador, pero **no reemplaza** las políticas RLS ni crea una base diferente.
 
-La compilación separa código desplegable, sesiones y origen esperado, **pero no configura servicios DNS, Hosting ni una BD por sí sola**. La tabla económica existente en el prototipo no demuestra que el comercial esté preparado. La facturación, los servicios de IA, push y documentos no deben habilitarse sin su evaluación y pruebas.
+## Evidencias y bloqueos
 
-El plan activo sigue siendo solo la pestaña «Plan V1» de [Drive](https://docs.google.com/spreadsheets/d/13fnzMwmsr6D_sbq9igPaqkXHhBn6SmrGZwSv42YlL1Y/edit); las mejoras no bloqueantes están en «Después de V1».
+- Proyecto Supabase actual identificado y saludable; ningún cambio de datos para esta decisión.
+- Todas las tablas del esquema `public` tienen RLS activada, pero el asesor de seguridad señala procedimientos `SECURITY DEFINER` ejecutables por usuarios autenticados: requieren auditoría individual en el paso 7.
+- El respaldo de exportación del cliente y la restauración segura siguen pendientes de verificarse como mecanismo de recuperación; no confiar en un cambio irreversible sin copia recuperable.
+- Renombrado visual pendiente de intervención manual del propietario en el panel Supabase.
+- Verificación con dos cuentas A/B, pruebas de navegación en Android físico/PC, RGPD y documentos privados aún bloquean la comercialización.
+
+**Resultado del paso 6:** decisión de una sola base adoptada, código comercial coherente y conservación verificada de datos. No marcar cerrado hasta confirmar el nombre visible y las comprobaciones de no regresión. No ampliar la infraestructura.

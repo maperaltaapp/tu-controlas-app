@@ -4,7 +4,9 @@ Aplicación de gestión de obras: https://maperaltaapp.github.io/tu-controlas-ap
 
 Producto profesional independiente de ChatGPT, con datos estructurados en Supabase y acceso por propietario mediante autenticación y RLS. Los documentos del cliente permanecen en su Drive, PC o móvil. La arquitectura y los límites vigentes se describen en [DEVELOPMENT.md](DEVELOPMENT.md).
 
-**Estado:** prototipo en desarrollo, **no apto todavía para clientes comerciales**. Para pendientes y prioridades, consultar el [Plan priorizado en Drive](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091). Los bloqueos de venta están en [COMMERCIAL-READINESS.md](COMMERCIAL-READINESS.md); el código probado no sustituye pruebas A/B ni Android físico.
+**Estado:** prototipo en desarrollo, **no apto todavía para clientes comerciales**. Para pendientes y prioridades, consultar el [Plan de cierre V1 activo en Drive](https://docs.google.com/spreadsheets/d/13fnzMwmsr6D_sbq9igPaqkXHhBn6SmrGZwSv42YlL1Y/edit). Los bloqueos de venta están en [COMMERCIAL-READINESS.md](COMMERCIAL-READINESS.md); el código probado no sustituye pruebas A/B ni Android físico.
+
+**Infraestructura:** un solo proyecto Supabase para TU CONTROLAS (referencia ya configurada), conservando las obras, tareas y cuenta existentes. No crear una base nueva. La etiqueta visible histórica del proyecto en el dashboard no equivale a una aplicación laboral separada. [Detalles del paso 6](COMMERCIAL-DEPLOYMENT.md).
 
 ## Herramientas actuales
 

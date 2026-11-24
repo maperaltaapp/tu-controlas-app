@@ -3,7 +3,9 @@
 // Generates a PRIVATE, isolated deployment directory. Does not deploy, provision
 // Supabase, copy databases, or expose service-role secrets.
 const fs=require('node:fs'),path=require('node:path');
-const LEGACY_REF='vyswxgbbqyffnduhhrvz',LEGACY_ORIGIN='https://maperaltaapp.github.io';
+// TU CONTROLAS keeps its existing Supabase project and all its data. The project reference
+// remains stable even if its display name is changed in the dashboard.
+const PROJECT_REF='vyswxgbbqyffnduhhrvz',LEGACY_ORIGIN='https://maperaltaapp.github.io';
 const LEGACY_FILES_START="const WORK_FILES_BUCKET='elite-work-files'";
 const OLD_SESSION='tc_session_v1',NEW_SESSION='tc_commercial_session_v1';
 const EXTRAS=['manifest.webmanifest','sw.js','icon.svg','icon-192.png','icon-512.png'];
@@ -11,8 +13,8 @@ function commercialConfig(env){
  const ref=(env.TC_COMMERCIAL_SUPABASE_REF||'').trim();
  const publishable=(env.TC_COMMERCIAL_PUBLISHABLE_KEY||'').trim();
  const rawUrl=(env.TC_COMMERCIAL_SITE_URL||'').trim();
- if(!/^[a-z0-9]{20}$/.test(ref)||ref===LEGACY_REF)
-  throw Error('Se necesita una referencia de Supabase COMERCIAL distinta de la infraestructura laboral.');
+ if(ref!==PROJECT_REF)
+  throw Error('TU CONTROLAS usa un único proyecto Supabase existente. No se permite crear ni apuntar a otro proyecto.');
  if(!/^sb_publishable_[A-Za-z0-9_-]{24,}$/.test(publishable))
   throw Error('Se necesita una clave publicable del proyecto COMERCIAL. Nunca uses una clave secreta o service_role.');
  if(!rawUrl)throw Error('Indica el dominio HTTPS exclusivo del despliegue comercial.');
@@ -57,7 +59,7 @@ function build({root=__dirname,output=path.join(__dirname,'dist-commercial'),env
    .replaceAll("'tu-controlas-refresh'","'tu-controlas-commercial-refresh'")
    .replaceAll("'tc_refresh_lease'","'tc_commercial_refresh_lease'"));
   if(asset==='account-recovery.js')file=Buffer.from(file.toString('utf8').replaceAll("'"+OLD_SESSION+"'","'"+NEW_SESSION+"'").replaceAll("'elite_session'","'__commercial_legacy_disabled__'"));
-  if(file.toString('utf8').includes(LEGACY_REF)||file.toString('utf8').includes('elite-work-files')||file.toString('utf8').includes(LEGACY_ORIGIN))
+  if(file.toString('utf8').includes('elite-work-files')||file.toString('utf8').includes(LEGACY_ORIGIN))
    throw Error('Recurso con conexión laboral o almacenamiento heredado: '+asset);
   files.set(asset,file);
  }
