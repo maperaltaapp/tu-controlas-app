@@ -21,7 +21,7 @@ begin
   raise exception 'Copia incompatible o de otra cuenta.';
  end if;
  if octet_length(archive::text)>62914560 then raise exception 'Copia demasiado grande.';end if;
- if jsonb_typeof(archive->'tables')<>'object' or jsonb_object_length(archive->'tables')<>array_length(approved,1)
+ if jsonb_typeof(archive->'tables')<>'object' or (select count(*) from jsonb_object_keys(archive->'tables'))<>array_length(approved,1)
  or jsonb_typeof(archive->'counts')<>'object' then raise exception 'La copia no contiene las tablas permitidas.';end if;
  if not exists(select 1 from auth.users u where u.id=uid) then raise exception 'Cuenta de destino no disponible.';end if;
  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(uid::text,8524));
