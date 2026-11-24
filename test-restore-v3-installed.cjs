@@ -51,7 +51,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const restore=async snap=>db.query('select public.tc_restore_empty_owner_v3($1::jsonb) as result',[JSON.stringify(snap)]);
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
  const result=(await restore(archive)).rows[0].result;
- assert.equal(result.restored,true);assert.equal(result.records,Object.values(archive.counts).reduce((s,n)=>s+n,0));assert.equal(result.tables,22);
+ assert.equal(result.restored,true);assert.equal(result.records,Object.values(archive.counts).reduce((s,n)=>s+n,0));assert.equal(result.tables,22);assert.equal(result.verification,'exact_rows_except_generated_ids');
  assert.equal((await db.query('select id from elite_works')).rows[0].id,wA);
  assert.equal((await db.query('select id from elite_tasks')).rows[0].id,tA);
  assert.equal((await db.query('select id,amount from elite_work_economic_entries')).rows[0].id,eA);
@@ -77,7 +77,20 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const mismatch=JSON.parse(JSON.stringify(archive));mismatch.tables.elite_ai_learning_history[0].learning_id=cA;
  await assert.rejects(restore(mismatch),/historial de IA/);
  assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,0);
- await db.exec('reset role;set role anon');
+ // Regression: counts still match if an unexpected trigger changes a valid field.
+ const noOwner=structuredClone(archive);delete noOwner.owner_id;
+ await assert.rejects(restore(noOwner),/otra cuenta/);
+ await db.exec('reset role');
+ await db.exec("create function public.qa_corrupt_cost() returns trigger language plpgsql as $begin new.amount=new.amount+1;return new;end$;create trigger qa_corrupt_cost before insert on public.elite_work_economic_entries for each row execute function public.qa_corrupt_cost();");
+ await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
+ await assert.rejects(restore(archive),/contenido restaurado no coincide/);
+ for(const [table] of Export.sources){
+  const count=(await db.query('select count(*)::int n from public."'+table+'" where user_id=$1',[A])).rows[0].n;
+  assert.equal(count,0,'Atomic rollback in '+table);
+ }
+ await db.exec('reset role');
+ assert.equal((await db.query('select count(*)::int n from elite_private.tc_restore_context_v3')).rows[0].n,0);
+ await db.exec('set role anon');
  await assert.rejects(restore(archive),/permission denied/);
  await db.exec('reset role');
  assert.equal(JSON.stringify((await db.query('select id,name from elite_works where user_id=$1',[B])).rows),beforeB);
