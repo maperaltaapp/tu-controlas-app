@@ -42,9 +42,9 @@ El código aún contiene lógica heredada para almacenar/descargar archivos desd
 - Calidad: escritorio y Android, Gantt, tareas, subcontratas, partes, impresión, conflictos, errores, tiempos de carga y recuperación ante fallos.
 - Publicación: prueba de despliegue real, versión y procedimiento de reversión; autorización del propietario tras superar el control TC-054.
 
-## 6. RGPD y condiciones: BLOQUEANTE
+## 6. RGPD y condiciones: DOCUMENTACIÓN INICIAL / BLOQUEANTE
 
-Elaborar y revisar aviso de privacidad, base jurídica, derechos de los clientes, plazos de conservación, seguridad, comunicación de incidentes, condiciones de servicio, encargados/subencargados (Supabase, eventual IA y hosting), transferencias internacionales aplicables y contratos pertinentes. Preparar los flujos de baja, exportación y supresión. La revisión legal debe ser específica al tratamiento real y no se sustituye por un texto genérico.
+El expediente [PRIVACIDAD-RGPD-V1.md](PRIVACIDAD-RGPD-V1.md) documenta registro de tratamientos, aviso y contrato de encargo preliminares, proveedores, retención propuesta, derechos, acceso excepcional y respuesta a brechas. Pendiente identidad jurídica y canal de privacidad, aprobación de plazos y contratos, revisión legal, condiciones del servicio, controles de baja/supresión y verificación técnica A/B. No publicar el aviso con campos pendientes ni comercializar. La IA está fuera de V1.
 
 Consulta el [Plan priorizado de Drive](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091). Las pruebas físicas y de dos cuentas distintas en el mismo móvil se documentan en `PRUEBAS-PRIVACIDAD-DOS-CUENTAS.md`; las pruebas de lectura bajo identidad sintética no reemplazan ensayos autenticados reales.
 
