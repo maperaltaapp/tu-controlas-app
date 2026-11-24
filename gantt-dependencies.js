@@ -24,4 +24,5 @@ gDependencies=function(id){const rows=gRows(),p=rows.find(p=>p.id===id);if(!p||T
  if(saved)closeTaskDialog();
  else{$('gdError').textContent=G2.message;button.disabled=false}
 };
+};
 })(window);
