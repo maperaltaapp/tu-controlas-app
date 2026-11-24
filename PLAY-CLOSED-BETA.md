@@ -1,0 +1,36 @@
+# TU CONTROLAS — Plan de prueba cerrada de Google Play
+**24/11/2026 — objetivo actual: beta gratuita por invitación, con datos ficticios. No lanzamiento comercial.**
+Se mantiene el único Supabase de TU CONTROLAS y la cuenta de trabajo actual. No crear una segunda base, contratar planes ni abrir registro público. El paquete beta usa un origen HTTPS distinto del prototipo; compartir la base no permite compartir datos. No utilizar información de clientes reales.
+
+## Antes de invitar
+1. Cerrar control de aislamiento A/B: cuentas de prueba separadas, lecturas, cambios y RPC, caché y sesión en Android. Ninguna cuenta debe acceder a la cuenta de uso diario. Verificar también que los roles de administración no se expongan al navegador. No publicar claves privilegiadas.
+2. Paso 8: exportación/inspección V3; recuperación exacta con datos ficticios, errores atómicos y rechazo B. PR #72 en revisión. No habilitar a probadores una RPC que no haya pasado pruebas de restauración con el esquema real. Un archivo exportado no es una copia recuperable certificada. Antes de la beta, decidir bloquear temporalmente la restauración real si no se resuelve, incluyendo permisos del servidor, no solo ocultar un botón.
+3. Confirmar titular real de la beta y correo de privacidad atendido, sin publicar datos personales en GitHub. Aprobar aviso y lista efectiva de proveedores, política de conservación y bajas; validar el trámite de eliminación de cuenta y datos completos con una cuenta ficticia. Puede ser una solicitud gestionada por correo, no requiere borrar al instante desde el dispositivo.
+4. Usar el empaquetado beta en un origen HTTPS distinto; verificar que redirecciones de autenticación, push, cache y enlaces legales funcionan. No publicar el SaaS comercial en GitHub Pages. No se necesita segundo proyecto Supabase.
+5. Construir y firmar Android App Bundle (AAB) con target Android 16/API 36 o el requisito vigente al enviar. El repositorio principal actual es web/PWA, no un proyecto Android firmado. Evaluar TWA (Trusted Web Activity) para conservar la aplicación web y actualizaciones, verificando Digital Asset Links, firma, origen, notificaciones, descargas, retorno OAuth, navegación y calidad móvil. Si no satisface los requisitos, valorar envoltorio nativo con revisión de permisos y dependencias. No fijar identificador de paquete ni generar claves de firma sin confirmar el proyecto de Play Console.
+6. Crear ficha de Play: nombre, descripción, categoría productividad, icono y capturas reales de la versión aprobada, público adulto/profesional, sin anuncios ni compras en beta. Completar clasificación, acceso de revisión (cuenta ficticia controlada, nunca la de trabajo), declaración de seguridad y URL de privacidad/baja. No afirmar que no se recopilan datos: revisar el paquete y los proveedores efectivos.
+7. Prueba cerrada: invitar 15 voluntarios para mantener al menos 12 inscritos durante 14 días consecutivos si aplica el requisito de cuenta personal nueva. Pedir uso real de funciones con información inventada y comentarios. Registrar errores, pasos de reproducción, correcciones y resultados. Tras los 14 días, solicitar acceso a producción solo si se decide comercializar y se cumplen los requisitos. No prometer aprobación automática.
+
+## Paquete web beta (borrador técnico; no desplegado)
+`node play-beta-build.cjs` genera un paquete separado en dist-commercial-play-beta. Reutiliza el constructor seguro de frontend: mantiene el mismo Supabase, elimina código de subida heredado y aísla las sesiones. Genera dos páginas accesibles sin login, `privacidad.html` y `eliminar-cuenta.html`, y añade sus enlaces al acceso y al menú de la app. Requiere variables TC_BETA_CONTROLLER, TC_BETA_PRIVACY_EMAIL, TC_BETA_NOTICE_VERSION más las tres variables del constructor comercial. No almacenar datos identificativos reales ni claves privadas en GitHub; configurar en entorno de despliegue. Los datos de ejemplo de test no son contactos reales. Verificar texto final, URL pública y correo antes de publicar.
+La solicitud por correo **no borra automáticamente**. No afirmar que el mecanismo funciona hasta que el responsable pueda verificar y ejecutar de extremo a extremo una solicitud de prueba. No autorizar la beta con estos controles pendientes.
+
+## Procedimiento de baja manual — antes de abrir la beta
+- Recibir petición desde web o app, confirmar titularidad sin pedir contraseña/códigos. Si no puede acceder al correo, usar procedimiento alternativo de verificación proporcional.
+- Registrar identificador de solicitud, fecha y alcance. Ofrecer exportación si se desea, sin obligar a conservar datos. Desactivar acceso y revocar sesiones de la cuenta objetivo. No usar datos de una obra real como prueba.
+- Técnico: comprobar dependencias de las tablas estructuradas, referencias de IA con FK restrictivas, historial, dispositivos push y adjuntos heredados. No ejecutar un DELETE general; preparar borrado transaccional limitado al UUID verificado, verificar cero filas residuales del titular y que otra cuenta ficticia queda intacta. Borrar Auth con mecanismo administrativo soportado después de limpiar dependencias, no desde el cliente.
+- Restringir copias residuales conforme al plazo del proveedor y documentar supresiones a reaplicar tras recuperar una copia. Comunicar resolución, excepciones de retención y canal de reclamación.
+- Pendiente: demostrar este proceso en cuentas ficticias, incluyendo sesiones revocadas y archivo privado fuera de Supabase.
+
+## Declaración de seguridad — borrador para contraste con paquete final
+Datos de cuenta: email, ID. Contenido generado por el usuario: obras, tareas y notas, fechas, partes e incidencias. Datos financieros: importes que introduce en su gestión de obras (no datos de tarjeta ni compra del servicio). Identificadores de dispositivo cuando se usan avisos push. Revisar diagnósticos/actividad y transmisión de PDFs a librerías externas: determinar si existe recopilación, envío, finalidad, obligatoriedad y si es compartición según las definiciones de Google, no marcar respuestas sin comprobar el binario y los proveedores. HTTPS en tránsito; no cifrado E2E ni declaración no verificada de borrado. No usar datos reales de probadores para análisis o publicidad.
+Antes de publicar, contrastar los detalles de proveedores, transferencias, retención y texto de privacidad con el flujo observado; el paquete generado no equivale a revisión jurídica.
+
+Fuentes oficiales:
+- Pruebas: https://support.google.com/googleplay/android-developer/answer/14151465
+- Eliminación de cuenta: https://support.google.com/googleplay/android-developer/answer/13327111
+- Datos de usuario: https://support.google.com/googleplay/android-developer/answer/10144311
+- Nivel API: https://support.google.com/googleplay/android-developer/answer/11926878
+- Subida de versiones: https://support.google.com/googleplay/android-developer/answer/9859348
+
+**No lanzar aún.** Quedan pruebas A/B, recuperación/baja, paquete Android, dominio, contacto confirmado y verificación en consola. Las mejoras funcionales/visuales posteriores se agruparán en una actualización solicitada por el propietario. No iniciar suscripciones, IA API ni cambios de infraestructura para la beta.
