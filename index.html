@@ -339,6 +339,41 @@ async function exportOwnData(){
  }catch(error){statusMessage('No se pudo exportar: '+error.message,true)}
  finally{tcExportBusy=false;if(button?.isConnected)button.disabled=false}
 }
+async function restoreOwnDataFile(input){
+ const file=input?.files?.[0];if(!file)return;
+ const owner=session?.user?.id,epoch=sessionEpoch;
+ const guard=()=>{
+  if(!owner||!nativeReady||epoch!==sessionEpoch||session?.user?.id!==owner||TCAuth.readSession(localStorage)?.user?.id!==owner)
+   throw Error('La sesión cambió. Recuperación cancelada.');
+ };
+ input.disabled=true;
+ try{
+  guard();
+  const check=await TCRestorePreflight.inspect({
+   file,userId:owner,guard,exportApi:TCBackupV3,
+   read:async(table,query)=>{guard();const rows=await eliteRequest('/rest/v1/'+table+'?'+query);guard();return rows}
+  });
+  guard();
+  if(!check.can_restore_now)throw Error(check.blocked_reasons.join(' ')||'No es seguro recuperar esta copia.');
+  if(!window.confirm('Esta operación recuperará '+check.records+' registros de tu copia V3 en tu cuenta VACÍA. No modifica otras cuentas. ¿Querés continuar?'))return;
+  if(window.prompt('Para recuperar la copia, escribí exactamente RESTAURAR:')!=='RESTAURAR'){
+   statusMessage('Recuperación cancelada. No se modificaron datos.');return;
+  }
+  guard();
+  const archive=JSON.parse(await file.text());guard();
+  await TCBackupV3.verify(archive,owner);guard();
+  const response=await eliteRequest('/rest/v1/rpc/tc_restore_empty_owner_v3',{
+   method:'POST',body:JSON.stringify({archive})
+  });
+  if(!response?.restored||response.owner_id!==owner||response.records!==check.records||response.tables!==22)
+   throw Error('No se confirmó completamente la restauración. Actualizá la app y comprobá los datos antes de reintentar.');
+  if(epoch!==sessionEpoch||session?.user?.id!==owner) return;
+  await load();
+  statusMessage('Recuperación confirmada: '+response.records+' registros de 22 tablas. El historial conserva su contenido, con nuevos identificadores internos. Los documentos externos y las claves de dispositivos no forman parte de la copia.');
+ }catch(error){
+  if(epoch===sessionEpoch)statusMessage('No se pudo recuperar la copia: '+error.message+'. No vuelvas a intentarlo sin comprobar si la cuenta contiene datos.',true);
+ }finally{input.value='';input.disabled=false}
+}
 async function simulateRestoreFile(input){
  const file=input?.files?.[0];if(!file)return;
  const owner=session?.user?.id,epoch=sessionEpoch;
@@ -349,7 +384,7 @@ async function simulateRestoreFile(input){
  };
  try{
   guard();
-  const result=await TCRestorePreflight.inspect({file,userId:owner,guard,exportApi:TCBackupV3,read:async(table,query)=>{guard();const rows=await readAll(table,query);guard();return rows}});
+  const result=await TCRestorePreflight.inspect({file,userId:owner,guard,exportApi:TCBackupV3,read:async(table,query)=>{guard();const rows=await eliteRequest('/rest/v1/'+table+'?'+query);guard();return rows}});
   guard();
   statusMessage('Simulación SIN ESCRITURA: '+result.records+' registros, '+result.table_count+' tablas. '+
    (result.consistency_ok?'Referencias verificadas. ':'La copia tiene '+result.preview_issues.length+' avisos. ')+
@@ -368,11 +403,11 @@ async function inspectBackupFile(input){
   try{result=await TCBackupPreview.inspect({file,userId:owner,exportApi:TCBackupV3})}
   catch(err){if(!/Copia V3 incompatible/.test(err.message))throw err;result=await TCBackupPreview.inspect({file,userId:owner})}
   if(epoch!==sessionEpoch||session?.user?.id!==owner||TCAuth.readSession(localStorage)?.user?.id!==owner)throw Error('La sesión cambió.');
-  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas. Huella SHA-256 correcta.'+(result.issue_count?' Aviso: '+result.issue_count+' incoherencias en referencias o claves (ejemplos: '+result.warnings.slice(0,2).join('; ')+').':' Sin incoherencias detectadas en las relaciones comprobadas.')+' La restauración todavía no está disponible.',!!result.issue_count);
+  statusMessage('Copia verificada localmente: '+result.records+' registros en '+result.table_count+' tablas. Huella SHA-256 correcta.'+(result.issue_count?' Aviso: '+result.issue_count+' incoherencias en referencias o claves (ejemplos: '+result.warnings.slice(0,2).join('; ')+').':' Sin incoherencias detectadas en las relaciones comprobadas.')+(result.version===3?' Recuperación posible solamente en una cuenta vacía, desde «Recuperar copia».':' Las copias antiguas V2 solo se pueden comprobar.'),!!result.issue_count);
  }catch(error){if(epoch===sessionEpoch)statusMessage('No se pudo comprobar la copia: '+error.message,true)}
  finally{input.value='';input.disabled=false}
 }
-function works(){selectSection('works');workDetailId=null;$('title').textContent='Panel de Control';DATA=nativeBoards(true);const ws=DATA.filter(w=>!!w.archived_at===workArchive);$('content').innerHTML=`<div class="task-toolbar"><button class="dark" onclick="openWorkForm()">+ Obra</button><button class="light" id="exportClientData" onclick="exportOwnData()" title="Descargar JSON de datos estructurados propios">Exportar mis datos</button><button class="light" type="button" onclick="document.getElementById('backupCheckInput').click()">Verificar copia</button><input id="backupCheckInput" type="file" accept=".json,application/json" hidden onchange="inspectBackupFile(this)"><button class="light" type="button" onclick="document.getElementById('restoreSimulateInput').click()" title="No modifica datos, no permite restaurar todavía">Simular recuperación</button><input id="restoreSimulateInput" type="file" accept=".json,application/json" hidden onchange="simulateRestoreFile(this)"><button class="light" onclick="workArchive=!workArchive;works()">${workArchive?'Ver activas':'Archivo de obras'}</button></div>${ws.length?renderWorkStateGroups(ws):'<div class="empty-tasks">No hay obras en esta vista.</div>'}`}
+function works(){selectSection('works');workDetailId=null;$('title').textContent='Panel de Control';DATA=nativeBoards(true);const ws=DATA.filter(w=>!!w.archived_at===workArchive);$('content').innerHTML=`<div class="task-toolbar"><button class="dark" onclick="openWorkForm()">+ Obra</button><button class="light" id="exportClientData" onclick="exportOwnData()" title="Descargar JSON de datos estructurados propios">Exportar mis datos</button><button class="light" type="button" onclick="document.getElementById('backupCheckInput').click()">Verificar copia</button><input id="backupCheckInput" type="file" accept=".json,application/json" hidden onchange="inspectBackupFile(this)"><button class="light" type="button" onclick="document.getElementById('restoreSimulateInput').click()" title="No modifica datos, no permite restaurar todavía">Simular recuperación</button><input id="restoreSimulateInput" type="file" accept=".json,application/json" hidden onchange="simulateRestoreFile(this)"><button class="light" type="button" onclick="document.getElementById('restoreApplyInput').click()" title="Solo copias V3 para cuentas sin ningún dato">Recuperar copia</button><input id="restoreApplyInput" type="file" accept=".json,application/json" hidden onchange="restoreOwnDataFile(this)"><button class="light" onclick="workArchive=!workArchive;works()">${workArchive?'Ver activas':'Archivo de obras'}</button></div>${ws.length?renderWorkStateGroups(ws):'<div class="empty-tasks">No hay obras en esta vista.</div>'}`}
 async function saveWorkState(id,select){const work=NATIVE_WORKS.find(w=>w.id===id),state=select.value;if(!work||!Object.hasOwn(WORK_STATES,state)){select.value=work?workState(work):'';statusMessage('Elige el estado de la obra.',true);return}select.disabled=true;try{const rows=await eliteRequest('/rest/v1/elite_works?id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(work.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({execution_state:state})});if(!rows?.length)throw Error('La obra cambió en otro dispositivo. Actualiza y vuelve a intentarlo.');await load();detail(id);statusMessage('Estado de obra guardado.')}catch(e){select.value=workState(work);statusMessage(e.message,true)}finally{select.disabled=false}}
 function safeChatUrl(value){if(!value)return '';try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='chatgpt.com'&&!u.username&&!u.password?u.href:''}catch{return ''}}
 function dialogForm(html){closeTaskDialog();const d=document.createElement('dialog');d.id='taskDialog';d.className='task-dialog';d.innerHTML=html;document.body.appendChild(d);d.addEventListener('cancel',()=>d.remove());$('closeTask').onclick=closeTaskDialog;d.showModal();return d}
