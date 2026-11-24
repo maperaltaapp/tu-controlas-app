@@ -78,6 +78,9 @@ begin
     tasks_done:=tasks_done+1;
    end loop;
    if tasks_done<>task_count then raise exception 'Dependencias cíclicas o incompletas entre tareas.';end if;
+  elsif table_name='elite_plan_versions' then
+   -- Archived plan revisions also use GENERATED ALWAYS identity IDs.
+   execute 'insert into public.elite_plan_versions overriding system value select * from jsonb_populate_recordset(null::public.elite_plan_versions,$1)' using rows;
   elsif table_name='elite_history' then
    -- Works/tasks created earlier in THIS transaction trigger synthetic audit rows.
    -- The owner had no pre-existing history (checked under lock above).
