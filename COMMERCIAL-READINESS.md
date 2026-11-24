@@ -1,12 +1,12 @@
 # TU CONTROLAS — Control de lanzamiento comercial
 
-**Estado al 23/11/2026: NO APTO PARA COMERCIALIZACIÓN.** El hecho de incorporar exportación sin escritura no cierra los bloqueos siguientes.
+**Estado al 24/11/2026: NO APTO PARA COMERCIALIZACIÓN.** El hecho de incorporar exportación sin escritura no cierra los bloqueos siguientes.
 
 Este registro distingue **código fusionado**, **funciones probadas localmente**, **despliegue público comprobado** y **apto para clientes reales**. Una prueba automatizada en PGlite no certifica que dos usuarios reales no puedan acceder a datos ajenos.
 
-## 1. Infraestructura única TU CONTROLAS: IDENTIDAD PENDIENTE (TC-010)
+## 1. Infraestructura única TU CONTROLAS: IDENTIDAD VERIFICADA (TC-010)
 
-**Decisión 24/11/2026:** conservar el único proyecto Supabase existente (referencia `vyswxgbbqyffnduhhrvz`) y todos los registros de la cuenta que utiliza TU CONTROLAS diariamente. **NO crear otro proyecto, NO migrar obras, NO borrar datos, NO cambiar las URLs ni las claves del frontend.** El nombre visible histórico «App Obras Elite» debe cambiarse en Supabase Dashboard por «TU CONTROLAS»; no hay acción de renombrado disponible en el conector. Un cambio de nombre visible no exige modificar las tablas técnicas `elite_*`.
+**Decisión 24/11/2026:** conservar el único proyecto Supabase existente (referencia `vyswxgbbqyffnduhhrvz`) y todos los registros de la cuenta que utiliza TU CONTROLAS diariamente. **NO crear otro proyecto, NO migrar obras, NO borrar datos, NO cambiar las URLs ni las claves del frontend.** El 24/11 se verificó mediante el listado de proyectos que el único proyecto tiene el nombre visible «TU CONTROLAS», conserva la referencia indicada y está ACTIVE_HEALTHY. Un cambio de nombre visible no exige modificar las tablas técnicas `elite_*`.
 
 **Condiciones de aceptación:** comprobar después del renombrado visual que la referencia del proyecto y los datos permanecen iguales, y que la cuenta entra y trabaja con Tareas, Gantt, Partes e Incidencias sin interrupciones. Inventariar por separado las Edge Functions históricas y adjuntos existentes; no eliminarlos por su nombre. Mantener un solo proyecto Supabase para los múltiples clientes y aplicar RLS comprobada, sin confundir prefijos heredados con aislamiento de usuarios.
 
@@ -24,7 +24,9 @@ La **exportación V3** ya opera en TU CONTROLAS sobre un único Supabase: una RP
 
 En Obras están **Exportar mis datos, Verificar copia y Simular recuperación**. La simulación lee el JSON, revisa integridad, claves y si existen datos en la cuenta; **no realiza escrituras**. La V3 no se convierte automáticamente en una restauración disponible: recuperar datos necesita controles de claves foráneas, concurrencia, secuencias e historiales.
 
-El SQL `restore-empty-owner-v3.sql` y el test `test-restore-v3.cjs` preparan una recuperación transaccional de 22 tablas **únicamente para cuentas vacías**. Comparan los registros restituidos exactamente con los del archivo y revierten en bloque si los triggers reescriben cualquier dato o si hay referencias incorrectas. **No desplegar ni conceder EXECUTE** hasta superar regresiones realistas con triggers de producción y dos cuentas A/B auténticas. Los triggers actuales de tareas/IA actualizan sellos de tiempo, estados e historiales, por lo que un importador que los ignore dañaría la copia. No habilitar ninguna función de restauración mientras haya esas diferencias.
+**Estado comprobado el 24/11:** PR #71 fusionada, QA de GitHub Actions nº 128 correcta; `tc_restore_empty_owner_v3(jsonb)` está instalada y ejecutable por authenticated, no por anon. La UI permite recuperación de una cuenta vacía con confirmaciones. Las pruebas PGlite A/B no equivalen a una prueba real. El SQL instalado comprueba recuentos y regenera cuatro IDs históricos globales. El borrador anterior `restore-empty-owner-v3.sql` no debe desplegarse en su lugar.
+
+**Refuerzo propuesto, no desplegado:** comprobación de igualdad de todos los campos de todas las filas salvo los cuatro IDs históricos regenerados; rollback si un trigger altera el contenido sin variar los recuentos; rechazo de metadatos de propietario ausentes. La rama `qa/step8-exact-restore-verification` incorpora la regresión de modificación de un coste y comprueba que no quede ninguna fila del cliente restaurado. No fusionar ni aplicar SQL en producción hasta QA verde y revisión de la compatibilidad con el esquema real.
 
 **Criterio de cierre:** restauración real individual verificada con dos usuarios A/B y datos de ejemplo, sin pérdida de registros ni interferencia en otro cliente; bloqueo de sobreescritura, aceptación de fallos, idempotencia y rollback exactos; comprobar accesos físicos en PC y Android. Hasta entonces V1 no se comercializa.
 
