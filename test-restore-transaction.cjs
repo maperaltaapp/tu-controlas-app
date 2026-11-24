@@ -14,6 +14,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
    'daily-report-activities.sql','gantt-client-dates.sql','gantt-reopen-progress.sql',
    'task-order.sql','delete-work.sql','tenant-reference-constraints.sql','economic-entries-schema.sql'];
   for(const file of migrations)await db.exec(fs.readFileSync(file,'utf8'));
+  // Some operational tables were provisioned outside the historical migration fixtures.
+  // Model their actual production columns without altering production itself.
+  await db.exec("create table if not exists public.elite_capacity_reviews(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),alert_key text not null,approved_at timestamptz not null default now());");
   await db.exec(fs.readFileSync('restore-empty-owner-v2.sql','utf8'));
   const src=fs.readFileSync('restore-empty-owner-v2.sql','utf8');
   assert.match(src,/security definer set search_path=''/i);
