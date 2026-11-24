@@ -22,7 +22,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   assert.match(src,/security definer set search_path=''/i);
   assert.match(src,/pg_advisory_xact_lock/);
   assert.match(src,/Copia incompatible o de otra cuenta/);
-  assert(!src.includes('truncate table')&&!src.includes('delete from public.'));
+  assert(!src.includes('truncate table'));assert.match(src,/delete from public\.elite_history where user_id=uid/);
   await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[A,'a@qa.invalid',B,'b@qa.invalid']);
   const wA=(await db.query("insert into public.elite_works(user_id,name) values($1,'Prueba A') returning id",[A])).rows[0].id;
   const wB=(await db.query("insert into public.elite_works(user_id,name) values($1,'Prueba B') returning id",[B])).rows[0].id;
@@ -42,11 +42,12 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
   const restore=async(snap)=>db.query('select public.tc_restore_empty_owner_v2($1::jsonb) as result',[JSON.stringify(snap)]);
   let result=(await restore(archive.snapshot)).rows[0].result;
-  assert.equal(result.restored,true);assert.equal(result.records,2);assert.equal(result.tables,16);
+  assert.equal(result.restored,true);assert.equal(result.records,4);assert.equal(result.tables,16);
   assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from elite_tasks')).rows[0].n,1);
   assert.equal((await db.query('select id from elite_works')).rows[0].id,wA);
   assert.equal((await db.query('select id from elite_tasks')).rows[0].id,taskA);
+  assert.equal((await db.query('select count(*)::int n from elite_history')).rows[0].n,archive.snapshot.tables.elite_history.length,'No duplicate history after restore');
   await assert.rejects(restore(archive.snapshot),/ya contiene datos/);
   await db.exec('reset role');
   assert.equal(JSON.stringify((await db.query('select id,name from elite_works where user_id=$1',[B])).rows),beforeB);
