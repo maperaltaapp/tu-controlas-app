@@ -48,6 +48,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  await db.exec('reset role');
  const clear=async()=>{for(const t of ['elite_ai_correction_history','elite_ai_learning_history','elite_ai_corrections','elite_ai_learnings','elite_ai_agent_settings','elite_work_economic_entries','elite_work_plans','elite_tasks','elite_history','elite_works'])await db.query('delete from public."'+t+'" where user_id=$1',[A])};
  await clear();
+ await db.exec(fs.readFileSync('restore-metadata-guard-v3-candidate.sql','utf8'));
  const restore=async snap=>db.query('select public.tc_restore_empty_owner_v3($1::jsonb) as result',[JSON.stringify(snap)]);
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
  const result=(await restore(archive)).rows[0].result;
