@@ -12,18 +12,15 @@ TU CONTROLAS es un producto profesional independiente de ChatGPT, preparado para
 
 ## Infraestructura y aislamiento de pruebas
 
-Repositorio de este producto: `maperaltaapp/tu-controlas-app`. Proyecto Supabase configurado en el frontend: `vyswxgbbqyffnduhhrvz`. No cambiar otros repositorios, proyectos ni la aplicación laboral por asociación con el nombre histórico «Élite».
+Repositorio del producto: `maperaltaapp/tu-controlas-app`. **Única base de datos Supabase** configurada en el frontend: `vyswxgbbqyffnduhhrvz`. Por decisión del propietario de 24/11/2026 deben conservarse su cuenta y todos los datos existentes; no crear otra infraestructura ni realizar migraciones de obras. La etiqueta visible «App Obras Elite» es histórica y debe renombrarse «TU CONTROLAS» desde el panel Supabase sin cambiar la referencia ni las claves. Las tablas y funciones `elite_*` siguen siendo identificadores técnicos: no renombrarlos sin compatibilidad.
 
 `npm run qa:gantt` usa PostgreSQL/PGlite local, identidades ficticias y una clave de prueba. La página generada utiliza su propio origen y una política que limita las conexiones a ese origen. Nunca cargar datos reales como fixtures públicos. `.gantt-qa-data` y `.gantt-qa-public` quedan fuera de Git.
 
-No está certificada una separación física entre este proyecto Supabase y cualquier despliegue laboral que no se haya inventariado. No migrar, renombrar tablas ni extraer obras basándose solo en sus nombres. Cotejar titularidad y dependencias antes de una separación de infraestructura.
+El único proyecto Supabase se dedica a TU CONTROLAS; **no existe proyecto laboral separado que deba preservarse**. Inventariar funciones antiguas y adjuntos privados antes de desactivarlos, porque una baja precipitada podría cortar funciones activas. Los clientes futuros comparten este Supabase con RLS; el lanzamiento requiere origen web comercial separado, pero nunca otra base.
 
 ## Prioridad y cambios
 
-La primera pestaña del [Plan priorizado](https://docs.google.com/spreadsheets/d/1bQD7XW5TgsmCUm1sfJwDpaaE6TLEy8KcsHPT4yTAYWA/edit#gid=1462274091) agrupa 64 trabajos en **Pendiente / Bloqueado / Hecho**. `Hecho` exige evidencia de pruebas y aceptación; código fusionado pero no verificado en Android permanece `Pendiente`. Los bloqueados requieren una dependencia externa o la validación final. La hoja `Pendientes` conserva auditoría y orden histórico. Mantener ambos registros actualizados al fusionar cambios.
-
-
-El backlog vigente está en Drive, «TU CONTROLAS — Mejoras pendientes». Seguir sus prioridades, con incidencias críticas de acceso/datos primero y las instrucciones nuevas del propietario por encima de especificaciones anteriores. No marcar Verificado usando solo pruebas estáticas o una simulación táctil.
+El único plan de cierre vigente es [«TU CONTROLAS — Plan de cierre V1»](https://docs.google.com/spreadsheets/d/13fnzMwmsr6D_sbq9igPaqkXHhBn6SmrGZwSv42YlL1Y/edit), con diez pasos. Las mejoras posteriores van a la pestaña «Después de V1»; el archivo antiguo es histórico. No marcar cerradas tareas que carecen de aceptación real Android/PC o pruebas de cuentas A/B. Proteger los datos de la cuenta que trabaja a diario.
 
 «Tareas de Gantt» es un grupo del listado Activas (corrección del 21/11/2026), no una pestaña ni una vista separada. Las actividades se excluyen de Hoy, Vencidas, Próximas y Sin fecha para evitar duplicados. Se proyectan desde el plan, con sus nombres y fechas canónicos. Hojas e hitos conservan el identificador de su tarea y su casilla; los contenedores son referencias no completables. No crear registros al navegar. Completar sincroniza actividad, tarea y Panel; reabrir recupera el avance previo o requiere una medición explícita.
 
