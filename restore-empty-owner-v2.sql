@@ -25,6 +25,8 @@ begin
  or jsonb_typeof(archive->'counts')<>'object' then raise exception 'La copia no contiene las tablas permitidas.';end if;
  if not exists(select 1 from auth.users u where u.id=uid) then raise exception 'Cuenta de destino no disponible.';end if;
  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(uid::text,8524));
+ -- Serialize this owner's new rows (FK references auth.users) during the short recovery.
+ perform 1 from auth.users where id=uid for update;
  -- No merging, no updates and no deletions. All owner tables must be empty.
  foreach table_name in array approved loop
   execute pg_catalog.format('select count(*) from public.%I where user_id=$1',table_name)
@@ -76,6 +78,12 @@ begin
     tasks_done:=tasks_done+1;
    end loop;
    if tasks_done<>task_count then raise exception 'Dependencias cíclicas o incompletas entre tareas.';end if;
+  elsif table_name='elite_history' then
+   -- Works/tasks created earlier in THIS transaction trigger synthetic audit rows.
+   -- The owner had no pre-existing history (checked under lock above).
+   -- Restore exact source history, not duplicates created by the reconstruction.
+   delete from public.elite_history where user_id=uid;
+   execute 'insert into public.elite_history overriding system value select * from jsonb_populate_recordset(null::public.elite_history,$1)' using rows;
   else
    execute pg_catalog.format(
     'insert into public.%I select * from jsonb_populate_recordset(null::public.%I,$1)',
