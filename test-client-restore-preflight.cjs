@@ -32,6 +32,23 @@ const fake=(json)=>({size:Buffer.byteLength(json),text:async()=>json});
  assert.equal(bad.consistency_ok,false);assert(bad.blocked_reasons.some(x=>x.includes('inconsistentes')));
  let checks=0;
  await assert.rejects(Rest.inspect({file:fake(build.json),userId:A,read:async()=>[],guard:()=>{if(++checks===4)throw Error('Cuenta cambiada')}}),/Cuenta cambiada/);
+ // V3 supports guarded recovery ONLY if the owner has no server data.
+ const V3=require('./client-backup-v3.js');
+ const rows3={};
+ for(const [name] of V3.sources)rows3[name]=[];
+ rows3.elite_works=[{id:W,user_id:A,name:'Obra ficticia'}];
+ const full=await V3.build({userId:A,read:async()=>({
+   owner_id:A,exported_at:'2026-11-24T18:00:00Z',
+   tables:rows3,counts:Object.fromEntries(Object.keys(rows3).map(k=>[k,rows3[k].length]))
+ })});
+ const valid3=await Rest.inspect({file:fake(full.json),userId:A,exportApi:V3,read:async()=>[]});
+ assert.equal(valid3.can_restore_now,true);assert.equal(valid3.restoration_supported,true);
+ assert.equal(valid3.table_count,22);
+ assert.equal(valid3.blocked_reasons.length,0);
+ const occupied3=await Rest.inspect({file:fake(full.json),userId:A,exportApi:V3,
+  read:async table=>table==='elite_work_economic_entries'?[{user_id:A}]:[]});
+ assert.equal(occupied3.can_restore_now,false);
+ assert(occupied3.blocked_reasons.some(x=>x.includes('ya contiene datos')));
  const code=fs.readFileSync('client-restore-preflight.js','utf8');
  assert.doesNotMatch(code,/fetch\(|\.insert\(|\.update\(|\.delete\(|eliteRequest\(|\/rest\/v1\//);
  assert(!code.includes('service_role'));
@@ -40,5 +57,12 @@ const fake=(json)=>({size:Buffer.byteLength(json),text:async()=>json});
  assert.match(html,/Simular recuperación/);
  assert.match(html,/TCRestorePreflight\.inspect/);
  assert.match(html,/No se han restaurado/);
+ assert.match(html,/id="restoreApplyInput"/);
+ assert.match(html,/function restoreOwnDataFile\(/);
+ assert.match(html,/check\.can_restore_now/);
+ assert.match(html,/TCBackupV3\.verify\(archive,owner\)/);
+ assert.match(html,/tc_restore_empty_owner_v3/);
+ assert.match(html,/window\.prompt\('Para recuperar la copia, escribí exactamente RESTAURAR/);
+ assert.match(html,/response\.owner_id!==owner/);
  console.log('PASS: dry-run preflight requires owner-signed archive, SHA, consistent references and empty owner account; no mutations or tenant writes');
 })().catch(e=>{console.error(e);process.exitCode=1});
