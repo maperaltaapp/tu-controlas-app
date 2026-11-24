@@ -7,13 +7,14 @@ create table if not exists elite_private.tc_restore_context (
 );
 revoke all on elite_private.tc_restore_context from public,anon,authenticated;
 alter table elite_private.tc_restore_context enable row level security;
-create or replace function elite_private.tc_restore_active(expected_owner uuid)
+create or replace function public.tc_restore_active(expected_owner uuid)
 returns boolean language sql stable security definer set search_path='' as $q$
 select expected_owner is not null and expected_owner=(select auth.uid()) and exists(
  select 1 from elite_private.tc_restore_context c where c.owner_id=expected_owner and c.txid=pg_catalog.txid_current()
 );
 $q$;
-revoke all on function elite_private.tc_restore_active(uuid) from public,anon,authenticated;
+revoke all on function public.tc_restore_active(uuid) from public,anon,authenticated;
+grant execute on function public.tc_restore_active(uuid) to authenticated;
 
 -- Verify source versions BEFORE replacing any function, so no partial deployment occurs.
 do $audit$
@@ -39,7 +40,7 @@ CREATE OR REPLACE FUNCTION elite_private.audit_ai_correction()
  SET search_path TO 'pg_catalog', 'public', 'elite_private'
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return null;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return null;end if; -- only trusted owner transaction
  insert into public.elite_ai_correction_history(correction_id,user_id,version,old_status,new_status,snapshot)
  values(new.id,new.user_id,new.version,
    case when TG_OP='UPDATE' then old.status else null end, new.status,to_jsonb(new));
@@ -55,7 +56,7 @@ CREATE OR REPLACE FUNCTION elite_private.economic_activity_guard()
  SET search_path TO ''
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if new.kind in ('budget','actual') and not exists(
   select 1 from public.elite_work_plans p,
     jsonb_array_elements(p.phases) a
@@ -76,7 +77,7 @@ CREATE OR REPLACE FUNCTION elite_private.gantt_work_calendar_guard()
 AS $function$
 declare expected jsonb;p jsonb;q jsonb;
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if new.working_calendar is null then return new;end if;
  perform elite_private.work_calendar_validate(new.working_calendar);
  if coalesce((new.working_calendar->>'inherit_holidays')::boolean,false) and new.working_calendar is distinct from elite_private.shared_calendar(new.working_calendar,(new.working_calendar->>'anchor')::date,new.user_id) then raise exception 'Los festivos comunes cambiaron. Actualiza antes de guardar.';end if;
@@ -97,7 +98,7 @@ CREATE OR REPLACE FUNCTION elite_private.native_guard()
  SET search_path TO ''
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if tg_op='UPDATE' then new.user_id:=old.user_id; new.created_at:=old.created_at; end if;
  new.updated_at:=now();
  if tg_table_name='elite_tasks' then
@@ -122,7 +123,7 @@ CREATE OR REPLACE FUNCTION elite_private.native_history()
 AS $function$
 declare changed jsonb; heading text;
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  heading:=coalesce(to_jsonb(new)->>'title',to_jsonb(new)->>'name','');
  if tg_op='UPDATE' then
   select coalesce(jsonb_agg(key),'[]'::jsonb) into changed from jsonb_each(to_jsonb(new)) where value is distinct from to_jsonb(old)->key and key not in ('updated_at','revision');
@@ -141,7 +142,7 @@ CREATE OR REPLACE FUNCTION elite_private.record_ai_learning()
  SET search_path TO 'pg_catalog', 'public', 'elite_private'
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return null;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return null;end if; -- only trusted owner transaction
   insert into public.elite_ai_learning_history(learning_id,user_id,version,old_status,new_status,snapshot)
   values(new.id,new.user_id,new.version,case when tg_op='UPDATE' then old.status else null end,
          new.status,to_jsonb(new));
@@ -158,7 +159,7 @@ CREATE OR REPLACE FUNCTION elite_private.stamp_ai_correction()
  SET search_path TO 'pg_catalog', 'public', 'elite_private'
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if exists(
   select 1 from elite_private.tc_restore_context_v3 c
   where c.txid=pg_catalog.txid_current_if_assigned()
@@ -192,7 +193,7 @@ CREATE OR REPLACE FUNCTION elite_private.sync_plan_work_dates()
 AS $function$
 DECLARE first_day date; last_day date;
 BEGIN
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  SELECT min((p->>'start')::date),max((p->>'end')::date) INTO first_day,last_day
  FROM jsonb_array_elements(NEW.phases) p;
  IF first_day IS NOT NULL AND last_day IS NOT NULL THEN
@@ -214,7 +215,7 @@ CREATE OR REPLACE FUNCTION elite_private.track_ai_learning()
  SET search_path TO 'pg_catalog', 'public', 'elite_private'
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if exists(
   select 1 from elite_private.tc_restore_context_v3 c
   where c.txid=pg_catalog.txid_current_if_assigned()
@@ -249,7 +250,7 @@ CREATE OR REPLACE FUNCTION public.elite_control_registry_snapshot()
 AS $function$
 declare p public.elite_contractors;
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if new.contractor_id is null then raise exception 'Selecciona un proveedor o subcontrata del registro';end if;
  select * into p from public.elite_contractors where id=new.contractor_id and user_id=new.user_id;
  if not found then raise exception 'Proveedor no disponible para esta cuenta';end if;
@@ -264,7 +265,7 @@ CREATE OR REPLACE FUNCTION public.elite_control_task_guard()
  SET search_path TO ''
 AS $function$
 begin
- if elite_private.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
+ if public.tc_restore_active(new.user_id) then return new;end if; -- only trusted owner transaction
  if tg_op='UPDATE' and (new.control_id,new.control_step) is distinct from (old.control_id,old.control_step) then
   raise exception 'No se puede cambiar la vinculación de una etapa';
  end if;
