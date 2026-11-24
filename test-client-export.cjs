@@ -62,12 +62,12 @@ const fixedTime=new Date('2026-11-22T12:00:00.000Z');
  const exportHandler=html.slice(html.indexOf('async function exportOwnData()'),html.indexOf('async function inspectBackupFile('));
  assert.ok(exportHandler.includes('window.confirm'),'Sensitive backup must require explicit acknowledgement');
  assert.ok(exportHandler.includes('SIN CIFRAR'),'User must be told the export is not encrypted');
- assert.ok(exportHandler.indexOf('window.confirm')<exportHandler.indexOf('TCExport.build'),'Do not read data if the user cancels');
+ assert.ok(exportHandler.indexOf('window.confirm')<exportHandler.indexOf('TCBackupV3.build'),'Do not read data if the user cancels');
  assert.ok(html.includes('elimina la copia de Descargas'),'Shared-phone export warning must explain deletion');
 
  assert.ok(html.includes('const owner=session.user.id,epoch=sessionEpoch'));
  assert.ok(html.includes('readAll(table,query)'));
- assert.ok(html.includes('await TCExport.verify(result.snapshot,owner)'));
+ assert.ok(html.includes('await TCBackupV3.verify(result.snapshot,owner)'));
  assert.ok(html.includes('active?.user?.id!==owner'));
  assert.ok(!html.includes("localStorage.setItem('elite_session'"));
  console.log('PASS: 16 owner-scoped core tables, SHA-256 integrity, no historical AI/password/push data, session change, download');
