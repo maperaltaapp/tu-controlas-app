@@ -17,10 +17,11 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  guard();
  if(candidate.owner_id!==userId)throw Error('La copia es de otra cuenta.');
  const registered=exportApi.sources.map(pair=>pair[0]);
- if(registered.length!==TABLE_ORDER.length||new Set(registered).size!==TABLE_ORDER.length||
-    !TABLE_ORDER.every(table=>registered.includes(table)))throw Error('Versión de exportación no compatible con esta simulación.');
+ const order=candidate.version===3&&exportApi===root.TCBackupV3?registered:TABLE_ORDER;
+ if(registered.length!==order.length||new Set(registered).size!==order.length||
+    !order.every(table=>registered.includes(table)))throw Error('Versión de exportación no compatible con esta simulación.');
  const counters=Object.create(null);let currentTotal=0;
- for(const table of TABLE_ORDER){
+ for(const table of order){
   guard();
   // Only one owner row per table is needed; never download all private records.
   const rows=await read(table,'user_id=eq.'+encodeURIComponent(userId)+'&select=user_id&limit=1');
@@ -32,7 +33,7 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  }
  // Some structured or economic records are omitted from export v2. A full
  // recovery cannot be claimed while these auxiliary tables may hold data.
- for(const table of ['elite_work_economic_entries','elite_ai_learnings','elite_ai_corrections']){
+ for(const table of ['elite_work_economic_entries','elite_ai_learnings','elite_ai_corrections'].filter(t=>!order.includes(t))){
   guard();const rows=await read(table,'user_id=eq.'+encodeURIComponent(userId)+'&select=user_id&limit=1');
   guard();
   if(!Array.isArray(rows)||rows.some(v=>!v||v.user_id!==userId))throw Error('No se pudo verificar la tabla complementaria '+table+'.');
