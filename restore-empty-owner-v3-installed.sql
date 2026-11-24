@@ -1,3 +1,4 @@
+-- CANDIDATE: exact-row verification; NOT deployed until QA and review.
 -- TU CONTROLAS V3: restores ONLY an EMPTY owner's structured data, in one transaction.
 -- No DELETE/UPDATE of any other account. Never apply to a live account with works.
 -- Requires restore-ai-context-v3.sql to preserve historical AI status/version/time.
@@ -21,15 +22,15 @@ declare
 begin
  if uid is null then raise exception 'Necesitas iniciar sesión para recuperar una copia.'; end if;
  if archive is null or pg_catalog.jsonb_typeof(archive)<>'object'
-  or archive->>'format'<>'tu-controlas-structured-export'
-  or archive->>'version'<>'3'
-  or archive->>'owner_id'<>uid::text then
+  or archive->>'format' is distinct from 'tu-controlas-structured-export'
+  or archive->>'version' is distinct from '3'
+  or archive->>'owner_id' is distinct from uid::text then
   raise exception 'La copia es incompatible o pertenece a otra cuenta.';
  end if;
  if pg_catalog.octet_length(archive::text)>62914560 then
   raise exception 'La copia excede el tamaño permitido.';end if;
- if pg_catalog.jsonb_typeof(archive->'tables')<>'object'
-  or pg_catalog.jsonb_typeof(archive->'counts')<>'object'
+ if pg_catalog.jsonb_typeof(archive->'tables') is distinct from 'object'
+  or pg_catalog.jsonb_typeof(archive->'counts') is distinct from 'object'
   or (select count(*) from pg_catalog.jsonb_object_keys(archive->'tables'))<>22
   or (select count(*) from pg_catalog.jsonb_object_keys(archive->'counts'))<>22
   or exists(select 1 from pg_catalog.jsonb_object_keys(archive->'tables') name
@@ -50,7 +51,7 @@ begin
    raise exception 'La cuenta ya tiene información. No se sobrescribe ni fusiona nada.';
   end if;
   rows:=archive->'tables'->tbl;
-  if pg_catalog.jsonb_typeof(rows)<>'array'
+  if pg_catalog.jsonb_typeof(rows) is distinct from 'array'
    or archive->'counts'->>tbl is null
    or archive->'counts'->>tbl !~ '^[0-9]+$'
    or (archive->'counts'->>tbl)::integer<>pg_catalog.jsonb_array_length(rows) then
@@ -153,19 +154,26 @@ begin
    end if;
   end if;
  end loop;
- -- Prove the resulting client table counts match all archived row counts.
+ -- Compare complete row multisets, excluding ONLY globally regenerated history IDs.
+ -- A trigger changing any other archived field must cause complete rollback.
  foreach tbl in array approved loop
-  execute pg_catalog.format('select count(*) from public.%I where user_id=$1',tbl)
-   into n using uid;
-  if n<>(archive->'counts'->>tbl)::integer then
-   raise exception 'Restauración incompleta en %, operación revertida.',tbl;
+  rows:=archive->'tables'->tbl;
+  if tbl=any(array['elite_history','elite_plan_versions','elite_ai_learning_history','elite_ai_correction_history']) then
+   execute pg_catalog.format(
+    'select count(*) from ((select value - ''id'' as obj from pg_catalog.jsonb_array_elements($1) except all select pg_catalog.to_jsonb(t) - ''id'' from public.%I t where t.user_id=$2) union all (select pg_catalog.to_jsonb(t) - ''id'' from public.%I t where t.user_id=$2 except all select value - ''id'' from pg_catalog.jsonb_array_elements($1))) diff',
+    tbl,tbl) into n using rows,uid;
+  else
+   execute pg_catalog.format(
+    'select count(*) from ((select value as obj from pg_catalog.jsonb_array_elements($1) except all select pg_catalog.to_jsonb(t) from public.%I t where t.user_id=$2) union all (select pg_catalog.to_jsonb(t) from public.%I t where t.user_id=$2 except all select value from pg_catalog.jsonb_array_elements($1))) diff',
+    tbl,tbl) into n using rows,uid;
   end if;
+  if n<>0 then raise exception 'El contenido restaurado no coincide con la copia en %. Operación revertida.',tbl;end if;
  end loop;
  delete from elite_private.tc_restore_context_v3
   where txid=pg_catalog.txid_current() and backend_pid=pg_catalog.pg_backend_pid() and user_id=uid;
  return pg_catalog.jsonb_build_object(
   'restored',true,'owner_id',uid,'records',total,'tables',22,
-  'mode','empty_account_only','history_ids','regenerated_safely');
+  'mode','empty_account_only','history_ids','regenerated_safely','verification','exact_rows_except_generated_ids');
 end $restore$;
 revoke all on function public.tc_restore_empty_owner_v3(jsonb) from public,anon,authenticated;
 grant execute on function public.tc_restore_empty_owner_v3(jsonb) to authenticated;
