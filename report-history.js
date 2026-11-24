@@ -14,9 +14,9 @@ const previousSelect=selectSection;selectSection=function(...args){navigation++;
 const previousEnd=sessionViewEnded;sessionViewEnded=function(...args){generation++;filters={kind:'all',day:'',from:'',to:''};return previousEnd(...args)};
 openFollowup=async function(){
  if(!session?.access_token||!nativeReady)return;
- const epoch=sessionEpoch,request=++generation;
+ const epoch=sessionEpoch,owner=session?.user?.id||null,request=++generation;
  mode='followup';workDetailId=null;selectSection('followup');
- const nav=navigation,current=()=>epoch===sessionEpoch&&request===generation&&nav===navigation&&mode==='followup'&&selectedSection==='followup';
+ const nav=navigation,current=()=>!!owner&&!!session?.access_token&&owner===session?.user?.id&&epoch===sessionEpoch&&request===generation&&nav===navigation&&mode==='followup'&&selectedSection==='followup';
  $('title').textContent='Partes';$('content').innerHTML='<section class="panel"><p role="status">Cargando partes…</p></section>';
  try{const reports=await readAll('elite_daily_reports','order=report_date.desc,id.asc');if(!current())return;DAILY_REPORTS=reports;renderFollowup();}
  catch(error){if(!current())return;$('content').innerHTML=`<section class="panel"><p class="err" role="alert">No se pudieron cargar los partes: ${esc(error.message)}</p><button id="reportRetry" class="light">Reintentar</button></section>`;$('reportRetry').onclick=()=>openFollowup();}
