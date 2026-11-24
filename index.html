@@ -335,7 +335,7 @@ async function exportOwnData(){
   const result=await TCBackupV3.build({userId:owner,guard,read:async()=>{guard();const data=await eliteRequest('/rest/v1/rpc/tc_export_owner_v3',{method:'POST',body:'{}'});guard();return data}});
   guard();await TCBackupV3.verify(result.snapshot,owner);guard();
   TCBackupV3.download(result);
-  statusMessage('Copia V3 descargada: '+result.records+' registros en 22 tablas, incluidos costes. Contiene datos privados SIN CIFRAR; guarda el archivo fuera de Descargas si compartes el móvil. Los documentos de Drive o PC no están incluidos.');
+  statusMessage('Copia V3 descargada: '+result.records+' registros en 22 tablas, incluidos costes. Contiene datos privados SIN CIFRAR; guarda el archivo fuera de Descargas si compartes el móvil. Los documentos de Drive o PC no están incluidos. Por privacidad, elimina la copia de Descargas después de guardarla en un lugar seguro.');
  }catch(error){statusMessage('No se pudo exportar: '+error.message,true)}
  finally{tcExportBusy=false;if(button?.isConnected)button.disabled=false}
 }
