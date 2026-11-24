@@ -59,9 +59,10 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const correction=(await db.query('select status,version from elite_ai_corrections')).rows[0];assert.equal(correction.status,'confirmed');assert.equal(correction.version,2);
  assert.equal((await db.query('select count(*)::int n from elite_ai_learning_history')).rows[0].n,archive.tables.elite_ai_learning_history.length);
  assert.equal((await db.query('select count(*)::int n from elite_ai_correction_history')).rows[0].n,archive.tables.elite_ai_correction_history.length);
- assert.equal((await db.query('select count(*)::int n from elite_private.tc_restore_context_v3')).rows[0].n,0);
+ await assert.rejects(db.query('select count(*) from elite_private.tc_restore_context_v3'),/permission denied/,'Private restore context must not be visible to customers');
  await assert.rejects(restore(archive),/ya tiene información/);
  await db.exec('reset role');
+ assert.equal((await db.query('select count(*)::int n from elite_private.tc_restore_context_v3')).rows[0].n,0,'Restore transaction guard must be removed');
  assert.equal(JSON.stringify((await db.query('select id,name from elite_works where user_id=$1',[B])).rows),beforeB);
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+B+"';");
  await assert.rejects(restore(archive),/otra cuenta/);
