@@ -44,19 +44,21 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  const issues=Array.isArray(candidate.warnings)?candidate.warnings:[];
  const clean=candidate.references_consistent===true&&candidate.issue_count===0&&!candidate.warnings_truncated;
  const empty=currentTotal===0;
+ const supported=candidate.version===3&&exportApi===root.TCBackupV3;
+ const eligible=supported&&clean&&empty;
  return Object.freeze({
   valid_archive:candidate.valid===true,
   owner_id:userId,records:candidate.records,table_count:candidate.table_count,
   consistency_ok:clean,destination_empty:empty,existing_table_count:currentTotal,
   destination_tables:counters,preview_issues:issues,
-  restoration_supported:false,can_restore_now:false,
+  restoration_supported:supported,can_restore_now:eligible,
   blocked_reasons:[
    ...(clean?[]:['La copia contiene referencias inconsistentes o advertencias que requieren revisión.']),
    ...(empty?[]:['La cuenta de destino ya contiene datos. No se permite sobrescribirlos ni fusionar registros.']),
-   'La restauración transaccional todavía no está habilitada; esta simulación no modifica nada.'
+   ...(!supported?['Esta copia antigua solo puede verificarse; la recuperación requiere una copia V3.']:[])
   ],
-  message:empty&&clean?
-   'La copia supera el análisis previo y la cuenta no tiene datos. Todavía falta habilitar y verificar el restaurador transaccional.':
+  message:eligible?
+   'Copia V3 coherente y cuenta vacía. Solo puede recuperarse con confirmación expresa.':
    'No se puede restaurar esta copia en la cuenta actual. No se han modificado registros.'
  });
 }
