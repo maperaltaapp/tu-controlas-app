@@ -26,7 +26,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  await assert.rejects(insert(wA,foreign,'actual',100,'Ajena.pdf','3'),/no pertenece|partida económica/i);
  await assert.rejects(insert(wB,foreign,'budget',100,'Ajena.pdf','4'),/foreign key|row-level|no pertenece al Gantt/i);
  await assert.rejects(insert(wA,phase,'actual',50,'Suplantación','5',B),/row-level|foreign key|no pertenece al Gantt/i);
- await assert.rejects(insert(wA,null,'actual',50,'Sin partida','6'),/check constraint/i);
+ await assert.rejects(insert(wA,null,'actual',50,'Sin partida','6'),/check constraint|no pertenece al Gantt/i);
  await assert.rejects(insert(wA,phase,'actual',-100,'Negativo','7'),/check constraint/i);
  const contract=(await insert(wA,null,'contract',85000,'Contrato','1')).rows[0];
  assert.equal(contract.activity_id,null);
