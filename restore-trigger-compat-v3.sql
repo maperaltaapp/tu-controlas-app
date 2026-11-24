@@ -46,7 +46,7 @@ begin
    case when TG_OP='UPDATE' then old.status else null end, new.status,to_jsonb(new));
  return null;
 end;
-$function$
+$function$;
 
 
 -- Guard elite_private.economic_activity_guard: only if tc_restore_context contains current owner+txid.
@@ -66,7 +66,7 @@ begin
     and not exists(select 1 from jsonb_array_elements(p.phases) ch where ch->>'parent_id'=new.activity_id)
  ) then raise exception 'La partida económica no pertenece al Gantt de esta obra';end if;
  return new;
-end $function$
+end $function$;
 
 
 -- Guard elite_private.gantt_work_calendar_guard: only if tc_restore_context contains current owner+txid.
@@ -88,7 +88,7 @@ begin
   select value into q from jsonb_array_elements(new.phases) where value->>'id'=p->>'id';
   if (q->>'start',q->>'end',q->>'duration_days') is distinct from (p->>'start',p->>'end',p->>'duration_days') then raise exception 'Fechas o duración no coinciden con el calendario laboral. Actualiza desde Gantt.';end if;
  end loop;return new;
-end $function$
+end $function$;
 
 
 -- Guard elite_private.native_guard: only if tc_restore_context contains current owner+txid.
@@ -111,7 +111,7 @@ begin
   else new.completed:=(new.status='done'); end if;
  end if;
  return new;
-end $function$
+end $function$;
 
 
 -- Guard elite_private.native_history: only if tc_restore_context contains current owner+txid.
@@ -131,7 +131,7 @@ begin
  end if;
  insert into public.elite_history(user_id,entity_id,entity_type,action,title,fields) values(new.user_id,new.id,tg_table_name,case when tg_op='INSERT' then 'Creación' else 'Actualización' end,heading,coalesce(changed,'[]'::jsonb));
  return new;
-end $function$
+end $function$;
 
 
 -- Guard elite_private.record_ai_learning: only if tc_restore_context contains current owner+txid.
@@ -148,7 +148,7 @@ begin
          new.status,to_jsonb(new));
   return null;
 end;
-$function$
+$function$;
 
 
 -- Guard elite_private.stamp_ai_correction: only if tc_restore_context contains current owner+txid.
@@ -181,7 +181,7 @@ begin
   new.created_at:=now();new.updated_at:=now();
  end if;
  return new;
-end $function$
+end $function$;
 
 
 -- Guard elite_private.sync_plan_work_dates: only if tc_restore_context contains current owner+txid.
@@ -204,7 +204,7 @@ BEGIN
     execution_state='planning' AND first_day<(now() AT TIME ZONE 'Europe/Madrid')::date AND archived_at IS NULL);
  END IF;
  RETURN NEW;
-END $function$
+END $function$;
 
 
 -- Guard elite_private.track_ai_learning: only if tc_restore_context contains current owner+txid.
@@ -239,7 +239,7 @@ begin
   new.updated_at:=now();new.reviewed_at:=null;
  end if;
  return new;
-end $function$
+end $function$;
 
 
 -- Guard public.elite_control_registry_snapshot: only if tc_restore_context contains current owner+txid.
@@ -255,7 +255,7 @@ begin
  select * into p from public.elite_contractors where id=new.contractor_id and user_id=new.user_id;
  if not found then raise exception 'Proveedor no disponible para esta cuenta';end if;
  new.name:=p.name;new.scope:=p.trade;new.kind:=p.kind;return new;
-end; $function$
+end; $function$;
 
 
 -- Guard public.elite_control_task_guard: only if tc_restore_context contains current owner+txid.
@@ -271,7 +271,7 @@ begin
  end if;
  if not new.completed then new.control_na:=false; end if;
  return new;
-end $function$
+end $function$;
 
 
 commit;
