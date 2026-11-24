@@ -26,4 +26,45 @@ function commercialConfig(env){
 function stripLaborFiles(source){
  const from=source.indexOf(LEGACY_FILES_START),to=source.indexOf('\nfunction workHeader(w)',from);
  if(from<0||to<=from)throw Error('El código de archivos antiguos cambió; revisa la eliminación antes de preparar el paquete comercial.');
- const safe=String.raw
+ const safe="// Commercial mode: documents remain in each client's own Drive/PC/mobile.\nconst workFileBusy=new Set();\nfunction workFilesPanel(){\n return '<section class=\"work-files\"><h4>Documentos del cliente</h4><p class=\"small\">Conserva los archivos en tu Drive, PC o móvil. No se suben fotos ni PDF a TU CONTROLAS. La vinculación privada de referencias requiere revisión independiente.</p></section>';\n}\nasync function refreshWorkFiles(){return}\nasync function removeWorkFiles(){return}\n";
+ return source.slice(0,from)+safe+source.slice(to);
+}
+function commercialIndex(html,config){
+ const re=/const BASE='https:\/\/vyswxgbbqyffnduhhrvz\.supabase\.co',KEY='sb_publishable_[A-Za-z0-9_-]+';/g;
+ if([...html.matchAll(re)].length!==1)throw Error('No hay un único origen Supabase laboral que sustituir.');
+ let content=html.replace(re,'const BASE='+JSON.stringify('https://'+config.ref+'.supabase.co')+',KEY='+JSON.stringify(config.publishable)+';');
+ content=stripLaborFiles(content);
+ content=content.replaceAll('fotos, PDF e historial','referencias e historial')
+  .replace('Guarda la obra para adjuntar fotos y PDF a su descripción.','Guarda la obra para incorporar referencias externas de documentos cuando esté habilitada esa función.');
+ return content;
+}
+function linkedAssets(html){
+ const found=[...html.matchAll(/\b(?:src|href)=["'](?:\.\/)?([A-Za-z0-9._-]+\.(?:js|css))["']/g)].map(x=>x[1]);
+ return [...new Set(['index.html',...found,...EXTRAS])];
+}
+function build({root=__dirname,output=path.join(__dirname,'dist-commercial'),env=process.env}={}){
+ const config=commercialConfig(env);
+ const source=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ const assets=linkedAssets(source),target=path.resolve(output),base=path.resolve(root);
+ if(target===base||!target.startsWith(base+path.sep)||!path.basename(target).startsWith('dist-commercial'))
+  throw Error('El directorio comercial debe ser dist-commercial* dentro del repositorio.');
+ const files=new Map();
+ for(const asset of assets){
+  if(asset.includes('/')||asset.startsWith('.')||!fs.statSync(path.join(root,asset)).isFile())throw Error('Recurso público inesperado: '+asset);
+  let file=fs.readFileSync(path.join(root,asset));
+  if(asset==='index.html')file=Buffer.from(commercialIndex(file.toString('utf8'),config));
+  if(asset==='auth-session.js')file=Buffer.from(file.toString('utf8').replaceAll("'"+OLD_SESSION+"'","'"+NEW_SESSION+"'")
+   .replaceAll("'tu-controlas-refresh'","'tu-controlas-commercial-refresh'")
+   .replaceAll("'tc_refresh_lease'","'tc_commercial_refresh_lease'"));
+  if(asset==='account-recovery.js')file=Buffer.from(file.toString('utf8').replaceAll("'"+OLD_SESSION+"'","'"+NEW_SESSION+"'").replaceAll("'elite_session'","'__commercial_legacy_disabled__'"));
+  if(file.toString('utf8').includes(LEGACY_REF)||file.toString('utf8').includes('elite-work-files')||file.toString('utf8').includes(LEGACY_ORIGIN))
+   throw Error('Recurso con conexión laboral o almacenamiento heredado: '+asset);
+  files.set(asset,file);
+ }
+ fs.mkdirSync(target,{recursive:true});
+ for(const [asset,buffer]of files)fs.writeFileSync(path.join(target,asset),buffer);
+ fs.writeFileSync(path.join(target,'_headers'),"/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n");
+ return {files:[...files.keys()],directory:target,siteUrl:config.siteUrl,ref:config.ref};
+}
+if(require.main===module){try{const out=build();console.log('PASS: paquete comercial aislado generado ('+out.files.length+' archivos). Destino previsto: '+out.siteUrl+'. No se ha publicado.')}catch(e){console.error('Compilación comercial BLOQUEADA: '+e.message);process.exitCode=1;}}
+module.exports={commercialConfig,stripLaborFiles,commercialIndex,linkedAssets,build};
