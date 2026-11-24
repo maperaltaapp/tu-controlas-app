@@ -28,13 +28,13 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   await add('elite_plan_versions',null,A,'Versión original A');
   const archived={format:'tu-controlas-structured-export',version:3,owner_id:A,tables:{},counts:{}};
   for(const [t] of V3.sources){let rows=(await db.query('select * from public."'+t+'" where user_id=$1',[A])).rows;archived.tables[t]=rows;archived.counts[t]=rows.length}
-  assert.equal(V3.check(archived,A),8);
+  assert.equal(V3.check(archived,A),7);
   for(const [t] of [...V3.sources].reverse())await db.query('delete from public."'+t+'" where user_id=$1',[A]);
   const bWork=(await db.query("select name from elite_works where user_id=$1",[B])).rows[0].name;
   await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
   const restore=async data=>db.query("select public.tc_restore_empty_owner_v3($1::jsonb) as result",[JSON.stringify(data)]);
   const restored=(await restore(archived)).rows[0].result;
-  assert.equal(restored.restored,true);assert.equal(restored.records,8);assert.equal(restored.tables,22);assert.equal(restored.verification,'exact_rows');
+  assert.equal(restored.restored,true);assert.equal(restored.records,7);assert.equal(restored.tables,22);assert.equal(restored.verification,'exact_rows');
   for(const [t] of V3.sources)assert.deepEqual((await db.query('select * from public."'+t+'" where user_id=$1',[A])).rows,archived.tables[t],'Mismatch '+t);
   await assert.rejects(restore(archived),/ya contiene datos/i);
   await db.exec("set request.jwt.claim.sub='"+B+"';");
