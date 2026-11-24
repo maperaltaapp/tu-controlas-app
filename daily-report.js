@@ -11,9 +11,9 @@ const oldSection=selectSection;selectSection=function(...args){navigation++;retu
 const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){request++;draft=plan=original=followDraft=null;busy=followBusy=false;return oldEnd(...args)};
 editDailyReport=async function(id=null,workId=null,day=planningToday()){
  if(!session?.access_token||!nativeReady||busy)return;
- const epoch=sessionEpoch,nav=navigation,token=++request;
+ const epoch=sessionEpoch,owner=session?.user?.id||null,nav=navigation,token=++request;
  dialogForm('<div id="dailyLoading"><p role="status">Cargando parte y actividades…</p><button id="closeTask" type="button" class="light">Cerrar</button></div>');
- const loading=$('dailyLoading'),current=()=>epoch===sessionEpoch&&nav===navigation&&token===request&&$('dailyLoading')===loading;
+ const loading=$('dailyLoading'),current=()=>!!owner&&!!session?.access_token&&owner===session?.user?.id&&epoch===sessionEpoch&&nav===navigation&&token===request&&$('dailyLoading')===loading;
  try{
   const reports=await readAll('elite_daily_reports','order=report_date.desc,id.asc');if(!current())return;
   let saved=id?reports.find(r=>r.id===id):reports.find(r=>r.work_id===workId&&r.report_date===day);
@@ -52,12 +52,26 @@ renderFollowEditor=function(){
  $('dailyHistory').onclick=()=>{closeTaskDialog();followWork=draft.work_id;openFollowup()};
 };
 saveDailyReport=async function(event){
- event.preventDefault();if(busy||!draft)return;
- const form=$('dailyForm'),epoch=sessionEpoch,nav=navigation,active=()=>epoch===sessionEpoch&&nav===navigation&&$('dailyForm')===form;
+ event.preventDefault();if(busy||!draft||!session?.access_token)return;
+ const form=$('dailyForm'),epoch=sessionEpoch,owner=session?.user?.id||null,nav=navigation,active=()=>!!owner&&!!session?.access_token&&owner===session?.user?.id&&epoch===sessionEpoch&&nav===navigation&&$('dailyForm')===form;
  try{
-  collect();if(!draft.work_id||!draft.report_date||!draft.activities.length)throw Error('Elige obra, fecha y al menos una actividad.');
+  if(!active())return;
+  collect();
+  if(!draft.work_id||!draft.report_date||!draft.activities.length)throw Error('Elige obra, fecha y al menos una actividad.');
+  if(!NATIVE_WORKS.some(w=>w.id===draft.work_id&&!w.archived_at))throw Error('Selecciona una obra activa antes de guardar.');
+  const date=draft.report_date,parsed=new Date(date+'T00:00:00Z');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date||date>planningToday())
+   throw Error('La fecha del parte debe ser válida y no posterior a hoy.');
+  const linked=new Set();
+  for(const activity of draft.activities){
+   if(!activity.activity_id)continue;
+   if(linked.has(activity.activity_id))throw Error('No repitas una misma actividad del Gantt en el parte.');
+   linked.add(activity.activity_id);
+   if(!leaves(plan).some(p=>p.id===activity.activity_id)&&!original?.activities?.some(p=>p.activity_id===activity.activity_id))
+    throw Error('La actividad ya no existe en este Gantt. Actualiza antes de guardar.');
+  }
   for(const a of draft.activities){if(!a.activity_name.trim()||!Number.isFinite(a.progress_pct)||a.progress_pct<0||a.progress_pct>100||![a.workers,a.machines].every(n=>Number.isInteger(n)&&n>=0&&n<=500))throw Error('Revisa avance, operarios y máquinas.');}
-  const expected=structuredClone(draft);busy=followBusy=true;form.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
+  if(!active())return;const expected=structuredClone(draft);busy=followBusy=true;form.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
   const result=await eliteRequest('/rest/v1/rpc/elite_save_daily_activities',{method:'POST',body:JSON.stringify({target_report:draft.id,target_work:draft.work_id,report_day:draft.report_date,new_activities:draft.activities,expected_updated_at:original?.updated_at||null,expected_plan_revision:plan?.revision||0})});
   if(!active())return;
   const [reports,plans,tasks]=await Promise.all([readAll('elite_daily_reports','id=eq.'+expected.id),readAll('elite_work_plans','work_id=eq.'+expected.work_id),readAll('elite_tasks','work_id=eq.'+expected.work_id)]);if(!active())return;
@@ -68,6 +82,6 @@ saveDailyReport=async function(event){
   DAILY_REPORTS=DAILY_REPORTS.filter(r=>r.id!==saved.id).concat(saved);WORK_PLANS=WORK_PLANS.filter(p=>p.work_id!==expected.work_id).concat(plans);OWN_TASKS=OWN_TASKS.filter(t=>t.work_id!==expected.work_id).concat(tasks);
   followWork=expected.work_id;closeTaskDialog();await openFollowup();statusMessage('Parte y avance guardados y verificados.');
  }catch(error){if(active()){renderFollowEditor();$('dailyError').textContent=error.message;}}
- finally{if(epoch===sessionEpoch){busy=followBusy=false;}}
+ finally{if(epoch===sessionEpoch&&owner===session?.user?.id){busy=followBusy=false;}}
 };
 })(window);
