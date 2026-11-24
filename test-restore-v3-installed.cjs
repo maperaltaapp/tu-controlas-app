@@ -82,7 +82,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const noOwner=structuredClone(archive);delete noOwner.owner_id;
  await assert.rejects(restore(noOwner),/otra cuenta/);
  await db.exec('reset role');
- await db.exec("create function public.qa_corrupt_cost() returns trigger language plpgsql as $begin new.amount=new.amount+1;return new;end$;create trigger qa_corrupt_cost before insert on public.elite_work_economic_entries for each row execute function public.qa_corrupt_cost();");
+ await db.exec("create function public.qa_corrupt_cost() returns trigger language plpgsql as $qa$begin new.amount=new.amount+1;return new;end$qa$;create trigger qa_corrupt_cost before insert on public.elite_work_economic_entries for each row execute function public.qa_corrupt_cost();");
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
  await assert.rejects(restore(archive),/contenido restaurado no coincide/);
  for(const [table] of Export.sources){
