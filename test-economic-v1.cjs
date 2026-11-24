@@ -44,6 +44,6 @@ assert.equal(I.detect(csv,'budget',d.plan.phases).entries.length,2);
 assert.equal(I.detect([['Concepto','Coste real'],['Cimentación','35000']],'budget',d.plan.phases).entries[0].kind,'actual');
 assert.match(fs.readFileSync('economic-v1.js','utf8'),/confirm\('¿Incorporar/);
 assert.match(fs.readFileSync('economic-v1.js','utf8'),/confirmed|Confirmar importes/);
-assert.match(fs.readFileSync('economic-import.js','utf8'),/if\(pdf&&!consent\)/.test(fs.readFileSync('economic-v1.js','utf8'))?'file import consent':'/);
+assert.match(fs.readFileSync('economic-v1.js','utf8'),/if\(pdf&&!consent\)return/);
 assert.doesNotMatch(fs.readFileSync('economic-v1.js','utf8'),/localStorage\.setItem|service_role|https:\/\/api\.openai\.com/);
 console.log('PASS: isolated Prueba sample, 57 vs 68.125 physical curve, weighted cost EVM, missing-data guards, source preview/CSV and no live file storage');
