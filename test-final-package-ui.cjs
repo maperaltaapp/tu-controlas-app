@@ -17,12 +17,25 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  await run(`tcSheetCell('${item}','title','Ensayo corregido')`);assert.equal(run('CHECKLIST_ITEMS[0].title'),'Ensayo corregido');assert(writes[0].path.includes('updated_at=eq.r1'));
  prompts.push('Resistencia');run('tcSheetAddColumn()');await new Promise(r=>setTimeout(r,0));assert(document.querySelector('[data-column-menu^="col_"]'));assert(run('NATIVE_WORKS[0].workspace_layout.sheets.prep.columns.length')===5);
  const col=run('NATIVE_WORKS[0].workspace_layout.sheets.prep.columns.at(-1).id');await ctx.tcSheetCell(item,col,'40 MPa');assert.equal(run('CHECKLIST_ITEMS[0].cell_values')[col],'40 MPa');
- prompts.push('ELIMINAR');ctx.tcSheetColumn(col);await new Promise(r=>setTimeout(r,0));assert(!document.querySelector('[data-column-menu="'+col+'"]'));assert.equal(run('CHECKLIST_ITEMS[0].cell_values')[col],'40 MPa');ctx.tcSheetRestoreColumns();await new Promise(r=>setTimeout(r,0));assert(document.querySelector('[data-column-menu="'+col+'"]'));
+ assert(!document.querySelector('.tc-sheet input[type=range]'));
+ assert(document.querySelector('.tc-sheet-table.control-table th[scope=row]'));
+ assert(document.querySelector('.tc-sheet-table .tc-completion.control-pending'));
+ ctx.tcSheetColumn(col);document.getElementById('tcColumnWidth').value='215';
+ await document.getElementById('tcColumnForm').onsubmit({preventDefault(){}});
+ assert.equal(run('NATIVE_WORKS[0].workspace_layout.sheets.prep.widths')[col],215);
+ ctx.tcSheetColumn(col);await document.getElementById('tcColumnHide').onclick();
+ assert(!document.querySelector('[data-column-menu="'+col+'"]'));assert.equal(run('CHECKLIST_ITEMS[0].cell_values')[col],'40 MPa');
+ ctx.tcSheetRestoreColumns();await new Promise(r=>setTimeout(r,0));assert(document.querySelector('[data-column-menu="'+col+'"]'));
+ const handle=document.querySelector('[data-column-resize="'+col+'"]');
+ handle.onkeydown({key:'ArrowRight',preventDefault(){}});
+ await new Promise(r=>setTimeout(r,0));assert.equal(run('NATIVE_WORKS[0].workspace_layout.sheets.prep.widths')[col],231);
+ assert.equal(handle.getAttribute('aria-valuenow'),'231');
+
  run('openSettings()');assert(document.getElementById('exportClientData'));assert(!document.getElementById('tcBell'));run('works()');assert(!document.getElementById('exportClientData'));assert(document.querySelector('.tc-work-table'));assert.equal(document.querySelectorAll('.tc-work-table tbody tr').length,4);
  // Economic cells replace totals through the validated RPC; computed fields stay read-only.
  let costs=[{id:'cost-1',work_id:id,activity_id:'leaf',kind:'budget',amount:1000,entry_date:'2026-11-01',source_name:'Entrada manual'},{id:'cost-2',work_id:id,activity_id:'leaf',kind:'actual',amount:600,entry_date:'2026-11-01',source_name:'factura.pdf'}];
  ctx.readAll=async()=>costs;ctx.eliteRequest=async(path,opts)=>{const payload=JSON.parse(opts.body);assert(path.includes('tc_set_manual_cost'));assert.equal(payload.expected_rows[0].id,'cost-1');costs=costs.map(e=>e.kind==='budget'?{...e,amount:payload.new_total}:e);return payload.new_total};
- await ctx.tcOpenEconomy(id);assert(!document.getElementById('ecRecord'));assert(!document.getElementById('ecGantt'));assert(document.querySelector('[data-cost-kind="actual"]').hasAttribute('readonly'));const costInput=document.querySelector('[data-cost-kind="budget"]');costInput.value='1250';await costInput.onchange();assert.equal(document.querySelector('[data-cost-kind="budget"]').value,'1250');assert(document.querySelector('.ec-card svg[aria-label="Curva S de coste planificado y coste real acumulado"]'));
+ await ctx.tcOpenEconomy(id);assert(!document.getElementById('ecCosts').hasAttribute('open'));document.getElementById('ecCosts').open=true;assert(!document.getElementById('ecRecord'));assert(!document.getElementById('ecGantt'));assert(document.querySelector('[data-cost-kind="actual"]').hasAttribute('readonly'));const costInput=document.querySelector('[data-cost-kind="budget"]');costInput.value='1250';await costInput.onchange();assert.equal(document.querySelector('[data-cost-kind="budget"]').value,'1250');assert.equal(document.getElementById('ecCosts').open,true);assert(document.querySelector('.ec-card svg[aria-label="Curva S de coste planificado y coste real acumulado"]'));
  // Work exceptions are chosen visually, while the proposal remains uncommitted.
  run(`tcEditWorkCalendar('${id}')`);assert(document.getElementById('wcExceptions').querySelector('[data-wc-day="2026-11-07"]'));assert(document.getElementById('wcDayEditor').hidden);document.querySelector('[data-wc-day="2026-11-07"]').onclick();assert.equal(document.getElementById('wcDate').value,'2026-11-07');assert.equal(document.getElementById('wcWorking').value,'true');document.getElementById('wcAdd').onclick();assert(document.querySelector('[data-wc-day="2026-11-07"]').classList.contains('is-exception'));assert.equal(document.querySelector('[data-wc-day="2026-11-07"]').dataset.working,'true');document.getElementById('wcPreview').onclick();assert.equal(document.getElementById('wcSave').disabled,false);assert(document.getElementById('wcReasonRow').hidden);assert.equal(run('WORK_PLANS[0].revision'),1);
  run('closeTaskDialog()');
