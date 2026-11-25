@@ -5,9 +5,10 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const db=new PGlite();
  try{
  await db.exec("create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;");
- for(const name of ['tasks-schema.sql','native-schema.sql','subcontractor-controls.sql','planning-schema.sql','gantt-v2-schema.sql','gantt-task-progress.sql','gantt-hierarchy-schema.sql','gantt-remove-activity.sql','gantt-contract-schema.sql','gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql','followup-schema.sql'])await db.exec(fs.readFileSync(name,'utf8'));
+ for(const name of ['tasks-schema.sql','native-schema.sql','subcontractor-controls.sql','planning-schema.sql','gantt-v2-schema.sql','gantt-task-progress.sql','gantt-hierarchy-schema.sql','gantt-remove-activity.sql','gantt-contract-schema.sql','gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql','followup-schema.sql','checklist-schema.sql'])await db.exec(fs.readFileSync(name,'utf8'));
  await db.exec(fs.readFileSync('economic-entries-schema.sql','utf8'));
  await db.exec(fs.readFileSync('economic-entries-schema.sql','utf8'));
+ await db.exec(fs.readFileSync('final-package-schema.sql','utf8'));
  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[A,'a@example.invalid',B,'b@example.invalid']);
  const wA=(await db.query("insert into elite_works(user_id,name) values($1,'Obra A de prueba') returning id",[A])).rows[0].id;
  const wB=(await db.query("insert into elite_works(user_id,name) values($1,'Obra B de prueba') returning id",[B])).rows[0].id;
@@ -40,6 +41,29 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  assert.equal((await db.query("select relrowsecurity from pg_class where oid='public.elite_work_economic_entries'::regclass")).rows[0].relrowsecurity,true);
  await db.exec('set role anon');
  await assert.rejects(db.query('select * from elite_work_economic_entries'),/permission denied/i);
+ // Manual totals replace prior manual values atomically; imports and other owners are protected.
+ await db.exec("reset role;set role authenticated;set request.jwt.claim.sub='"+A+"';");
+ const setCost=(work,activity,kind,expected,amount)=>db.query('select tc_set_manual_cost($1,$2,$3,$4::jsonb,$5) total',[work,activity,kind,JSON.stringify(expected),amount]);
+ await setCost(wA,null,'certified',[],1200);
+ const sources=async()=>JSON.parse(JSON.stringify((await db.query("select id,amount::float8 amount,source_name from elite_work_economic_entries where work_id=$1 and kind='certified' order by id",[wA])).rows));
+ const initial=await sources();await setCost(wA,null,'certified',initial,700);
+ await assert.rejects(setCost(wA,null,'certified',initial,900),/cambiaron/);
+ assert.equal((await sources()).reduce((n,r)=>n+r.amount,0),700);
+ const imported=(await db.query("select id,amount::float8 amount,source_name from elite_work_economic_entries where id=$1",[actual.id])).rows;
+ await assert.rejects(setCost(wA,phase,'actual',imported,100),/documentos/);
+ await assert.rejects(setCost(wB,null,'certified',[],1),/Obra no disponible/);
+ const custom='custom_11111111-1111-4111-8111-111111111111';
+ await db.query("update elite_works set workspace_layout=$2 where id=$1",[wA,JSON.stringify({calendar_name:'Calendario de prueba',checklist_types:{[custom]:'Ensayos'},sheets:{prep:{columns:[{id:'title',label:'Elemento'},{id:'col_1',label:'Control'}]}}})]);
+ const item=(await db.query("insert into elite_work_checklist_items(work_id,section,title,cell_values) values($1,$2,'Ensayo de prueba',$3) returning *",[wA,custom,JSON.stringify({col_1:'Valor conservado'})])).rows[0];
+ assert.equal(item.cell_values.col_1,'Valor conservado');
+ await assert.rejects(db.query("update elite_work_checklist_items set cell_values='[]' where id=$1",[item.id]),/check constraint/);
+ const old=(await db.query("select to_jsonb(w)-'workspace_layout' archive from elite_works w where id=$1",[wA])).rows[0].archive;
+ assert.equal((await db.query('select (jsonb_populate_record(null::elite_works,$1)).workspace_layout as value',[JSON.stringify(old)])).rows[0].value,null,'Older archives remain compatible with nullable metadata');
+ await db.exec("set request.jwt.claim.sub='"+B+"';");
+ assert.equal((await db.query('select cell_values from elite_work_checklist_items')).rows.length,0);
+ assert.equal((await db.query("update elite_works set workspace_layout='{}' where id=$1 returning id",[wA])).rows.length,0);
+ await assert.rejects(setCost(wA,null,'certified',[],100),/Obra no disponible/);
+ await db.exec('reset role');assert.equal((await db.query('select cell_values from elite_work_checklist_items where id=$1',[item.id])).rows[0].cell_values.col_1,'Valor conservado');
  console.log('PASS: isolated economic ledger, duplicate import rejection, phase-work validation, RLS and no record deletion');
  }finally{await db.close()}
 })().catch(err=>{console.error(err);process.exitCode=1});
