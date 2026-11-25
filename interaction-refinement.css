@@ -31,3 +31,23 @@
 .tc-task-edit{position:absolute;right:44px;top:5px}
 .g-activity-cell{min-width:0}.tc-floating-row .g-table{background:white}
 @media(max-width:700px){.g-axis span{font-size:10px}.evm-dashboard{width:100%}}
+
+/* Shared controls for task and report lists. */
+.tc-filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;min-width:0}
+.tc-filter-bar .tc-search{display:flex;align-items:center;flex:1;min-width:0;position:relative;margin:0}
+.tc-search svg{position:absolute;left:12px;width:20px;height:20px;fill:none;stroke:#64748b;stroke-width:1.8;pointer-events:none}
+.tc-filter-bar .tc-search input{margin:0;padding:10px 10px 10px 40px;width:100%;min-width:0;height:44px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:1rem}
+.tc-filter-bar>select{width:auto;max-width:45%;min-width:120px;height:44px;margin:0;padding:8px 26px 8px 10px;font-size:.875rem;background:#fff;border:1px solid #cbd5e1;border-radius:8px}
+.tc-task-history{display:flex;gap:10px;padding:20px 0}.tc-task-history button{min-height:44px}
+.tc-parts-history,#reportHistoryContent{display:block;width:100%;min-width:0}.tc-report-dates{display:flex;gap:10px;flex-wrap:wrap}.tc-report-dates label{font-size:.875rem;flex:1;max-width:260px}.tc-report-dates input{font-size:1rem;min-height:44px}
+.elite-header-inner{max-width:none;gap:12px}.elite-brand{cursor:default;pointer-events:none}.tc-head-actions{margin-left:auto}.tc-head-actions button{display:flex;align-items:center;gap:6px;min-height:44px;font-size:.875rem}.tc-head-actions svg{width:26px;height:26px}
+.tc-nav button{font-size:.875rem;min-height:52px;padding:6px 10px;flex:1}.tc-nav svg{width:24px;height:24px}.tc-action-strip button{min-height:44px;font-size:1rem}
+@media(max-width:700px){.tc-nav button{font-size:.75rem;padding:6px 3px}.tc-nav button span{max-width:80px;line-height:1.15}.elite-brand{font-size:1rem}.tc-head-actions button{padding:7px}.tc-filter-bar>select{min-width:110px;max-width:45%}}
+
+.tc-calendar-grid{--cal-zoom:inherit;touch-action:pan-x pan-y;overflow:auto}
+.calendar-panel>.calendar-caption{font-size:1rem}.tc-calendar-grid .day{min-height:calc(110px * var(--cal-zoom,1))}.tc-calendar-grid .event{font-size:calc(.875rem * var(--cal-zoom,1))}.tc-calendar-grid .day-create{font-size:calc(1rem * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-grid{min-width:calc(700px * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-heading{font-size:calc(.875rem * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-day{min-height:calc(260px * var(--cal-zoom,1))}
+@media(min-width:1000px){.wrap{max-width:none;width:100%;padding:18px 28px}.tc-nav{padding-left:15%;padding-right:15%}.tc-nav button{font-size:1rem}.home-row{min-height:58px}.home-name{font-size:1rem}.home-date,.home-work,.home-state{font-size:.875rem}}
+
+.tc-create-actions button{font-size:.875rem;min-height:44px}.tc-settings-actions{display:flex;gap:10px;flex-wrap:wrap}.tc-settings-actions button{min-height:44px;font-size:1rem}#eliteSection[hidden],#homeCounts[hidden]{display:none!important}@media(min-width:900px){.tc-create-actions{justify-content:flex-start;padding-left:28px}.tc-create-actions button{font-size:1rem;min-width:140px}}
+.tc-calendar-grid>.month,.tc-calendar-grid>.calhead{min-width:calc(100% * var(--cal-zoom,1))}
+@media(max-width:700px){.elite-header{padding:8px 10px!important}.elite-header .elite-header-inner{gap:6px}.elite-header .elite-brand{font-size:.875rem;gap:5px;white-space:nowrap}.elite-header .helmet-mark{width:26px;height:26px}.elite-header .tc-head-actions{gap:4px}.elite-header .tc-head-actions button{font-size:.875rem;padding:6px}.elite-header .tc-head-actions svg{width:24px;height:24px}}
