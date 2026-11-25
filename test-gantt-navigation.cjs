@@ -10,10 +10,10 @@ ctx.addEventListener=()=>{};ctx.document.addEventListener=()=>{};
 el('tcHead').insertAdjacentHTML=(_position,html)=>{el('tcHead').innerHTML+=html};
 vm.runInContext(fs.readFileSync(__dirname+'/gantt-workbench.js','utf8'),ctx);
 assert(el('tcHead').innerHTML.includes('aria-label="Calendario"'));
-assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,1);
+assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,0);
 run('tcClearOperationalState()');
 assert(el('tcHead').innerHTML.includes('aria-label="Calendario"'));
-assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,1);
+assert.equal((el('tcHead').innerHTML.match(/id="tcBell"/g)||[]).length,0);
 // Standard groups project each canonical leaf once; containers remain non-completable references.
 run("NATIVE_WORKS=[{id:'w1',name:'Obra A'},{id:'w2',name:'Archivada',archived_at:'2026-01-01'}];OWN_TASKS=[{id:'leaf-task',work_id:'w1',title:'Nombre antiguo',stage:'Gantt',completed:false,status:'pending'},{id:'ordinary',work_id:'w1',title:'Normal',status:'pending'}];WORK_PLANS=[{work_id:'w1',phases:[{id:'parent',name:'Fase',is_group:true,start:'2026-11-01',end:'2026-11-20'},{id:'leaf',parent_id:'parent',name:'Actividad canónica',start:'2026-11-01',end:'2026-11-20',task_id:'leaf-task'},{id:'milestone',milestone:true,name:'Entrega',start:'2026-11-20',end:'2026-11-20'}]},{work_id:'w2',phases:[{id:'private',name:'Archivada'}]}]");
 assert.equal(run('homeCards().length'),4);assert.equal(run("homeCards().filter(c=>c.id==='leaf-task').length"),1);assert.equal(run("homeCards().find(c=>c.id==='leaf-task').name"),'Actividad canónica');assert.equal(run("homeGroup(homeCards().find(c=>c.id==='leaf-task'),'2026-12-01')"),'gantt');assert.equal(run("homeCards().filter(c=>c.ganttReference).length"),2);
@@ -38,5 +38,5 @@ const setup=()=>run("sessionEpoch=0;SHARED_HOLIDAYS=null;session={access_token:'
  setup();run("readAll=async table=>table==='elite_holiday_calendars'?[{revision:2,exceptions:[]}]:table==='elite_work_plans'?[{work_id:'w1',revision:2,phases:[]}]:table==='elite_tasks'?[{id:'fresh',work_id:'w1'}]:[{id:'w1',name:'Actual'}]");await run('gRefresh()');assert.equal(run('planOf("w1").revision'),2);assert.equal(run('OWN_TASKS[0].id'),'fresh');assert.equal(run('G2.undo.length'),0);assert.equal(run('SHARED_HOLIDAYS.revision'),2);
  // A stale contractual read must not open a dialog over another work/session/view.
  for(const change of ["G2.work='w2'","sessionEpoch++","mode='tasks'"]){setup();ctx.waiting=new Promise(r=>release=r);run("readAll=async()=>waiting;dialogForm=()=>{throw Error('Stale contract dialog opened')}");pending=run('gContractView()');run(change);release([{id:'old-version',items:[]}]);await pending;}
- console.log('PASS: Calendar and bell coexist; cancelled refresh and network failures preserve drafts; cross-work/session and concurrent-edit reads are ignored; refreshed undo is reset; stale contract dialogs never open.');
+ console.log('PASS: Calendar remains available without the retired bell; cancelled refresh and network failures preserve drafts; cross-work/session and concurrent-edit reads are ignored; refreshed undo is reset; stale contract dialogs never open.');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,6 +1,7 @@
 /* V1 panel económico progresivo. Sample stays in memory; NEVER writes real works. */
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TCEconomy=api})(typeof window==='undefined'?globalThis:window,function(){
 'use strict';
+const root=typeof window==='undefined'?globalThis:window;
 const DEMO='__prueba__',DAY=86400000,VALID=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
 const day=s=>Date.parse(s+'T00:00:00Z')/DAY,iso=n=>new Date(n*DAY).toISOString().slice(0,10);
 const leaves=rows=>{const parents=new Set(rows.map(r=>r.parent_id).filter(Boolean));return rows.filter(r=>!r.is_group&&!r.milestone&&!parents.has(r.id))};
@@ -23,39 +24,41 @@ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const euro=n=>n===null?'Sin datos':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 const percent=n=>n===null?'Sin datos':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(n)+' %';
 const decimal=n=>n===null?'No calculable':new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(n);
-function graph(data){
+function graph(data,amountScale=null){
  const points=data.points;if(points.length<2)return '<div class="ec-no-graph">Para ver las curvas, fija una línea base y registra mediciones en el Gantt.</div>';
- const w=900,h=275,x0=47,x1=879,y0=13,y1=235,lo=day(points[0].date),hi=day(points.at(-1).date),x=d=>x0+(day(d)-lo)/Math.max(1,hi-lo)*(x1-x0),y=p=>y1-p/100*(y1-y0);
+ const w=900,h=275,x0=70,x1=879,y0=13,y1=235,lo=day(points[0].date),hi=day(points.at(-1).date),x=d=>x0+(day(d)-lo)/Math.max(1,hi-lo)*(x1-x0),y=p=>y1-p/100*(y1-y0);
  const path=kind=>{let result='',on=false;for(const p of points){if(p[kind]===null){on=false;continue}result+=(on?' L':' M')+x(p.date).toFixed(2)+' '+y(p[kind]).toFixed(2);on=true}return result.trim()};
- let svg='<svg class="ec-chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Curva de avance previsto y real ponderado por partidas"><title>Avance físico ponderado. Línea discontinua: estimación, no medición</title>';
- for(const v of [0,25,50,75,100])svg+='<line x1="'+x0+'" x2="'+x1+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#e1e9ee"/><text x="38" y="'+(y(v)+4)+'" text-anchor="end" fill="#657783" font-size="11">'+v+'%</text>';
+ let svg='<svg class="ec-chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+(amountScale===null?'Curva de avance previsto y real ponderado por partidas':'Curva S de coste planificado y coste real acumulado')+'"><title>'+(amountScale===null?'Avance físico ponderado. Línea discontinua: estimación, no medición':'PV y AC acumulados en euros')+'</title>';
+ for(const v of [0,25,50,75,100])svg+='<line x1="'+x0+'" x2="'+x1+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#e1e9ee"/><text x="38" y="'+(y(v)+4)+'" text-anchor="end" fill="#657783" font-size="11">'+(amountScale===null?v+'%':new Intl.NumberFormat('es-ES',{notation:'compact',maximumFractionDigits:1}).format(amountScale*v/100)+' €')+'</text>';
  for(let i=0;i<=4;i++){const dt=iso(lo+Math.round((hi-lo)*i/4));svg+='<text x="'+x(dt)+'" y="258" text-anchor="middle" fill="#657783" font-size="11">'+dt.slice(8,10)+'/'+dt.slice(5,7)+'</text>'}
  svg+='<path d="'+path('planned')+'" stroke="#246c9e" fill="none" stroke-width="3.5" stroke-linejoin="round"/><path d="'+path('real')+'" stroke="#16835d" fill="none" stroke-width="3.5" stroke-linejoin="round"/>';
  if(data.trend.length===2)svg+='<path d="M'+x(data.trend[0].date)+' '+y(data.trend[0].real)+' L'+x(data.trend[1].date)+' '+y(data.trend[1].real)+'" stroke="#d98c21" fill="none" stroke-width="3" stroke-dasharray="8 6"/>';
- return svg+'</svg>';
+ for(const kind of ['planned','real']){const last=points.filter(p=>p[kind]!==null).at(-1);if(last)svg+='<circle cx="'+x(last.date)+'" cy="'+y(last[kind])+'" r="4" fill="'+(kind==='planned'?'#246c9e':'#16835d')+'"/>'}return svg+'</svg>';
 }
 if(typeof document==='undefined')return {DEMO,physical,planned,curve,finance,example,graph};
 let shown=null,seq=0,saving=false;
 const oldDetail=detail;
-const validView=view=>shown===view&&view.epoch===sessionEpoch&&view.owner===session?.user?.id;
+const validView=view=>shown===view&&view.epoch===sessionEpoch&&view.owner===session?.user?.id&&mode==='works'&&workDetailId===view.id;
 const readEntries=id=>readAll('elite_work_economic_entries','work_id=eq.'+encodeURIComponent(id)+'&order=entry_date.asc,id.asc');
 const metric=(name,value,description)=>'<article class="ec-metric"><span>'+escape(name)+'</span><strong>'+escape(value)+'</strong><small>'+escape(description)+'</small></article>';
+function inputCell(data,kind,activity,value){
+ const sources=data.entries.filter(e=>e.kind===kind&&(e.activity_id||null)===(activity||null)&&e.entry_date<=data.date),locked=data.demo||sources.some(e=>e.source_name!=='Entrada manual');
+ return '<input class="ec-input-cell" type="number" min="0" max="10000000000" step=".01" aria-label="'+escape((kind==='budget'?'Costes de Oferta':kind==='actual'?'Coste real':kind==='contract'?'Contrato':'Certificado')+' · '+(activity||'obra'))+'" data-cost-kind="'+kind+'" data-cost-activity="'+escape(activity||'')+'" value="'+(value===null?'':value)+'" placeholder="Sin datos" '+(locked?'readonly title="'+(data.demo?'Ejemplo de demostración':'Importe procedente de documentos')+'"':'')+'>';
+}
+function moneyCurve(plan,entries,date){const c=curve(plan,date),points=c.points.map(p=>{const f=finance(plan,entries,p.date);return {date:p.date,planned:f.pv,real:p.date<=date?f.ac:null}}),available=points.flatMap(p=>[p.planned,p.real]).filter(v=>v!==null),max=Math.max(1,...available);return graph({points:points.map(p=>({...p,planned:p.planned===null?null:p.planned/max*100,real:p.real===null?null:p.real/max*100})),trend:[]},max)}
 function htmlPanel(data,warning){
  const {work,plan,entries,date}=data,f=finance(plan,entries,date),p=planned(plan,date),r=physical(plan,date),d=p===null||r===null?null:r-p,chart=curve(plan,date),end=leaves(plan.baseline||[]).map(x=>x.end).sort().at(-1);
  const options=[...NATIVE_WORKS.filter(w=>!w.archived_at||w.id===work.id).map(w=>[w.id,w.name]),[DEMO,'Prueba (ejemplo)']];
- let out='<div class="ec-panel-root"><header class="ec-title"><div><small>PANEL DE CONTROL · TU CONTROLAS</small><h1>'+escape(work.name)+'</h1><p>Primero el avance físico de la obra; después sus costes.</p></div><span>Corte: '+escape(date)+'</span></header>';
- out+='<nav class="ec-actions"><button id="ecBack" type="button">← Obras</button><label>Obra <select id="ecWork">'+options.map(q=>'<option value="'+escape(q[0])+'" '+(q[0]===work.id?'selected':'')+'>'+escape(q[1])+'</option>').join('')+'</select></label>';
- if(!data.demo)out+='<button id="ecManual" class="ec-primary">+ Datos económicos</button><button id="ecImport">Adjuntar PDF / planilla</button>';
- else out+='<span class="ec-demo-label">DEMOSTRACIÓN · DATOS FICTICIOS</span>';
- out+='</nav>';
- if(data.demo)out+='<p class="ec-disclaimer">«Prueba» es una simulación local. No se guarda ni modifica ninguna obra real.</p>';
- if(warning)out+='<p class="ec-warning">No se pudieron cargar los datos económicos: '+escape(warning)+'. El avance Gantt sigue disponible.</p>';
- out+='<div class="ec-top"><section class="ec-card ec-curve"><h2>Avance previsto frente al real</h2><p>Progreso físico acumulado, ponderado según los pesos de cada partida (sin euros).</p>'+graph(chart)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>Previsto</span><span><i class="ec-color-green"></i>Real medido</span><span><i class="ec-color-orange"></i>Tendencia estimada</span></div></section><section class="ec-card ec-summary"><h2>Situación de la obra</h2>'+metric('Avance previsto',percent(p),'Según línea base')+metric('Avance real',percent(r),'Según mediciones')+metric('Diferencia',d===null?'Sin datos':(d>0?'+':'')+percent(d),'Puntos porcentuales')+metric('Fin previsto',end||'Sin línea base','Fecha inicial del Gantt')+'</section></div>';
- out+='<section class="ec-card ec-simple"><h2>Economía fácil de entender</h2><p>Costes previstos, costes reales y cuánto trabajo se ha realizado. No se mezclan costes con facturación.</p><div class="ec-stats">'+metric('Presupuesto de costes',euro(f.bac),'Coste previsto total')+metric('Coste real acumulado',euro(f.ac),'Lo gastado hasta hoy')+metric('Valor del trabajo realizado',euro(f.ev),'Avance real a precios de coste presupuestado')+metric('Coste estimado al terminar',euro(f.eac),'Proyección con el rendimiento actual')+'</div><details><summary>Ver partidas, pesos e importes</summary><div class="ec-table-scroll"><table><thead><tr><th>Partida</th><th>Peso</th><th>Real</th><th>Previsto €</th><th>Real €</th></tr></thead><tbody>'+f.rows.map(row=>'<tr><td>'+escape(row.name)+'</td><td>'+percent(row.weight)+'</td><td>'+percent(row.progress)+'</td><td>'+euro(row.budget)+'</td><td>'+euro(row.actual)+'</td></tr>').join('')+'</tbody></table></div></details></section>';
- out+='<section class="ec-card ec-pmi"><h2>Indicadores para usuarios PMI</h2><p><b>SPI</b> indica ritmo respecto al plan. <b>CPI</b> indica eficiencia de costes. Valor 1 = conforme; inferior a 1 = desfavorable.</p><div class="ec-stats">'+metric('SPI · Plazo',decimal(f.spi),'EV / PV')+metric('CPI · Coste',decimal(f.cpi),'EV / AC')+metric('PV · Planificado',euro(f.pv),'Valor planificado de coste')+metric('EV · Ganado',euro(f.ev),'Valor ganado según avance')+metric('AC · Coste real',euro(f.ac),'Coste real acumulado')+metric('BAC · Presupuesto',euro(f.bac),'Presupuesto completo')+metric('EAC · Estimación al cierre',euro(f.eac),'BAC / CPI, si CPI > 0')+metric('Contrato',euro(f.contract),'Ingresos contractuales')+metric('Certificado',euro(f.certified),'Acumulado certificado')+'</div><details><summary>Qué significan los cálculos</summary><p>La gráfica superior es avance físico. El peso de una fase agrupadora no se cuenta dos veces. Sin medición no se supone 0 %.</p><p>Para valor ganado: PV = presupuesto de cada partida por su avance previsto según la línea base; EV = presupuesto de cada partida por avance real; AC = costes reales. SPI = EV / PV, CPI = EV / AC, EAC = BAC / CPI. Sin datos completos o divisor cero, no hay cálculo.</p><p>La tendencia de la curva es una extrapolación de mediciones pasadas, nunca un porcentaje ejecutado. Importar no equivale a aprobar importes, IVA o certificaciones.</p></details></section>';
- out+='<footer class="ec-footer"><button id="ecRecord">Ficha de obra</button><button id="ecGantt">Abrir Gantt</button></footer></div>';
+ let out='<div class="ec-panel-root"><nav class="tc-panel-tabs"><button class="light" id="ecBack">OBRAS</button><button class="dark" id="ecCurrent">Control Económico</button></nav><header class="ec-title"><h1>'+escape(work.name)+'</h1><span>Corte: '+escape(date)+'</span></header><nav class="ec-actions"><label>Obra <select id="ecWork">'+options.map(q=>'<option value="'+escape(q[0])+'" '+(q[0]===work.id?'selected':'')+'>'+escape(q[1])+'</option>').join('')+'</select></label>';
+ if(!data.demo)out+='<button id="ecImport">Adjuntar PDF / planilla</button>';else out+='<span class="ec-demo-label">DEMOSTRACIÓN · DATOS FICTICIOS</span>';
+ out+='</nav>';if(warning)out+='<p class="ec-warning">No se pudieron cargar los costes: '+escape(warning)+'</p>';
+ out+='<div class="ec-top"><section class="ec-card ec-curve"><h2>Avance previsto frente al real</h2>'+graph(chart)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>Previsto</span><span><i class="ec-color-green"></i>Real medido</span><span><i class="ec-color-orange"></i>Tendencia estimada</span></div></section><section class="ec-card ec-summary"><h2>Situación de la obra</h2>'+metric('Avance previsto',percent(p),'Línea base')+metric('Avance real',percent(r),'Mediciones ponderadas')+metric('Diferencia',d===null?'Sin datos':(d>0?'+':'')+percent(d),'Puntos porcentuales')+metric('Fin previsto',end||'Sin línea base','Fecha del Gantt original')+'</section></div>';
+ out+='<section class="ec-card"><h2>Costes por partidas</h2><div class="ec-stats">'+metric('Costes de Oferta',euro(f.bac),'Suma de partidas')+metric('Coste real acumulado',euro(f.ac),'Suma de partidas')+'</div><p>Edita directamente los importes manuales. Los datos procedentes de documentos y los valores calculados se conservan como solo lectura.</p><div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Peso físico</th><th>Avance real</th><th>Costes de Oferta €</th><th>Coste real €</th></tr></thead><tbody>'+f.rows.map(row=>'<tr><td>'+escape(row.name)+'</td><td>'+percent(row.weight)+'</td><td>'+percent(row.progress)+'</td><td>'+inputCell(data,'budget',row.id,row.budget)+'</td><td>'+inputCell(data,'actual',row.id,row.actual)+'</td></tr>').join('')+'</tbody></table></div><div class="ec-table-scroll"><table><thead><tr><th>Contrato €</th><th>Certificado acumulado €</th></tr></thead><tbody><tr><td>'+inputCell(data,'contract',null,f.contract)+'</td><td>'+inputCell(data,'certified',null,f.certified)+'</td></tr></tbody></table></div><p id="ecCellStatus" role="status"></p></section>';
+ out+='<section class="ec-card"><h2>Curvas S · costes acumulados</h2>'+moneyCurve(plan,entries,date)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>PV · Coste planificado</span><span><i class="ec-color-green"></i>AC · Coste real</span></div></section>';
+ out+='<section class="ec-card"><h2>Indicadores de control</h2><div class="ec-stats">'+metric('SPI · Plazo',decimal(f.spi),'EV / PV')+metric('CPI · Coste',decimal(f.cpi),'EV / AC')+metric('PV · Planificado',euro(f.pv),'Según línea base y costes de oferta')+metric('EV · Valor ganado',euro(f.ev),'Según avance medido')+metric('EAC · Coste estimado al cierre',euro(f.eac),'BAC / CPI, si CPI > 0')+'</div><details><summary>Criterios de cálculo</summary><p>Los pesos físicos proceden del Gantt. PV = coste de oferta por avance previsto; EV = coste de oferta por avance real; AC = coste real registrado. Sin cobertura completa o con divisor cero, el indicador no es calculable. La tendencia es una estimación, no una medición.</p></details></section></div>';
  return out;
 }
+
 async function show(id=DEMO){
  const data=id===DEMO?example():null,work=data?.work||NATIVE_WORKS.find(w=>w.id===id);
  if(!work){works();return}
@@ -64,9 +67,8 @@ async function show(id=DEMO){
  if(id!==DEMO){if(!view.owner||!session?.access_token)return;$('content').innerHTML='<p>Cargando datos económicos…</p>';try{records=await readEntries(id)}catch(e){warning=e.message}if(!validView(view)||token!==seq)return}
  $('content').innerHTML=htmlPanel({work,plan,entries:records,date:data?.date||planningToday(),demo:id===DEMO},warning);
  $('ecBack').onclick=()=>works();$('ecWork').onchange=e=>show(e.target.value);
- $('ecRecord').onclick=()=>id===DEMO?show(DEMO):oldDetail(id);
- $('ecGantt').onclick=()=>id===DEMO?show(DEMO):gCanPlan(work)?openPlanning(id):editPlan(id);
- if(id!==DEMO){$('ecManual').onclick=()=>manual(view,plan);$('ecImport').onclick=()=>importDialog(view,plan)}
+ $('ecCurrent').onclick=()=>show(id);
+ if(id!==DEMO){$('ecImport').onclick=()=>importDialog(view,plan);document.querySelectorAll('[data-cost-kind]:not([readonly])').forEach(input=>input.onchange=async()=>{if(!validView(view)||saving)return;const raw=input.value.trim(),total=Number(raw),activity=input.dataset.costActivity||null,kind=input.dataset.costKind;if(!raw||!VALID(total)||total>1e10){$('ecCellStatus').textContent='Introduce un importe válido, incluido 0.';return}const sources=records.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>({id:e.id,amount:Number(e.amount),source_name:e.source_name}));saving=true;input.disabled=true;try{await eliteRequest('/rest/v1/rpc/tc_set_manual_cost',{method:'POST',body:JSON.stringify({target_work:id,target_activity:activity,target_kind:kind,expected_rows:sources,new_total:total})});if(!validView(view))return;const live=await readEntries(id);if(!validView(view))return;const changed=live.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).reduce((n,e)=>n+Number(e.amount),0);if(Math.abs(changed-total)>.001)throw Error('No se verificó el importe. Actualiza antes de reintentar.');await show(id)}catch(e){if(validView(view)){$('ecCellStatus').textContent=e.message;input.disabled=false}}finally{saving=false}})}
 }
 function row(info,activity,kind,amount,sourceName,sourceLine){return {work_id:info.id,activity_id:activity,kind,amount:Math.round(amount*100)/100,entry_date:planningToday(),source_name:sourceName,source_line:sourceLine}}
 async function save(info,records){
@@ -122,7 +124,7 @@ function importDialog(info,plan){
  };
 }
 detail=function(id){show(id)};
-root.tcEconomyPrueba=()=>show(DEMO);
+root.tcEconomyPrueba=()=>show(DEMO);root.tcOpenEconomy=id=>show(id||NATIVE_WORKS.find(w=>!w.archived_at)?.id||DEMO);
 const menu=document.getElementById('eliteMenu');if(menu&&!menu.querySelector('#ecPrueba')){const button=document.createElement('button');button.id='ecPrueba';button.textContent='Panel económico · Prueba';button.type='button';button.onclick=()=>{menu.hidden=true;show(DEMO)};menu.append(button)}
 return {DEMO,physical,planned,curve,finance,example,graph};
 });

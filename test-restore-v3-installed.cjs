@@ -6,7 +6,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const db=new PGlite();
  try{
  await db.exec("create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;");
- const migrations=['tasks-schema.sql','native-schema.sql','checklist-schema.sql','subcontractor-controls.sql','planning-schema.sql','gantt-v2-schema.sql','gantt-task-progress.sql','gantt-hierarchy-schema.sql','gantt-remove-activity.sql','gantt-contract-schema.sql','gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql','followup-schema.sql','registry-schema.sql','incidents-schema.sql','daily-report-activities.sql','gantt-client-dates.sql','gantt-reopen-progress.sql','task-order.sql','delete-work.sql','tenant-reference-constraints.sql','economic-entries-schema.sql'];
+ const migrations=['tasks-schema.sql','native-schema.sql','checklist-schema.sql','subcontractor-controls.sql','planning-schema.sql','gantt-v2-schema.sql','gantt-task-progress.sql','gantt-hierarchy-schema.sql','gantt-remove-activity.sql','gantt-contract-schema.sql','gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql','followup-schema.sql','registry-schema.sql','incidents-schema.sql','daily-report-activities.sql','gantt-client-dates.sql','gantt-reopen-progress.sql','task-order.sql','delete-work.sql','tenant-reference-constraints.sql','economic-entries-schema.sql','final-package-schema.sql'];
  for(const file of migrations)await db.exec(fs.readFileSync(file,'utf8'));
  await db.exec("create table if not exists public.elite_capacity_reviews(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),alert_key text not null,approved_at timestamptz not null default now());");
  await db.exec("create table public.elite_ai_learnings(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),work_id uuid references elite_works(id),title text,status text not null default 'pending',version int not null default 1,created_at timestamptz default now(),updated_at timestamptz default now(),reviewed_at timestamptz);");
@@ -39,6 +39,8 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  await db.query("update elite_ai_corrections set status='confirmed' where id=$1",[cA]);
  await db.query("insert into elite_ai_agent_settings(user_id,agent_name) values($1,'AI agent A')",[A]);
  await db.query("insert into elite_ai_learnings(user_id,work_id,title) values($1,$2,'Private B')",[B,wB]);
+ await db.query("update elite_works set workspace_layout=$2 where id=$1",[wA,JSON.stringify({calendar_name:'Calendario reutilizable',sheets:{prep:{columns:[{id:'col_test',label:'Control'}]}}})]);
+ await db.query("insert into elite_work_checklist_items(user_id,work_id,section,title,cell_values) values($1,$2,'custom_11111111-1111-4111-8111-111111111111','Control restaurable',$3)",[A,wA,JSON.stringify({col_test:'Dato de prueba'})]);
  const beforeB=JSON.stringify((await db.query('select id,name from elite_works where user_id=$1',[B])).rows);
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
  const original=(await db.query('select public.tc_export_owner_v3() as snapshot')).rows[0].snapshot;
@@ -55,6 +57,8 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  assert.equal((await db.query('select id from elite_works')).rows[0].id,wA);
  assert.equal((await db.query('select id from elite_tasks')).rows[0].id,tA);
  assert.equal((await db.query('select id,amount from elite_work_economic_entries')).rows[0].id,eA);
+ assert.equal((await db.query('select workspace_layout from elite_works where id=$1',[wA])).rows[0].workspace_layout.calendar_name,'Calendario reutilizable');
+ assert.equal((await db.query('select cell_values from elite_work_checklist_items where work_id=$1',[wA])).rows[0].cell_values.col_test,'Dato de prueba');
  const learn=(await db.query('select status,version from elite_ai_learnings')).rows[0];assert.equal(learn.status,'approved');assert.equal(learn.version,2);
  const correction=(await db.query('select status,version from elite_ai_corrections')).rows[0];assert.equal(correction.status,'confirmed');assert.equal(correction.version,2);
  assert.equal((await db.query('select count(*)::int n from elite_ai_learning_history')).rows[0].n,archive.tables.elite_ai_learning_history.length);
