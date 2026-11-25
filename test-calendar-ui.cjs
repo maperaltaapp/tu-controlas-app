@@ -10,16 +10,22 @@ run("NATIVE_WORKS=[];OWN_TASKS=[];CHECKLIST_ITEMS=[]");
 const cases=[['2026-11-21T23:30:00Z','2026-11-22','00:30'],['2026-06-01T22:30:00Z','2026-06-02','00:30'],['2026-03-28T23:30:00Z','2026-03-29','00:30'],['2026-10-24T22:30:00Z','2026-10-25','00:30'],['2026-11-30T23:30:00Z','2026-12-01','00:30'],['2026-12-31T23:30:00Z','2027-01-01','00:30']];
 const cell=(html,key)=>html.split('aria-label="Crear tarea el '+key+'"')[1]?.split('aria-label="Crear tarea el ')[0];
 for(const [instant,expected,time] of cases){const [year,month,day]=expected.split('-').map(Number),card={id:'midnight',name:'Tarea nocturna',own:true,category:'work',due_at:instant,board:{id:'w',name:'Obra'}};ctx.card=card;ctx.cursor=new Date(year,month-1,day,12);assert.equal(run('calendarTaskDay(card)'),expected);assert.equal(run('taskDayKey(calendarToday(new Date(card.due_at)))'),expected);run('calCursor=cursor');const before=JSON.stringify(card),monthHtml=run('monthView([card])'),weekHtml=run('weekView([card])');assert(cell(monthHtml,expected)?.includes('data-hold-id="midnight"'));assert(cell(weekHtml,expected)?.includes('data-hold-id="midnight"'));assert(weekHtml.includes('>'+time+'</span>'));assert(monthHtml.includes('1 tareas'));assert.equal(JSON.stringify(card),before)}
-// Zoom buttons use the same range as pinch and saved preferences, without altering tasks.
-run("calZoom=.5;setCalZoom(-.1)");assert.equal(run('calZoom'),.5);run('calZoom=2;setCalZoom(.1)');assert.equal(run('calZoom'),2);assert(!el('content').innerHTML.includes('type="range"'));assert.equal(run('OWN_TASKS.length'),0);
-const listeners=new Map();el('content').addEventListener=(type,handler)=>listeners.set(type,handler);vm.runInContext(fs.readFileSync(__dirname+'/interaction-refinement.js','utf8'),ctx);const values={},host={style:{setProperty(key,value){values[key]=value}}},event=(distance,touches=2)=>({target:{closest(){return host}},touches:touches===2?[{clientX:0,clientY:0},{clientX:distance,clientY:0}]:[],preventDefault(){}});
-run('calZoom=1');listeners.get('touchstart')(event(100));listeners.get('touchmove')(event(400));assert.equal(values['--cal-zoom'],2);listeners.get('touchcancel')();assert.equal(values['--cal-zoom'],1);assert.equal(run('calZoom'),1);
-listeners.get('touchstart')(event(100));listeners.get('touchmove')(event(10));listeners.get('touchend')(event(0,0));assert.equal(run('calZoom'),.5);assert(el('content').innerHTML.includes('--cal-zoom:0.5'));assert.equal(run('OWN_TASKS.length'),0);
-// Period navigation follows the requested direction; a pinch or a scrolled grid never switches periods.
-run("calMode='month';calCursor=new Date(2026,10,15,12)");
-const grid={scrollLeft:0,style:{setProperty(){}}},touch=(x,y=30)=>({clientX:x,clientY:y}),gesture=(x,touches=1)=>({target:{closest:selector=>selector==='.tc-calendar-grid'?grid:null},touches:touches?[touch(x)]:[],changedTouches:[touch(x)],preventDefault(){}});
-listeners.get('touchstart')(gesture(30));listeners.get('touchend')(gesture(140,0));assert.equal(run('calCursor.getMonth()'),11);
-listeners.get('touchstart')(gesture(140));listeners.get('touchend')(gesture(30,0));assert.equal(run('calCursor.getMonth()'),10);
-listeners.get('touchstart')(gesture(30));grid.scrollLeft=90;listeners.get('touchend')(gesture(140,0));assert.equal(run('calCursor.getMonth()'),10);
-const caption={target:{closest:()=>null},touches:[touch(0),touch(100)],preventDefault(){throw Error('Caption should not pinch')}};listeners.get('touchstart')(caption);listeners.get('touchmove')(caption);assert.equal(run('calCursor.getMonth()'),10);
-console.log('PASS: Madrid calendar days/times, month/year boundaries, DST and consistent zoom in '+process.env.TZ);
+// A saved preference from an older release cannot change the current grid.
+assert(!html.includes('tc_calendar_zoom'));
+assert(!run('monthView([])+weekView([])').includes('--cal-zoom'));
+const listeners=new Map();el('content').addEventListener=(type,handler)=>listeners.set(type,handler);
+vm.runInContext(fs.readFileSync(__dirname+'/interaction-refinement.js','utf8'),ctx);
+const grid={scrollLeft:0},touch=(x,y)=>({clientX:x,clientY:y});
+const gesture=(x,y=30,n=1)=>({target:{closest:selector=>selector==='.tc-calendar-grid'?grid:null},touches:Array.from({length:n},()=>touch(x,y)),changedTouches:[touch(x,y)],cancelable:true,preventDefault(){}});
+const swipe=(a,b,y=30)=>{listeners.get('touchstart')(gesture(a));listeners.get('touchend')(gesture(b,y,0))};
+run("calMode='month';calCursor=new Date(2026,11,15,12)");
+swipe(170,30);assert.equal(run('taskDayKey(calCursor)'),'2027-01-01');
+swipe(30,170);assert.equal(run('taskDayKey(calCursor)'),'2026-12-01');
+swipe(180,100,170);swipe(40,53);assert.equal(run('calCursor.getMonth()'),11);
+listeners.get('touchstart')(gesture(180));listeners.get('touchstart')(gesture(130,30,2));listeners.get('touchend')(gesture(30,30,0));assert.equal(run('calCursor.getMonth()'),11);
+listeners.get('touchstart')(gesture(180));listeners.get('touchcancel')();listeners.get('touchend')(gesture(30,30,0));assert.equal(run('calCursor.getMonth()'),11);
+run("calMode='week';calCursor=new Date(2026,10,25,12)");
+listeners.get('touchstart')(gesture(180));grid.scrollLeft=90;listeners.get('touchend')(gesture(30,30,0));assert.equal(run('taskDayKey(calCursor)'),'2026-11-25');
+swipe(180,30);assert.equal(run('taskDayKey(calCursor)'),'2026-12-02');
+assert.equal(run('OWN_TASKS.length'),0);
+console.log('PASS: Madrid calendar dates, fixed scale, left swipe advances, vertical scroll and multitouch ignored in '+process.env.TZ);

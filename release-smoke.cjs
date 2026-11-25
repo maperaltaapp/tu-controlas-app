@@ -43,7 +43,7 @@ async function run({attempts=24,delayMs=15000,check=checkOnce}={}){
  for(let attempt=1;attempt<=attempts;attempt++){
   mismatches=await check();
   if(mismatches.length===0){
-   console.log('PASS: GitHub Pages entrega exactamente los 12 recursos de este commit de main.');
+   console.log(`PASS: GitHub Pages entrega exactamente los ${ASSETS.length} recursos de este commit de main.`);
    return true;
   }
   console.log('Comprobación pública '+attempt+'/'+attempts+': '+mismatches.slice(0,5).join('; '));

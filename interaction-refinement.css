@@ -13,7 +13,7 @@
 .g-grid-row.is-delete-selected,.g-grid-row.is-delete-selected .g-table{background:#fff0f0!important}
 .tc-drop-before{box-shadow:inset 0 3px #2267bd!important}.tc-drop-after{box-shadow:inset 0 -3px #2267bd!important}
 .tc-dragging{opacity:.65;cursor:grabbing!important}.g-board{touch-action:pan-x pan-y;max-height:none!important}.g-name:focus-visible{outline:2px solid #2267bd}
-@media(max-width:700px){.g-workbench{--table-width:126px;padding:4px}.g-desktop{display:block!important}.g-mobile-activities{display:none!important}.g-table{grid-template-columns:126px}.g-name b{font-size:11px}.g-bar-text{display:none}.g-tools input[type=range],.cal-zoom input[type=range]{display:none}.g-heading{gap:8px}.g-top-actions button{font-size:12px;padding:8px}.g-tabs{gap:14px}.g-tabs button{font-size:12px}.tc-parts{padding:12px;gap:10px}.tc-parts-heading{flex-basis:60%;flex-direction:column;align-items:stretch;gap:4px}.tc-parts-heading h2{font-size:16px}.tc-parts-heading label{max-width:none}.tc-part-create{align-self:flex-end}.g-tools{gap:5px}.g-grid-row{height:48px}}
+@media(max-width:700px){.g-workbench{--table-width:126px;padding:4px}.g-desktop{display:block!important}.g-mobile-activities{display:none!important}.g-table{grid-template-columns:126px}.g-name b{font-size:11px}.g-bar-text{display:none}.g-tools input[type=range]{display:none}.g-heading{gap:8px}.g-top-actions button{font-size:12px;padding:8px}.g-tabs{gap:14px}.g-tabs button{font-size:12px}.tc-parts{padding:12px;gap:10px}.tc-parts-heading{flex-basis:60%;flex-direction:column;align-items:stretch;gap:4px}.tc-parts-heading h2{font-size:16px}.tc-parts-heading label{max-width:none}.tc-part-create{align-self:flex-end}.g-tools{gap:5px}.g-grid-row{height:48px}}
 .tc-edit-row{min-width:36px;min-height:32px;font-size:12px;padding:5px 8px;background:#edf3fa;color:#21476f}
 .g-axis span{white-space:nowrap;overflow:hidden;text-overflow:clip;min-width:54px;font-size:10px;padding:12px 3px;text-align:left;border-left:1px solid #dde5ef;box-sizing:border-box}
 .g-activity-cell{position:relative;touch-action:none;user-select:none;padding-bottom:14px}.g-name{padding-bottom:4px!important;min-height:32px}
@@ -44,10 +44,14 @@
 .tc-nav button{font-size:.875rem;min-height:52px;padding:6px 10px;flex:1}.tc-nav svg{width:24px;height:24px}.tc-action-strip button{min-height:44px;font-size:1rem}
 @media(max-width:700px){.tc-nav button{font-size:.75rem;padding:6px 3px}.tc-nav button span{max-width:80px;line-height:1.15}.elite-brand{font-size:1rem}.tc-head-actions button{padding:7px}.tc-filter-bar>select{min-width:110px;max-width:45%}}
 
-.tc-calendar-grid{--cal-zoom:inherit;touch-action:pan-x pan-y;overflow:auto}
-.calendar-panel>.calendar-caption{font-size:1rem}.tc-calendar-grid .day{min-height:calc(110px * var(--cal-zoom,1))}.tc-calendar-grid .event{font-size:calc(.875rem * var(--cal-zoom,1))}.tc-calendar-grid .day-create{font-size:calc(1rem * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-grid{min-width:calc(700px * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-heading{font-size:calc(.875rem * var(--cal-zoom,1))}.tc-calendar-grid .week-calendar-day{min-height:calc(260px * var(--cal-zoom,1))}
+/* A normal monthly grid uses horizontal swipes for navigation. The wide week scrolls. */
+.tc-calendar-grid{overflow:auto;touch-action:pan-y pinch-zoom;overscroll-behavior-x:contain}
+.week-calendar-scroll.tc-calendar-grid{touch-action:pan-x pan-y pinch-zoom}
+.tc-calendar-grid .day{min-height:clamp(74px,10vw,118px)}
+.tc-calendar-grid .event{font-size:12px}.tc-calendar-grid .day-create{font-size:14px}
+.tc-calendar-grid .week-calendar-grid{min-width:700px}.tc-calendar-grid .week-calendar-day{min-height:260px}
 @media(min-width:1000px){.wrap{max-width:none;width:100%;padding:18px 28px}.tc-nav{padding-left:15%;padding-right:15%}.tc-nav button{font-size:1rem}.home-row{min-height:58px}.home-name{font-size:1rem}.home-date,.home-work,.home-state{font-size:.875rem}}
 
 .tc-create-actions button{font-size:.875rem;min-height:44px}.tc-settings-actions{display:flex;gap:10px;flex-wrap:wrap}.tc-settings-actions button{min-height:44px;font-size:1rem}#eliteSection[hidden],#homeCounts[hidden]{display:none!important}@media(min-width:900px){.tc-create-actions{justify-content:flex-start;padding-left:28px}.tc-create-actions button{font-size:1rem;min-width:140px}}
-.tc-calendar-grid>.month,.tc-calendar-grid>.calhead{min-width:calc(100% * var(--cal-zoom,1))}
+
 @media(max-width:700px){.elite-header{padding:8px 10px!important}.elite-header .elite-header-inner{gap:6px}.elite-header .elite-brand{font-size:.875rem;gap:5px;white-space:nowrap}.elite-header .helmet-mark{width:26px;height:26px}.elite-header .tc-head-actions{gap:4px}.elite-header .tc-head-actions button{font-size:.875rem;padding:6px}.elite-header .tc-head-actions svg{width:24px;height:24px}}
