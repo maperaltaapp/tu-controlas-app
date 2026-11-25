@@ -1,3 +1,4 @@
+process.env.TZ='UTC'; // Device-local round-trip stub uses UTC consistently.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(__dirname+'/task-quick-editor.js','utf8');
 const html=fs.readFileSync(__dirname+'/index.html','utf8');

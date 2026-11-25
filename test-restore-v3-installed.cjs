@@ -25,7 +25,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  }
  await db.exec('grant select on public.elite_capacity_reviews to authenticated;alter table public.elite_capacity_reviews enable row level security;create policy own on public.elite_capacity_reviews for all to authenticated using (auth.uid()=user_id) with check (auth.uid()=user_id);');
  await db.exec(fs.readFileSync('client-snapshot-v3.sql','utf8'));
- await db.exec(fs.readFileSync('restore-empty-owner-v3-installed.sql','utf8'));
+ await db.exec(fs.readFileSync('restore-empty-owner-v3-installed.sql','utf8'));await db.exec(fs.readFileSync('final-package-schema.sql','utf8'));
  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[A,'a@example.invalid',B,'b@example.invalid']);
  const wA=(await db.query("insert into elite_works(user_id,name) values($1,'Work A') returning id",[A])).rows[0].id;
  const wB=(await db.query("insert into elite_works(user_id,name) values($1,'Work B') returning id",[B])).rows[0].id;
@@ -50,6 +50,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  await clear();
  const restore=async snap=>db.query('select public.tc_restore_empty_owner_v3($1::jsonb) as result',[JSON.stringify(snap)]);
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
+ // Emulate a signed legacy V3 archive created before nullable UI fields existed.
+ for(const row of archive.tables.elite_works){delete row.sheet_config;delete row.calendar_name}
+ for(const t of ['elite_work_checklist_items','elite_work_contractors'])for(const row of archive.tables[t])delete row.sheet_cells;
  const result=(await restore(archive)).rows[0].result;
  assert.equal(result.restored,true);assert.equal(result.records,Object.values(archive.counts).reduce((s,n)=>s+n,0));assert.equal(result.tables,22);
  assert.equal((await db.query('select id from elite_works')).rows[0].id,wA);

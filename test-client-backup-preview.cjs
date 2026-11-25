@@ -25,7 +25,7 @@ const asFile=text=>({size:Buffer.byteLength(text),text:async()=>text});
  await assert.rejects(P.inspect({file:{size:70*1024*1024,text:async()=>{throw Error('must not read')}},userId:A}),/demasiado grande/);
  await assert.rejects(P.inspect({file:{size:2,text:async()=>'{'},userId:A}),/JSON válido/);
  await assert.rejects(P.inspect({file:null,userId:A}),/Selecciona un archivo/);
- const html=fs.readFileSync(__dirname+'/index.html','utf8');
+ const html=fs.readFileSync(__dirname+'/index.html','utf8')+fs.readFileSync(__dirname+'/final-package.js','utf8');
  assert.ok(html.includes('src="client-backup-preview.js"'));
  assert.ok(html.includes('id="backupCheckInput"'));
  assert.ok(html.includes('TCBackupPreview.inspect({file,userId:owner})'));
