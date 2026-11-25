@@ -213,7 +213,7 @@ deleteHeldItem=async function(kind,id){
   await fetchOwnTasks();
   if(!sameSession())return false;
   selectionClear();if(mode==='tasks')tasks();else render();
-  statusMessage(linked?'Actividad eliminada de Gantt, con historial conservado.':'Tarea eliminada. Podrás restaurarla desde Archivadas.');
+  statusMessage(linked?'Actividad eliminada de Gantt, con historial conservado.':'Tarea eliminada. Podrás restaurarla desde Eliminadas.');
   return true;
  }catch(e){if(sameSession())statusMessage(e.message,true);return false}
  finally{busy=false}

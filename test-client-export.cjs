@@ -56,7 +56,7 @@ const fixedTime=new Date('2026-11-22T12:00:00.000Z');
  assert.equal(link.href,'blob:test-export');
  assert.equal(link.clicked,true);
  assert.equal(mocks.created[0].parts[0],result.json);
- const html=fs.readFileSync(__dirname+'/index.html','utf8');
+ const html=fs.readFileSync(__dirname+'/index.html','utf8')+fs.readFileSync(__dirname+'/final-package.js','utf8');
  assert.ok(html.includes('src="client-export.js"'));
  assert.ok(html.includes('id="exportClientData" onclick="exportOwnData()"'));
  const exportHandler=html.slice(html.indexOf('async function exportOwnData()'),html.indexOf('async function inspectBackupFile('));

@@ -52,7 +52,7 @@ const fake=(json)=>({size:Buffer.byteLength(json),text:async()=>json});
  const code=fs.readFileSync('client-restore-preflight.js','utf8');
  assert.doesNotMatch(code,/fetch\(|\.insert\(|\.update\(|\.delete\(|eliteRequest\(|\/rest\/v1\//);
  assert(!code.includes('service_role'));
- const html=fs.readFileSync('index.html','utf8');
+ const html=fs.readFileSync('index.html','utf8')+fs.readFileSync('final-package.js','utf8');
  assert.match(html,/src="client-restore-preflight.js"/);
  assert.match(html,/Simular recuperación/);
  assert.match(html,/TCRestorePreflight\.inspect/);
