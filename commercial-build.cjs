@@ -41,7 +41,7 @@ function commercialIndex(html,config){
  return content;
 }
 function linkedAssets(html){
- const found=[...html.matchAll(/\b(?:src|href)=["'](?:\.\/)?([A-Za-z0-9._-]+\.(?:js|css))["']/g)].map(x=>x[1]);
+ const found=[...html.matchAll(/\b(?:src|href)=["'](?:\.\/)?([A-Za-z0-9._-]+\.(?:js|css))(?:\?v=[a-f0-9]+)?["']/g)].map(x=>x[1]);
  return [...new Set(['index.html',...found,...EXTRAS])];
 }
 function build({root=__dirname,output=path.join(__dirname,'dist-commercial'),env=process.env}={}){

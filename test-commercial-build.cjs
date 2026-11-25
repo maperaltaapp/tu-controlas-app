@@ -21,6 +21,7 @@ try{
  const result=B.build({root,output,env});
  assert.equal(result.ref,env.TC_COMMERCIAL_SUPABASE_REF);
  assert(result.files.length>=20);
+ for(const file of ['final-package.js','final-package.css','economic-v1.js','economic-v1.css','interaction-refinement.js','gantt-calendar.js'])assert(result.files.includes(file),'Missing versioned UI asset '+file);
  for(const asset of result.files)assert(fs.existsSync(path.join(output,asset)),'Missing bundled '+asset);
  const html=fs.readFileSync(path.join(output,'index.html'),'utf8');
  assert(html.includes('https://vyswxgbbqyffnduhhrvz.supabase.co'));
