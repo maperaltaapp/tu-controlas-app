@@ -70,6 +70,20 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.equal(run('CHECKLIST_ITEMS[0].notes'),'Dato de otro dispositivo');
  assert.equal(document.getElementById('sheetSaveStatus').textContent,'');
  ctx.eliteRequest=oldCapture;
+ // Built-in labels are scoped to a work; canonical section IDs and rows are unchanged.
+ assert.equal(document.querySelector('[data-sheet-type="prep"]').textContent,'Planificación');
+ const beforeRename=JSON.stringify(run('CHECKLIST_ITEMS'));
+ for(const key of ['prep','providers','execution','close']){
+  await run("openChecklist('"+key+"')");
+  document.querySelector('[data-sheet-type="'+key+'"]').onclick();
+  assert(!document.getElementById('tcTypeArchive'));
+  document.getElementById('tcTypeName').value='Nombre '+key;
+  await document.getElementById('tcTypeForm').onsubmit({preventDefault(){}});
+  assert.equal(document.querySelector('[data-sheet-type="'+key+'"]').textContent,'Nombre '+key);
+  assert.equal(run('NATIVE_WORKS[0].workspace_layout.checklist_type_labels')[key],'Nombre '+key);
+ }
+ assert.equal(JSON.stringify(run('CHECKLIST_ITEMS')),beforeRename);
+ await run("openChecklist('prep')");
  // New custom types can be renamed, archived and restored with existing metadata intact.
  prompts.push('Control QA');await ctx.tcSheetAddType();
  const type=run('checkSection');assert.match(type,/^custom_/);
