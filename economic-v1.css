@@ -67,3 +67,26 @@
 .ec-entry-row b{color:#164d62}.ec-entry-row .form-pair{margin-top:7px}
 .ec-import-preview{margin-top:14px}.ec-import-preview .ec-table-scroll{max-height:48vh}.ec-import-preview table{min-width:560px}
 .ec-import-preview select,.ec-import-preview input{min-width:130px;max-width:190px;font-size:12px}
+
+/* Editable cost-derived physical weights. Compact on phones, full-width on monitors. */
+.ec-weights-head {display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.ec-weights-head h2 {margin:0 0 3px}
+.ec-weights-head .small {margin:0}
+.ec-weights-head button {flex:0 0 auto;width:auto;min-width:110px;padding:8px 10px;font-size:12px;min-height:36px}
+.ec-weights-origin {font-size:12px;color:#466478;margin:9px 0}
+.ec-weights .ec-entry-table {width:100%;font-size:12px}
+.ec-weights .ec-entry-table th,.ec-weights .ec-entry-table td {padding:8px;text-align:right;font-variant-numeric:tabular-nums}
+.ec-weights .ec-entry-table th:first-child,.ec-weights .ec-entry-table td:first-child {text-align:left}
+.ec-weights .ec-entry-table tfoot {font-weight:700;background:#f4f8fa}
+#ecWeightsForm .ec-table-scroll {max-height:45vh;overflow:auto}
+#ecWeightsForm table {width:100%;font-size:12px}
+#ecWeightsForm th,#ecWeightsForm td {padding:6px;border-bottom:1px solid #e6eaed}
+#ecWeightsForm th:first-child,#ecWeightsForm td:first-child {text-align:left}
+#ecWeightsForm input[data-w-index] {width:96px;max-width:96px;font-size:14px;text-align:right;padding:8px}
+.ec-weight-total {display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;margin:9px 0}
+.ec-weight-actions {display:flex;gap:8px;flex-wrap:wrap}
+.ec-weight-actions button {flex:1;min-width:130px;padding:9px;font-size:12px}
+@media(max-width:600px){.ec-weights-head {flex-wrap:wrap}.ec-weights-head button {width:100%;flex:1 1 100%}
+.ec-weights .ec-entry-table th,.ec-weights .ec-entry-table td {padding:6px;font-size:11px}
+.ec-weight-actions button {flex:1 1 100%}#ecWeightsForm input[data-w-index] {width:78px;max-width:78px}
+}
