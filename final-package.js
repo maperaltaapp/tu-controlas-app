@@ -148,10 +148,10 @@ function sheetMatrix(rows,cfg,providers){
 }
 renderChecklist=function(){
  selectSection('checklist');mode='checklist';const w=work();if(!w){$('content').innerHTML='<section class="panel"><p>Crea una obra para usar sus checklists.</p></section>';return}
- const providers=checkSection==='providers',q=query.trim().toLocaleLowerCase('es'),matchWork=w.name.toLocaleLowerCase('es').includes(q),rows=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).filter(r=>r.work_id===w.id&&(providers||r.section===checkSection)).filter(r=>!q||matchWork||JSON.stringify([r.title,r.name,r.notes,r.scope,r.cell_values]).toLocaleLowerCase('es').includes(q)),cfg=config(),cols=columns();planningWork=w.id;
+ const providers=checkSection==='providers',q=query.trim().toLocaleLowerCase('es'),rows=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).filter(r=>r.work_id===w.id&&(providers||r.section===checkSection)).filter(r=>tcSearchMatches(q,w.name,r.title,r.name,r.notes,r.scope,Object.values(r.cell_values||{}))),cfg=config(),cols=columns();planningWork=w.id;
  const previous=document.querySelector('.tc-sheet-scroll');
  const left=previous?.scrollLeft||0,top=previous?.scrollTop||0;
- const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&other.name.toLocaleLowerCase('es').includes(q)):[];
+ const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&tcSearchMatches(q,other.name)):[];
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
  $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
