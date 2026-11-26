@@ -20,7 +20,7 @@ const activity='33333333-3333-4333-8333-333333333333';
    'gantt-working-calendar.sql','gantt-shared-holidays.sql','gantt-dependencies.sql',
    'followup-schema.sql','registry-schema.sql','incidents-schema.sql',
    'daily-report-activities.sql','gantt-client-dates.sql','gantt-reopen-progress.sql',
-   'task-order.sql','delete-work.sql','tenant-reference-constraints.sql'];
+   'task-order.sql','delete-work.sql','tenant-reference-constraints.sql','economic-entries-schema.sql','final-package-schema.sql'];
   for(const f of migrations)await db.exec(fs.readFileSync(path.join(__dirname,f),'utf8'));
   // Global invariants: client-exposed tables require RLS; private SQL APIs are not public.
   const tables=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -37,7 +37,7 @@ const activity='33333333-3333-4333-8333-333333333333';
   assert.ok(definer.length>=11,'Privileged SQL functions not loaded');
   for(const f of definer){
    assert.equal(f.anonymous,false,'Anonymous role can call SECURITY DEFINER: '+f.proname);
-   assert.ok((f.proconfig||[]).some(s=>s.startsWith('search_path=')),
+   assert.ok((f.proconfig||[]).includes('search_path=""'),
     'SECURITY DEFINER has no fixed search_path: '+f.proname);
    if(f.signed_in){
     assert.ok(f.source.includes('auth.uid()'),'Missing auth.uid() in '+f.proname);
@@ -62,10 +62,16 @@ const activity='33333333-3333-4333-8333-333333333333';
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${B}';`);
   await db.query("select elite_save_gantt($1,$2,0,false,false,'')",[wB,JSON.stringify(phase)]);
   await db.exec('reset role');
+  // New final-package functionality must preserve tenant isolation too.
+  const costB=(await db.query("insert into elite_work_economic_entries(user_id,work_id,activity_id,kind,amount,source_name,source_line) values($1,$2,$3,'budget',875,'Oferta B.pdf','1') returning id",[B,wB,activity])).rows[0].id;
+  const checklistB=(await db.query("insert into elite_work_checklist_items(user_id,work_id,section,title,cell_values) values($1,$2,'prep','Solo B',$3::jsonb) returning id",[B,wB,JSON.stringify({col_qa:'Privado B'})])).rows[0].id;
+  await db.query("update elite_works set workspace_layout=$2::jsonb where id=$1",[wB,JSON.stringify({calendar_name:'Calendario privado B'})]);
   const bSnapshot=()=>db.query(`select
    (select to_jsonb(p) from public.elite_work_plans p where p.work_id=$1) as plan,
    (select jsonb_agg(to_jsonb(t) order by t.id) from public.elite_tasks t where t.user_id=$2) as tasks,
-   (select to_jsonb(w) from public.elite_works w where w.id=$1) as work`,[wB,B]);
+   (select to_jsonb(w) from public.elite_works w where w.id=$1) as work,
+   (select jsonb_agg(to_jsonb(e) order by e.id) from public.elite_work_economic_entries e where e.user_id=$2) as economy,
+   (select jsonb_agg(to_jsonb(c) order by c.id) from public.elite_work_checklist_items c where c.user_id=$2) as checklist`,[wB,B]);
   const before=JSON.stringify((await bSnapshot()).rows[0]);
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${A}';`);
   // Exhaustive table matrix: every public table reachable by an authenticated
@@ -94,6 +100,18 @@ const activity='33333333-3333-4333-8333-333333333333';
   assert.equal((await db.query('select * from elite_work_plans where work_id=$1',[wB])).rows.length,0);
   assert.equal((await db.query("update elite_works set name='NO' where id=$1 returning id",[wB])).rows.length,0);
   await assert.rejects(db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'NO','work')",[B,wB]),/row-level security/i);
+  assert.equal((await db.query('select * from elite_work_economic_entries where id=$1',[costB])).rows.length,0);
+  assert.equal((await db.query('select * from elite_work_checklist_items where id=$1',[checklistB])).rows.length,0);
+  assert.equal((await db.query("update elite_work_checklist_items set cell_values='{}'::jsonb where id=$1 returning id",[checklistB])).rows.length,0);
+  await assert.rejects(db.query("select tc_set_manual_cost($1,$2,'budget','[]'::jsonb,0)",[wB,activity]),/Obra no disponible/);
+  await assert.rejects(db.query("insert into elite_work_economic_entries(work_id,activity_id,kind,amount,source_name,source_line) values($1,$2,'budget',50,'Entrada manual','1')",[wB,activity]),/foreign key|partida económica|row-level security/i);
+  // A forged revision cannot overwrite imported or foreign cost rows.
+  await db.exec("reset role;set role authenticated;set request.jwt.claim.sub='"+B+"';");
+  const expected=(await db.query("select jsonb_agg(jsonb_build_object('id',id,'amount',amount,'source_name',source_name) order by id) as rows from elite_work_economic_entries where id=$1",[costB])).rows[0].rows;
+  await assert.rejects(db.query("select tc_set_manual_cost($1,$2,'budget',$3::jsonb,10)",[wB,activity,JSON.stringify(expected)]),/documentos no se editan/);
+  await db.exec("reset role;set role anon");
+  await assert.rejects(db.query("select tc_set_manual_cost($1,$2,'budget','[]'::jsonb,10)",[wB,activity]),/permission denied/i);
+  await db.exec("reset role;set role authenticated;set request.jwt.claim.sub='"+A+"';");
   // Every work-scoped privileged RPC must reject a foreign work before touching its data.
   const foreign=[
    ["elite_save_plan",()=>db.query("select elite_save_plan($1,'[]'::jsonb,0,false,false,'')",[wB])],
@@ -120,6 +138,6 @@ const activity='33333333-3333-4333-8333-333333333333';
   await db.exec('reset role');
   assert.equal(JSON.stringify((await bSnapshot()).rows[0]),before,'Foreign work/task/plan changed');
   assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,2);
-  console.log('PASS: public RLS, privileged API grants, 8 foreign-work RPCs, task ordering, shared calendar, Gantt reconciliation, cross-owner FK rejection, no cross-client reads or writes');
+  console.log('PASS: public RLS, privileged API grants, foreign-work RPCs, task ordering, shared calendar, Gantt reconciliation, economics and custom checklist isolation; foreign records unchanged');
  }finally{await db.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
