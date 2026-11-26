@@ -17,7 +17,8 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  guard();
  if(candidate.owner_id!==userId)throw Error('La copia es de otra cuenta.');
  const registered=exportApi.sources.map(pair=>pair[0]);
- const order=candidate.version===3&&exportApi===root.TCBackupV3?registered:TABLE_ORDER;
+ const modern=(candidate.version===4&&exportApi===root.TCBackupV4)||(candidate.version===3&&exportApi===root.TCBackupV3);
+ const order=modern?registered:TABLE_ORDER;
  if(registered.length!==order.length||new Set(registered).size!==order.length||
     !order.every(table=>registered.includes(table)))throw Error('Versión de exportación no compatible con esta simulación.');
  const counters=Object.create(null);let currentTotal=0;
@@ -33,7 +34,7 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  }
  // Some structured or economic records are omitted from export v2. A full
  // recovery cannot be claimed while these auxiliary tables may hold data.
- for(const table of ['elite_work_economic_entries','elite_ai_learnings','elite_ai_corrections'].filter(t=>!order.includes(t))){
+ for(const table of ['elite_work_economic_entries','tc_cost_forecast_snapshots','elite_ai_learnings','elite_ai_corrections'].filter(t=>!order.includes(t))){
   guard();const rows=await read(table,'user_id=eq.'+encodeURIComponent(userId)+'&select=user_id&limit=1');
   guard();
   if(!Array.isArray(rows)||rows.some(v=>!v||v.user_id!==userId))throw Error('No se pudo verificar la tabla complementaria '+table+'.');
@@ -44,7 +45,7 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
  const issues=Array.isArray(candidate.warnings)?candidate.warnings:[];
  const clean=candidate.references_consistent===true&&candidate.issue_count===0&&!candidate.warnings_truncated;
  const empty=currentTotal===0;
- const supported=candidate.version===3&&exportApi===root.TCBackupV3;
+ const supported=modern;
  const eligible=supported&&clean&&empty;
  return Object.freeze({
   valid_archive:candidate.valid===true,
@@ -55,10 +56,10 @@ async function inspect({file,userId,read,guard=()=>{},previewApi=root.TCBackupPr
   blocked_reasons:[
    ...(clean?[]:['La copia contiene referencias inconsistentes o advertencias que requieren revisión.']),
    ...(empty?[]:['La cuenta de destino ya contiene datos. No se permite sobrescribirlos ni fusionar registros.']),
-   ...(!supported?['Esta copia antigua solo puede verificarse; la recuperación requiere una copia V3.']:[])
+   ...(!supported?['Esta copia antigua solo puede verificarse; la recuperación requiere una copia V3 o V4.']:[])
   ],
   message:eligible?
-   'Copia V3 coherente y cuenta vacía. Solo puede recuperarse con confirmación expresa.':
+   'Copia V'+candidate.version+' coherente y cuenta vacía. Solo puede recuperarse con confirmación expresa.':
    'No se puede restaurar esta copia en la cuenta actual. No se han modificado registros.'
  });
 }
