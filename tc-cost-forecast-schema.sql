@@ -54,10 +54,19 @@ create policy tc_cost_forecast_owner_insert on public.tc_cost_forecast_snapshots
 -- Each approved baseline must cover exactly the current executable activities
 -- and those activity IDs must also exist in the frozen schedule. No partial BAC.
 create or replace function elite_private.tc_check_cost_baseline()
-returns trigger language plpgsql set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $
 declare p record;line jsonb;item_id text;item_amount numeric;cost_sum numeric:=0;items integer:=0;leaves integer:=0;
 begin
  if new.snapshot_type <> 'baseline' then return new; end if;
+ -- A validated empty-account recovery must preserve historical baselines even
+ -- when old activities are no longer in the CURRENT Gantt. The private
+ -- restore context is written only by the owner-scoped transaction of the
+ -- established V3/V4 recovery function, never by client roles.
+ if new.user_id = auth.uid() and exists (
+  select 1 from elite_private.tc_restore_context_v3 c
+   where c.user_id=new.user_id and c.txid=pg_catalog.txid_current()
+     and c.backend_pid=pg_catalog.pg_backend_pid()
+ ) then return new; end if;
  select phases,baseline,baseline_at into p
  from public.elite_work_plans
  where work_id=new.work_id and user_id=new.user_id;
@@ -110,5 +119,7 @@ create trigger tc_cost_forecast_baseline_guard before insert on public.tc_cost_f
  for each row execute function elite_private.tc_check_cost_baseline();
 
 -- Immutable history: UPDATE and DELETE are not granted, and no broad owner policy.
+-- Depends on the existing private context of tc_restore_empty_owner_v3 in the
+-- configured TU CONTROLAS Supabase project. Verify before migration.
 -- New revisions are INSERTs; reverting the frontend never removes saved snapshots.
 commit;
