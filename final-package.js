@@ -2,8 +2,8 @@
 (function(root){
 'use strict';
 const $=id=>document.getElementById(id),clone=x=>structuredClone(x),E=s=>esc(s),work=()=>NATIVE_WORKS.find(w=>w.id===checkWorkId);
-let query='',busy=false,loadSequence=0,navSequence=0,sheetObserver=null;
-const baseSelect=selectSection;selectSection=function(...args){sheetObserver?.disconnect();sheetObserver=null;navSequence++;return baseSelect(...args)};
+let query='',busy=false,loadSequence=0,navSequence=0,sheetObserver=null,checklistSnapshot=null;
+const baseSelect=selectSection;selectSection=function(...args){sheetObserver?.disconnect();sheetObserver=null;navSequence++;if(args[0]!=='checklist')checklistSnapshot=null;return baseSelect(...args)};
 const ctx=()=>({owner:session?.user?.id,epoch:sessionEpoch,work:checkWorkId,section:checkSection,nav:navSequence});
 const live=c=>c.owner&&c.owner===session?.user?.id&&c.epoch===sessionEpoch&&c.work===checkWorkId&&c.section===checkSection&&c.nav===navSequence;
 const layout=w=>clone(w?.workspace_layout||{});
@@ -71,8 +71,25 @@ root.tcSheetRestoreColumns=()=>changeConfig(c=>{const ids=new Set(columns().map(
 root.tcSheetAddType=async()=>{if(busy||!work())return;const name=prompt('Nombre del nuevo tipo de checklist:');if(!name?.trim())return;const w=work(),context=ctx(),next=layout(w),id='custom_'+crypto.randomUUID();if(Object.keys(next.checklist_types||{}).length>=20)return statusMessage('Máximo 20 tipos adicionales por obra.',true);next.checklist_types={...next.checklist_types,[id]:name.trim().slice(0,100)};try{if(await saveLayout(w,next)&&live(context)){checkSection=id;renderChecklist()}}catch(e){statusMessage(e.message,true)}};
 function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}">${E(name)}</button>`).join('')}</div>`}
 openChecklist=async function(section=checkSection,workId=checkWorkId){
- checkWorkId=workId||NATIVE_WORKS.find(w=>!w.archived_at)?.id||'';checkSection=section;const names=sections();if(!Object.hasOwn(names,section))checkSection='prep';mode='checklist';workDetailId=null;selectSection('checklist');const c=ctx(),sequence=++loadSequence;$('content').innerHTML='<p role="status">Cargando planilla…</p>';
- try{const [rows,providers,tasks]=await Promise.all([readAll('elite_work_checklist_items','order=position.asc,created_at.asc,id.asc'),checkSection==='providers'?readAll('elite_work_contractors','order=created_at.asc,id.asc'):null,checkSection==='providers'?readAll('elite_tasks','order=position.asc,created_at.asc,id.asc'):null]);if(!live(c)||sequence!==loadSequence)return;CHECKLIST_ITEMS=rows;if(providers)WORK_CONTRACTORS=providers;if(tasks)OWN_TASKS=tasks;renderChecklist()}catch(e){if(live(c)){$('content').innerHTML='<p class="err">'+E(e.message)+'</p><button onclick="openChecklist()">Reintentar</button>'}}
+ // Keep an in-flight write on its originating view until its confirmed response.
+ if(busy)return;
+ const owner=session?.user?.id,epoch=sessionEpoch;
+ const reuse=!!owner&&nativeReady&&selectedSection==='checklist'&&checklistSnapshot?.owner===owner&&checklistSnapshot?.epoch===epoch;
+ checkWorkId=workId||NATIVE_WORKS.find(w=>!w.archived_at)?.id||'';checkSection=section;const names=sections();if(!Object.hasOwn(names,section))checkSection='prep';mode='checklist';workDetailId=null;selectSection('checklist');const c=ctx(),sequence=++loadSequence;
+ // A single confirmed snapshot covers all checklist types and works of this account.
+ // Changing tabs is a local view operation; entering from another tool reloads fresh data.
+ if(reuse){renderChecklist();return}
+ checklistSnapshot=null;
+ $('content').innerHTML='<p role="status">Cargando planilla…</p>';
+ try{
+  const [rows,providers,tasks]=await Promise.all([readAll('elite_work_checklist_items','order=position.asc,created_at.asc,id.asc'),readAll('elite_work_contractors','order=created_at.asc,id.asc'),readAll('elite_tasks','order=position.asc,created_at.asc,id.asc')]);
+  if(!live(c)||sequence!==loadSequence)return;
+  CHECKLIST_ITEMS=rows;WORK_CONTRACTORS=providers;OWN_TASKS=tasks;
+  checklistSnapshot={owner,epoch};
+  renderChecklist();
+ }catch(e){
+  if(live(c)&&sequence===loadSequence){checklistSnapshot=null;$('content').innerHTML='<p class="err">'+E(e.message)+'</p><button onclick="openChecklist()">Reintentar</button>'}
+ }
 };
 function cells(row,col,providers){
  const id=row.id,key=col.id;
@@ -198,5 +215,5 @@ function bindTable(cfg,left,top){
  });
 }
 const oldControls=renderControlTable;renderControlTable=function(){if(mode==='checklist'&&checkSection==='providers'){checkWorkId=planningWork||checkWorkId;return renderChecklist()}return oldControls()};
-const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){sheetObserver?.disconnect();sheetObserver=null;query='';loadSequence++;busy=false;return oldEnd(...args)};
+const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){sheetObserver?.disconnect();sheetObserver=null;query='';loadSequence++;checklistSnapshot=null;busy=false;return oldEnd(...args)};
 })(window);
