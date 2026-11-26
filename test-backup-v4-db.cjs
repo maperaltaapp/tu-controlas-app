@@ -24,8 +24,8 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   assert.equal(payload.tables.elite_work_economic_entries[0].amount,1234.56);
   assert.equal(payload.tables.elite_ai_learnings[0].name,'Conocimiento A');
   assert.equal(payload.tables.tc_cost_forecast_snapshots[0].amount,120000);
-  const archived=await V3.build({userId:A,read:async()=>payload});
-  assert.equal(archived.records,5);assert.equal(await V3.verify(archived.snapshot,A),true);
+  const archived=await V4.build({userId:A,read:async()=>payload});
+  assert.equal(archived.records,5);assert.equal(await V4.verify(archived.snapshot,A),true);
   await db.exec("set request.jwt.claim.sub='"+B+"';");
   const b=(await db.query('select public.tc_export_owner_v4() as snapshot')).rows[0].snapshot;
   assert.equal(b.owner_id,B);assert.equal(b.tables.elite_works.length,1);
