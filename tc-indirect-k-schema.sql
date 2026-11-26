@@ -7,6 +7,11 @@ alter table public.tc_cost_forecast_snapshots
 alter table public.tc_cost_forecast_snapshots
  add column if not exists cost_includes_indirect boolean;
 alter table public.tc_cost_forecast_snapshots
+ drop constraint if exists tc_cost_forecast_snapshots_snapshot_type_check;
+alter table public.tc_cost_forecast_snapshots
+ add constraint tc_cost_forecast_snapshots_snapshot_type_check
+ check (snapshot_type in ('offer','pm_initial','baseline','forecast','k_setting'));
+alter table public.tc_cost_forecast_snapshots
  drop constraint if exists tc_cost_forecast_kind_check;
 alter table public.tc_cost_forecast_snapshots
  add constraint tc_cost_forecast_kind_check check(
