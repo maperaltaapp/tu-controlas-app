@@ -17,6 +17,48 @@
  function curve(plan,today){const baseline=plan.baseline||[],phases=plan.phases||[];if(!phases.length)return [];const first=Math.min(...[...baseline,...phases].map(p=>day(p.start)));const days=new Set([date(first-1),today,...baseline.flatMap(p=>[date(day(p.start)-1),p.end]),...phases.flatMap(p=>(p.observations||[]).filter(o=>o.date<=today).map(o=>o.date))]);return [...days].sort().map(d=>({date:d,planned:baseline.length?progress(baseline,d,true):null,actual:d<=today?progress(phases,d):null}));}
  // Multiple phases on the same work consume one capacity slot, not one each.
  function capacity(plans,contractors){const intervals=plans.filter(p=>!p.archived).flatMap(p=>(p.phases||[]).filter(f=>f.contractor_id).map(f=>({work:p.work_id,phase:f.id,contractor:f.contractor_id,start:day(f.start),end:day(f.end)})));const issues=[];for(const c of contractors){const rows=intervals.filter(r=>r.contractor===c.id);const boundaries=[...new Set(rows.flatMap(r=>[r.start,r.end+1]))].sort((a,b)=>a-b);for(let i=0;i<boundaries.length-1;i++){const start=boundaries[i],end=boundaries[i+1]-1,works=[...new Set(rows.filter(r=>r.start<=start&&r.end>=start).map(r=>r.work))];if(works.length>c.capacity){const previous=issues.at(-1);if(previous&&previous.contractor_id===c.id&&day(previous.end)+1===start&&JSON.stringify(previous.works)===JSON.stringify(works)){previous.end=date(end);previous.days=day(previous.end)-day(previous.start)+1;}else issues.push({contractor_id:c.id,name:c.name,start:date(start),end:date(end),days:end-start+1,works,capacity:c.capacity});}}}return issues;}
+
+ // Candidate for task-level contractor warnings. Kept separate from the legacy
+ // capacity rule until the database, review keys and UI are switched together.
+ // workingDay(plan,date) MUST resolve the actual working calendar of each work.
+ function assignmentOverlaps(plans,contractors,{workingDay,from=null}={}){
+  if(typeof workingDay!=='function')throw Error('Se necesita el calendario laboral de cada obra.');
+  const lower=from==null?-Infinity:day(from),byContractor=new Map(),issues=[];
+  const companies=new Map(contractors.filter(c=>c.kind!=='supplier').map(c=>[c.id,c]));
+  const cmp=(a,b)=>a<b?-1:a>b?1:0;
+  for(const plan of plans){
+   if(plan.archived||plan.archived_at)continue;
+   const phases=plan.phases||[],parents=new Set(phases.map(p=>p.parent_id).filter(Boolean));
+   for(const p of phases){
+    if(!companies.has(p.contractor_id)||p.is_group||parents.has(p.id))continue;
+    const start=day(p.start),end=day(p.end);
+    if(end<start||end-start>3660)throw Error('Intervalo de actividad no válido.');
+    if(end<lower)continue;
+    const r={plan,work_id:plan.work_id,activity_id:p.id,name:p.name,start:p.start,end:p.end,lo:Math.max(start,lower),hi:end};
+    if(!byContractor.has(p.contractor_id))byContractor.set(p.contractor_id,[]);
+    byContractor.get(p.contractor_id).push(r);
+   }
+  }
+  for(const [contractorId,rows] of [...byContractor].sort((a,b)=>cmp(a[0],b[0]))){
+   const company=companies.get(contractorId),boundaries=[...new Set(rows.flatMap(r=>[r.lo,r.hi+1]))].sort((a,b)=>a-b);
+   let prior=null;
+   for(let i=0;i<boundaries.length-1;i++){
+    const lo=boundaries[i],hi=boundaries[i+1]-1,candidates=rows.filter(r=>r.lo<=lo&&r.hi>=lo);
+    if(candidates.length<2){prior=null;continue}
+    for(let n=lo;n<=hi;n++){
+     const d=date(n),seen=new Set();
+     const active=candidates.filter(r=>workingDay(r.plan,d)).sort((a,b)=>cmp(JSON.stringify([a.work_id,a.activity_id]),JSON.stringify([b.work_id,b.activity_id]))).filter(r=>{const k=JSON.stringify([r.work_id,r.activity_id]);if(seen.has(k))return false;seen.add(k);return true});
+     if(active.length<2){prior=null;continue}
+     const assignments=active.map(r=>({work_id:r.work_id,activity_id:r.activity_id,name:r.name,start:r.start,end:r.end}));
+     const identity=JSON.stringify(assignments.map(r=>[r.work_id,r.activity_id,r.start,r.end]));
+     if(prior&&prior.identity===identity&&day(prior.end)+1===n){prior.end=d;prior.days++;continue}
+     prior={contractor_id:contractorId,name:company.name,start:d,end:d,days:1,works:[...new Set(active.map(r=>r.work_id))],assignments,identity};
+     issues.push(prior);
+    }
+   }
+  }
+  return issues.map(({identity,...issue})=>({...issue,signature:JSON.stringify(['assignment-overlap-v2',issue.contractor_id,issue.start,issue.end,identity])}));
+ }
  function requests(plan,work,contractors,today){if(!plan.confirmed_at)return [];const byId=new Map(contractors.map(c=>[c.id,c]));return (plan.phases||[]).map(p=>{const c=byId.get(p.contractor_id),missing=[];if(!c)missing.push('Subcontrata');if(!c?.email)missing.push('Correo del destinatario');if(!work.name)missing.push('Nombre de obra');if(!p.scope?.trim())missing.push('Alcance');if(!Number.isInteger(p.contact_days)||p.contact_days<0)missing.push('Antelación de contacto');const contact=Number.isInteger(p.contact_days)?date(day(p.start)-p.contact_days):null;return {phase_id:p.id,to:c?.email||'',subject:'Solicitud de disponibilidad · '+work.name,body:'Buenos días,\n\nSolicitamos confirmar disponibilidad para '+p.name+' en la obra '+work.name+', del '+p.start+' al '+p.end+'.\n\nAlcance: '+(p.scope||'PENDIENTE DE DEFINIR')+'.\n\nPor favor, indiquen disponibilidad y propuesta.\n\nGracias.',contact_date:contact,due:contact?contact<=today:false,missing,status:p.request_status||'pending',confirmed_at:p.contractor_confirmed_at||null};});}
- return {day,date,validate,propagate,progress,summary,curve,capacity,requests};
+ return {day,date,validate,propagate,progress,summary,curve,capacity,assignmentOverlaps,requests};
 });
