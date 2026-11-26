@@ -68,8 +68,40 @@ root.tcSheetColumn=id=>{
  });
 };
 root.tcSheetRestoreColumns=()=>changeConfig(c=>{const ids=new Set(columns().map(x=>x.id));c.columns=[...columns(),...(c.hidden_columns||[]).filter(x=>!ids.has(x.id)),...defaults().filter(x=>!ids.has(x.id)&&!(c.hidden_columns||[]).some(h=>h.id===x.id))];c.hidden_columns=[]});
-root.tcSheetAddType=async()=>{if(busy||!work())return;const name=prompt('Nombre del nuevo tipo de checklist:');if(!name?.trim())return;const w=work(),context=ctx(),next=layout(w),id='custom_'+crypto.randomUUID();if(Object.keys(next.checklist_types||{}).length>=20)return statusMessage('Máximo 20 tipos adicionales por obra.',true);next.checklist_types={...next.checklist_types,[id]:name.trim().slice(0,100)};try{if(await saveLayout(w,next)&&live(context)){checkSection=id;renderChecklist()}}catch(e){statusMessage(e.message,true)}};
-function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}">${E(name)}</button>`).join('')}</div>`}
+async function changeTypes(edit,sectionAfter){
+ if(busy||!work())return false;
+ const w=work(),context=ctx(),next=layout(w);
+ busy=true;lockSheet(true);
+ try{
+  edit(next);
+  if(!await saveLayout(w,next)||!live(context))return false;
+  checkSection=sectionAfter||context.section;renderChecklist();return true;
+ }catch(e){if(live(context))statusMessage(e.message,true);return false}
+ finally{busy=false;if(live(context))lockSheet(false)}
+}
+root.tcSheetAddType=async()=>{
+ if(busy||!work())return;
+ const name=prompt('Nombre del nuevo tipo de checklist:')?.trim();if(!name)return;
+ const existing=work().workspace_layout||{};
+ if(Object.keys(existing.checklist_types||{}).length+Object.keys(existing.archived_checklist_types||{}).length>=20)return statusMessage('Máximo 20 tipos adicionales por obra, incluidos los archivados.',true);
+ const id='custom_'+crypto.randomUUID();
+ await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:name.slice(0,100)}},id);
+};
+root.tcSheetEditType=()=>{
+ const id=checkSection,name=sections()[id];if(!id.startsWith('custom_')||!name||busy)return;
+ const context=ctx();
+ const dialog=dialogForm(`<form id="tcTypeForm"><div class="top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">×</button></div><label>Nombre del checklist<input id="tcTypeName" maxlength="100" required value="${E(name)}"></label><p class="small">Archivar conserva las filas y tareas vinculadas. Puedes recuperarlo después.</p><div class="form-actions"><button type="submit" class="dark">Guardar</button><button type="button" class="light" id="tcTypeArchive">Archivar tipo</button></div></form>`);
+ $('tcTypeForm').onsubmit=async e=>{e.preventDefault();const label=$('tcTypeName').value.trim();if(label&&live(context)&&await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:label.slice(0,100)}})&&dialog.isConnected)closeTaskDialog()};
+ $('tcTypeArchive').onclick=async()=>{if(!live(context)||!confirm('¿Archivar este tipo de checklist? Se conservarán sus filas, columnas y tareas vinculadas.'))return;if(await changeTypes(next=>{next.archived_checklist_types={...next.archived_checklist_types,[id]:name};delete next.checklist_types[id]},'prep')&&dialog.isConnected)closeTaskDialog()};
+};
+root.tcSheetRestoreTypes=()=>{
+ if(busy||!work())return;
+ const archived=Object.entries(layout(work()).archived_checklist_types||{}).filter(([id,name])=>/^custom_[a-f0-9-]{36}$/.test(id)&&typeof name==='string');
+ if(!archived.length)return;
+ const context=ctx(),dialog=dialogForm(`<div class="top"><h2>Checklist archivados</h2><button id="closeTask" class="light" type="button">×</button></div><div class="form-actions">${archived.map(([id,name])=>`<button type="button" class="light" data-restore-type="${id}">${E(name)}</button>`).join('')}</div>`);
+ dialog.querySelectorAll('[data-restore-type]').forEach(button=>button.onclick=async()=>{const id=button.dataset.restoreType,name=archived.find(([key])=>key===id)?.[1];if(!name||!live(context))return;if(await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:name};delete next.archived_checklist_types[id]},id)&&dialog.isConnected)closeTaskDialog()});
+};
+function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}" title="${id.startsWith('custom_')&&id===checkSection?'Toca de nuevo para editar o archivar':E(name)}">${E(name)}</button>`).join('')}</div>`}
 openChecklist=async function(section=checkSection,workId=checkWorkId){
  // Keep an in-flight write on its originating view until its confirmed response.
  if(busy)return;
@@ -120,12 +152,12 @@ renderChecklist=function(){
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
  $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
- <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button>${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
+ <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
  </div>${sheetMatrix(rows,cfg,providers)}
  <p class="tc-sheet-help">${rows.length} ${rows.length===1?'fila':'filas'} · Arrastra el borde de una columna para ajustar su ancho.</p></section>`;
  $('sheetWork').onchange=e=>{query='';openChecklist(checkSection,e.target.value)};
  $('sheetSearch').oninput=e=>{const pos=e.target.selectionStart;query=e.target.value;renderChecklist();$('sheetSearch').focus();$('sheetSearch').setSelectionRange(pos,pos)};
- document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
+ document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{if(b.dataset.sheetType===checkSection&&checkSection.startsWith('custom_'))return tcSheetEditType();query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
 };
 async function writeRow(row,payload,providers,c){const table=providers?'elite_work_contractors':'elite_work_checklist_items',rows=await eliteRequest('/rest/v1/'+table+'?id=eq.'+row.id+'&updated_at=eq.'+encodeURIComponent(row.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});if(!live(c))return;if(rows?.length!==1)throw Error('La fila cambió en otro dispositivo. Actualiza antes de guardar.');if(providers)WORK_CONTRACTORS=WORK_CONTRACTORS.map(x=>x.id===row.id?rows[0]:x);else CHECKLIST_ITEMS=CHECKLIST_ITEMS.map(x=>x.id===row.id?rows[0]:x);renderChecklist()}
 root.tcSheetCell=async(id,key,value)=>{if(busy)return;const providers=checkSection==='providers',row=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).find(r=>r.id===id&&r.work_id===checkWorkId);if(!row)return;const c=ctx();busy=true;lockSheet(true);try{if(key==='title'&&!value.trim())throw Error('El elemento necesita nombre.');if(key==='completed_at')await writeRow(row,{completed_at:value?new Date().toISOString():null},false,c);else if(key.startsWith('col_'))await writeRow(row,{cell_values:{...row.cell_values,[key]:String(value)}},providers,c);else if(['title','notes','due_date','entry_date'].includes(key))await writeRow(row,{[key]:value||(['due_date','entry_date'].includes(key)?null:'')},providers,c)}catch(e){if(live(c)){statusMessage(e.message,true);renderChecklist()}}finally{busy=false;if(live(c))lockSheet(false)}};
