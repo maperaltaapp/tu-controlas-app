@@ -43,11 +43,11 @@ function equalAdjust(current,index,desired){
  if(now.reduce((a,b)=>a+b,0)!==10000)throw Error('La suma de pesos no es 100,00 %.');
  return now.map(v=>v/100);
 }
-function derive(plan,entries=[],snapshots=[],date='9999-12-31'){
+function derive(plan,entries=[],snapshots=[],date='9999-12-31',respectManual=true){
  const rows=leaves(plan?.phases);if(!rows.length)return {rows:[],weights:[],source:'none',reason:'No hay partidas ejecutables en el Gantt.',costs:[]};
  const stored=rows.map(r=>Number(r.weight));
  const validStored=stored.every(n=>validAmount(n)&&n<=100)&&Math.abs(stored.reduce((a,b)=>a+b,0)-100)<.005;
- if(rows.every(r=>r.weight_source==='manual')&&validStored)
+ if(respectManual&&rows.every(r=>r.weight_source==='manual')&&validStored)
   return {rows,weights:stored,source:'manual',reason:'Pesos ajustados manualmente y guardados en el Gantt.',costs:[]};
  const baselines=(snapshots||[]).filter(s=>s.snapshot_type==='baseline'&&s.as_of<=date).sort((a,b)=>a.as_of.localeCompare(b.as_of)||String(a.created_at||'').localeCompare(String(b.created_at||'')));
  const approved=baselines.at(-1),byId=new Map(),costs=[];
