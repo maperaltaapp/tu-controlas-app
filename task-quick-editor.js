@@ -46,6 +46,7 @@ function edit(id){
  const linked=linkFor(id),due=linked?linked.row.end:localDateTime(task.due_at);
  const reminder=task.remind_at?'custom':(!task.due_at&&!linked?'none':task.remind_minutes==null?'none':String(task.remind_minutes));
  const title=esc(task.title||'');
+ const checklistDraft=JSON.parse(JSON.stringify(task.checklists||[])),checklistOriginal=JSON.stringify(checklistDraft);
  const dateValue=due||'';
  const type=linked?'date':'datetime-local';
  const info=linked?'<p class="small">Actividad vinculada al Gantt. Las fechas con dependencias se editan desde el cronograma.</p>':'';
@@ -57,9 +58,10 @@ function edit(id){
  +[['none','Sin aviso'],['0','Al vencimiento'],['5','5 minutos antes'],['15','15 minutos antes'],['30','30 minutos antes'],['60','1 hora antes'],['1440','1 día antes'],['custom','Elegir día y hora']].map(row=>'<option value="'+row[0]+'"'+(row[0]===reminder?' selected':'')+'>'+row[1]+'</option>').join('')
  +'</select></label>'
  +'<label id="tcQuickCustomRow"'+(reminder==='custom'?'':' hidden')+'>Fecha y hora del recordatorio<input name="custom" type="datetime-local" value="'+esc(localDateTime(task.remind_at))+'"></label>'
- +info+extras+'<div id="tcQuickError" class="status err" role="alert"></div>'
+ +info+extras+'<details class="task-form-section"'+(checklistDraft.length?' open':'')+'><summary>Checklist <span id="tcQuickCheckSummary"></span></summary><div id="tcQuickCheckEditor"></div><button type="button" class="light" id="tcQuickAddChecklist">+ Checklist</button></details><div id="tcQuickError" class="status err" role="alert"></div>'
  +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
  const dialog=dialogForm(html),form=dialog.querySelector('#tcQuickTaskForm');
+ if(typeof mountTaskChecklists==='function')mountTaskChecklists(form.querySelector('#tcQuickCheckEditor'),form.querySelector('#tcQuickCheckSummary'),checklistDraft,form.querySelector('#tcQuickAddChecklist'));
  const switchCustom=()=>{form.querySelector('#tcQuickCustomRow').hidden=form.elements.reminder.value!=='custom'};
  form.elements.reminder.onchange=switchCustom;
  form.querySelector('[data-cancel]').onclick=closeTaskDialog;
@@ -89,6 +91,7 @@ function edit(id){
    if(!iso&&task.recurrence&&task.recurrence!=='none')throw Error('Las tareas repetitivas necesitan vencimiento.');
    const r=reminderValues(task,reminderMode,form.elements.custom.value,iso),add={};
    if(title!==task.title)add.title=title;
+   if(JSON.stringify(checklistDraft)!==checklistOriginal)add.checklists=normalizeTaskChecklists(checklistDraft);
    if(!linked&&iso!==(task.due_at||null))add.due_at=iso;
    if(r.remind_minutes!==(task.remind_minutes??null)||r.remind_at!==(task.remind_at||null)){
     const reminderTime=r.remind_at?Date.parse(r.remind_at):r.remind_minutes!=null&&iso?Date.parse(iso)-r.remind_minutes*60000:null;
@@ -127,6 +130,7 @@ function edit(id){
    }
    const reminderPatch={};
    if('remind_minutes' in add){reminderPatch.remind_minutes=add.remind_minutes;reminderPatch.remind_at=add.remind_at}
+   if('checklists' in add)reminderPatch.checklists=add.checklists;
    if(linked){
     if(Object.keys(reminderPatch).length){
      const fresh=OWN_TASKS.find(t=>t.id===id);

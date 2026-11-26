@@ -32,6 +32,31 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.equal(handle.getAttribute('aria-valuenow'),'231');
 
  run('openSettings()');assert(document.getElementById('exportClientData'));assert(!document.getElementById('tcBell'));run('works()');assert(!document.getElementById('exportClientData'));assert(document.querySelector('.tc-work-table'));assert.equal(document.querySelectorAll('.tc-work-table tbody tr').length,4);
+ // Phase reordering changes only presentation, never work execution state.
+ const states=()=>Array.from(document.querySelectorAll('.work-state-section')).map(el=>el.dataset.workState);
+ assert.deepEqual(states(),['execution','planning','closing','studies']);
+ run("moveWorkStateGroup('studies',-1)");
+ assert.deepEqual(states(),['execution','planning','studies','closing']);
+ assert.equal(run('NATIVE_WORKS[0].execution_state'),'execution');
+ run('works()');assert.deepEqual(states(),['execution','planning','studies','closing']);
+ run("session={access_token:'B',user:{id:'B'}}");run('works()');
+ assert.deepEqual(states(),['execution','planning','closing','studies']);
+ run("session={access_token:'fixture',user:{id:'A'}}");run('works()');
+ assert.deepEqual(states(),['execution','planning','studies','closing']);
+ assert(document.querySelector('.tc-tool-sticky .tc-panel-tabs'));
+ // Checklist item removal is draft-only, with an explicit confirm for nonempty items.
+ run("editorChecks=[{id:'g1',name:'Prueba',items:[{id:'i1',text:'Conservar',done:true},{id:'i2',text:'Quitar',done:false}]}]");
+ const originalDraft=run('JSON.stringify(editorChecks)');
+ const box=document.createElement('div'),summary=document.createElement('span'),add=document.createElement('button');
+ ctx.fixtureHost=box;ctx.fixtureSummary=summary;ctx.fixtureAdd=add;
+ run('mountTaskChecklists(fixtureHost,fixtureSummary,editorChecks,fixtureAdd)');
+ assert.equal(summary.textContent,'1/2');ctx.confirm=()=>false;
+ box.querySelector('[data-check-item-remove="0:1"]').onclick();assert.equal(run('JSON.stringify(editorChecks)'),originalDraft);
+ ctx.confirm=()=>true;box.querySelector('[data-check-item-remove="0:1"]').onclick();
+ assert.equal(run('editorChecks[0].items.length'),1);assert.equal(run('editorChecks[0].items[0].id'),'i1');assert.equal(summary.textContent,'1/1');
+ box.querySelector('[data-check-group-remove="0"]').onclick();assert.equal(run('editorChecks.length'),0);
+ assert.equal(summary.textContent,'');add.onclick();box.querySelector('[data-check-add="0"]').onclick();
+ box.querySelector('[data-check-item-remove="0:0"]').onclick();assert.equal(run('editorChecks[0].items.length'),0);
  // Economic cells replace totals through the validated RPC; computed fields stay read-only.
  let costs=[{id:'cost-1',work_id:id,activity_id:'leaf',kind:'budget',amount:1000,entry_date:'2026-11-01',source_name:'Entrada manual'},{id:'cost-2',work_id:id,activity_id:'leaf',kind:'actual',amount:600,entry_date:'2026-11-01',source_name:'factura.pdf'}];
  ctx.readAll=async()=>costs;ctx.eliteRequest=async(path,opts)=>{const payload=JSON.parse(opts.body);assert(path.includes('tc_set_manual_cost'));assert.equal(payload.expected_rows[0].id,'cost-1');costs=costs.map(e=>e.kind==='budget'?{...e,amount:payload.new_total}:e);return payload.new_total};

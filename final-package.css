@@ -185,3 +185,28 @@ body>.elite-header {background:#133659;box-shadow:none;padding:8px 16px}
 @media (min-width:850px) {
   body:has(.g-clean)>.wrap {max-width:none;padding-inline:6px}
 }
+
+/* Persistent tool controls and readable work phases. */
+body>.elite-header{position:sticky;top:0;z-index:90}
+.tc-tool-sticky{position:sticky;top:var(--tc-header-height,56px);z-index:30;background:#f4f6f8;padding-block:4px;box-shadow:0 2px 3px #18365212}
+.tc-sheet .tc-tool-sticky,.tc-parts .tc-tool-sticky,.ec-panel-root .tc-tool-sticky{background:#fff}
+.tc-calendar-tools{position:sticky;top:var(--tc-header-height,56px);z-index:32;background:#fff}
+.calendar-panel .calendar-caption{position:sticky;top:calc(var(--tc-header-height,56px) + var(--tc-calendar-tools-height,58px));z-index:31;background:#fff}
+.calendar-panel .calhead{position:sticky;top:calc(var(--tc-header-height,56px) + var(--tc-calendar-tools-height,58px) + var(--tc-calendar-caption-height,44px));z-index:30;background:#fff}
+.tc-sheet-table thead th,.ec-table-scroll thead th{position:sticky;top:0;background:#edf3f7;z-index:4}
+.tc-sheet-table thead th:first-child{z-index:5}
+.tc-phase-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.tc-phase-heading>span:first-child{min-width:0;overflow-wrap:anywhere}
+.tc-phase-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.tc-work-table .tc-phase-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:32px;min-width:32px;padding:3px 7px;border:1px solid currentColor;border-radius:6px;background:#ffffff75;color:inherit;font-size:16px}
+.tc-work-table .tc-phase-actions button:disabled{opacity:.3;cursor:default}
+.tc-phase-grip{cursor:grab;padding:4px 7px;font-size:20px;line-height:1}
+.work-state-section[data-work-state="execution"] .tc-state-row th{background:#dff3e6;color:#14613b}
+.work-state-section[data-work-state="planning"] .tc-state-row th{background:#e2edfb;color:#235a96}
+.work-state-section[data-work-state="closing"] .tc-state-row th{background:#eee5fa;color:#674293}
+.work-state-section[data-work-state="studies"] .tc-state-row th{background:#fff0d9;color:#87500b}
+.tc-check-title{display:flex;align-items:center;gap:7px}
+.tc-check-title>input,.check-row>.check-text{flex:1;min-width:0;width:0}
+.task-dialog .tc-check-remove{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:34px;min-height:34px;padding:4px 8px;border:1px solid #e8c5c6;background:#fff4f4;color:#a52c32;font-size:18px;border-radius:7px}
+.task-dialog form>.top{position:sticky;top:0;z-index:10;background:#fff;padding-block:5px}
+@media(max-width:600px){.tc-phase-grip{display:none}.tc-tool-sticky{padding-block:3px}.tc-sheet .tc-tool-sticky{max-height:42dvh;overflow:auto}}
