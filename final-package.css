@@ -79,8 +79,8 @@ body>.elite-header {background:#133659;box-shadow:none;padding:8px 16px}
 .tc-sheet-table thead th {background:#e7f0f3;color:#294957;padding:0;vertical-align:middle}
 .tc-sheet-table thead th:first-child {padding:0}
 .tc-sheet-table thead th>button {
-  display:block;width:100%;min-width:0;min-height:36px;height:100%;text-align:left;padding:6px 18px 6px 8px;
-  background:transparent;color:inherit;font:650 12px/1.25 system-ui;overflow-wrap:anywhere
+  display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:36px;height:auto;text-align:left;padding:6px 20px 6px 6px;
+  background:transparent;color:inherit;font:650 12px/1.25 system-ui;white-space:normal;overflow-wrap:anywhere;word-break:normal
 }
 .tc-sheet-table tbody th {background:#f8fafc}
 .tc-sheet-table :is(th,td):last-child {text-align:center}
@@ -210,3 +210,9 @@ body>.elite-header{position:sticky;top:0;z-index:90}
 .task-dialog .tc-check-remove{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:34px;min-height:34px;padding:4px 8px;border:1px solid #e8c5c6;background:#fff4f4;color:#a52c32;font-size:18px;border-radius:7px}
 .task-dialog form>.top{position:sticky;top:0;z-index:10;background:#fff;padding-block:5px}
 @media(max-width:600px){.tc-phase-grip{display:none}.tc-tool-sticky{padding-block:3px}.tc-sheet .tc-tool-sticky{max-height:42dvh;overflow:auto}}
+
+.tc-sheet-refresh{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:var(--tc-control)}
+.tc-sheet-refresh svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tc-sheet-save-status{font-size:12px;line-height:1.35;color:#495f72;margin:4px 0}
+.tc-sheet-save-status.err{color:#a52c32}
+.tc-sheet-save-status:empty{display:none}
