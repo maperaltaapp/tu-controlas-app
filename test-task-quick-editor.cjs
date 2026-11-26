@@ -90,6 +90,8 @@ async function main(){
  assert.deepEqual(checklistMenu.children.map(b=>b.textContent),['Editar','Cancelar'],'Checklist sin función de eliminación no ofrece acción engañosa');
  sandbox.tcClearTaskSelection();
  sandbox.openQuickTaskEditor(tid);
+ assert.doesNotMatch(lastDialog.content,/<h[1-6][^>]*>\s*Editar/i);
+ assert.match(lastDialog.content,/aria-label="Datos de tarea"/);
  assert.match(lastDialog.content,/>Nombre<input/);
  assert.match(lastDialog.content,/>Vencimiento<input/);
  assert.match(lastDialog.content,/>Recordatorio<select/);
