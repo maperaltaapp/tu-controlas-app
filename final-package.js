@@ -101,10 +101,10 @@ renderChecklist=function(){
  const left=previous?.scrollLeft||0,top=previous?.scrollTop||0;
  const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&other.name.toLocaleLowerCase('es').includes(q)):[];
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
- $('content').innerHTML=`<section class="panel control-panel tc-sheet">${header()}
+ $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
  <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button>${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
- ${sheetMatrix(rows,cfg,providers)}
+ </div>${sheetMatrix(rows,cfg,providers)}
  <p class="tc-sheet-help">${rows.length} ${rows.length===1?'fila':'filas'} · Arrastra el borde de una columna para ajustar su ancho.</p></section>`;
  $('sheetWork').onchange=e=>{query='';openChecklist(checkSection,e.target.value)};
  $('sheetSearch').oninput=e=>{const pos=e.target.selectionStart;query=e.target.value;renderChecklist();$('sheetSearch').focus();$('sheetSearch').setSelectionRange(pos,pos)};
