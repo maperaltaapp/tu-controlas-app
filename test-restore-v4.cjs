@@ -52,8 +52,10 @@ const WA='33333333-3333-4333-8333-333333333333',WB='44444444-4444-4444-8444-4444
   assert.equal(result.restored,true);assert.equal(result.records,7);assert.equal(result.tables,23);
   const aRows=(await db.query("select snapshot_type,total_cost from tc_cost_forecast_snapshots where user_id=$1 order by snapshot_type",[A])).rows;
   assert.equal(aRows.length,4);assert.equal(aRows.find(r=>r.snapshot_type==='forecast').total_cost,'127000.00');
-  assert.equal((await db.query('select count(*)::int n from tc_cost_forecast_snapshots where user_id=$1',[B])).rows[0].n,otherBefore);
+  await db.exec('reset role');
+  assert.equal((await db.query('select count(*)::int n from tc_cost_forecast_snapshots where user_id=$1',[B])).rows[0].n,otherBefore,'Other client survives recovery');
   assert.equal((await db.query('select count(*)::int n from elite_private.tc_restore_context_v3')).rows[0].n,0,'Restore context was removed');
+  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
   await assert.rejects(recover(snapshot),/ya tiene información/i,'Nonempty owners must not be overwritten');
   await db.exec("set request.jwt.claim.sub='"+B+"';");
   await assert.rejects(recover(snapshot),/otra cuenta/i,'Cannot import another owner');
