@@ -106,3 +106,19 @@ Aplicar `task-order.sql` antes de cargar `task-order.js`. La tabla `elite_task_o
 La RPC valida propiedad, obra activa, tarea pendiente y pertenencia actual al grupo con fecha de Madrid. Rechaza duplicados, referencias ajenas, Gantt y revisiones obsoletas; la tabla no admite escrituras directas del cliente. Con filtros se reordena la secuencia completa del grupo y se conservan las tareas ocultas. Se confirma la lectura del orden guardado antes de mostrarlo, se ignoran respuestas de sesiones anteriores y se invalidan lecturas de preferencias iniciadas antes de una escritura.
 
 El asa permite arrastrar con ratón o dedo dentro del grupo; Escape/cancelación descartan el gesto. El teclado sobre el asa permite subir/bajar una posición. El desplazamiento automático ayuda a alcanzar filas fuera de pantalla. El nombre mantiene su pulsación larga para editar, y la casilla conserva su función. Las pruebas de PostgreSQL verifican persistencia, RLS, conflictos y registros originales intactos. Las identidades y tareas añadidas al servidor QA son ficticias y locales.
+
+
+## Control de costes PMI y margen empresarial · propuesta en PR #88 (26/11/2026)
+
+La mejora economic-margin.js y la migración aditiva tc-cost-forecast-schema.sql distinguen cuatro conceptos; no sobrescribir ni reinterpretar los registros anteriores:
+
+1. **Oferta original**: coste de oferta y precio de venta del cliente; la fotografía confirmada se conserva como snapshot_type=offer. Su margen es la referencia comercial fija.
+2. **Estimación inicial del PM**: coste de ejecución calculado por el jefe de obra antes de comenzar (pm_initial); no es automáticamente una línea base PMI.
+3. **Línea base de ejecución aprobada**: coste autorizado por dirección, distribuido entre las actividades ejecutables del Gantt y con referencia de aprobación (baseline). La suma define **BAC** para EVM y se guarda como revisión inmutable. Requiere que esté fijada también la línea base temporal del Gantt.
+4. **Previsión actualizada del PM**: **EAC = AC incurrido + ETC pendiente estimado** (forecast), con fecha de corte y venta final prevista. Se guarda cada vez que el PM la revisa y en el cierre mensual; no depende de la certificación mensual.
+
+El Panel compara **margen de oferta** y **margen final previsto** (diferencia en puntos porcentuales), mostrando EAC y su tendencia histórica en gráfica adaptable. CPI, SPI, PV, EV y un EAC por tendencia (BAC/CPI) solo se muestran cuando existe una línea base económica aprobada por actividad, mediciones suficientes y costes reales comparables. Los importes sin fuente quedan «Sin datos».
+
+**Publicación segura:** la rama no se puede desplegar sin instalar y verificar previamente la migración de solo adición en el proyecto Supabase existente (vyswxgbbqyffnduhhrvz). No crear nuevo proyecto, no borrar registros ni alterar el contrato de certificaciones mensuales. Verificar SQL, permisos/RLS propietario A/B, pruebas de regresión, responsive en PC/móvil, fecha de corte y copias. La migración no se debe aplicar a producción como banco de pruebas. Si el despliegue falla, revertir el frontend conservando las filas ya escritas; no borrar la tabla nueva automáticamente.
+
+**Advertencia de alcance:** la tabla registra estimaciones agregadas y una distribución de la línea base por actividad. Los costes reales siguen en el libro económico existente. El PM debe actualizar manualmente el ETC y confirmar coberturas de costes, sin convertir un porcentaje físico automáticamente en coste devengado o factura. El frontend muestra la gráfica de avance físico existente además de la gráfica de márgenes; no añade tareas al Panel.

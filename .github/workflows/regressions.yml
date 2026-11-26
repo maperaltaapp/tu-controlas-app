@@ -1,0 +1,26 @@
+name: TU CONTROLAS · Regression tests
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Validate new PM economy and backup V4 first
+        run: node test-economic-margin.cjs && node test-cost-forecast-db.cjs && node test-backup-v4.cjs && node test-backup-v4-db.cjs && node test-restore-v4.cjs
+      - name: Run regressions
+        run: npm test

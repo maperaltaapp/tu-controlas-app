@@ -28,7 +28,7 @@ const asFile=text=>({size:Buffer.byteLength(text),text:async()=>text});
  const html=fs.readFileSync(__dirname+'/index.html','utf8');
  assert.ok(html.includes('src="client-backup-preview.js"'));
  assert.ok(html.includes('id="backupCheckInput"'));
- assert.ok(html.includes('TCBackupPreview.inspect({file,userId:owner})'));
+ assert.ok(html.includes('TCBackupPreview.inspect({file,userId:owner,exportApi:api})') && html.includes('if(version===2)return TCExport'));
  assert.ok(!fs.readFileSync(__dirname+'/client-backup-preview.js','utf8').includes('/rest/v1/'));
 
  // SHA-256 alone does not prove that record references are restorable.
