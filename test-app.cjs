@@ -15,6 +15,9 @@ assert(!el('homeCounts').innerHTML.includes('Urgente de hoy'));assert(el('homeCo
 run("tasks('done')");assert(contains('done'));assert(!contains('t1'));run("tasks('archived')");assert(contains('arch'));
 run("tasks('all');taskPriority='urgent';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
 run("taskPriority='all';taskQuery='material';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
+run("taskQuery='CIMENTACION planos';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
+run("taskQuery='obra revis';renderTaskResults()");assert(contains('t1'));assert(!contains('t2'));
+run("taskQuery='cimentacion inexistente';renderTaskResults()");assert(!contains('t1'));
 run("taskQuery='';taskSource='gantt';renderTaskResults()");assert(contains('gantt'));assert(!contains('t1'));
 run("taskSource='all';CHECKLIST_ITEMS=[{id:'check',work_id:'w1',title:'Verificar ferralla',due_date:'2026-11-18'}];tasks()");assert(contains('check'));assert.equal((el('taskResults').innerHTML.match(/data-hold-id="check"/g)||[]).length,1);
 assert.equal(run("safeChatUrl('javascript:alert(1)')"),'');assert.equal(run("safeChatUrl('https://chatgpt.com.evil.example/c/123')"),'');assert.equal(run("safeChatUrl('https://chatgpt.com/c/123')"),'https://chatgpt.com/c/123');
