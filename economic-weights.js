@@ -67,7 +67,7 @@ function derive(plan,entries=[],snapshots=[],date='9999-12-31',respectManual=tru
  }
  try {
   const weights=allocate(costs);
-  return {rows,weights,source:approved?'approved':'budget',reason:approved?'Pesos calculados sobre costes de la línea base de ejecución aprobada.':'Pesos calculados sobre los costes previstos por partida.',costs};
+  return {rows,weights,source:approved?'approved':'budget',reason:approved?'Pesos calculados sobre costes de la línea base de ejecución aprobada.':'Pesos provisionales calculados sobre costes de oferta por partida, hasta aprobar el presupuesto de ejecución del PM.',costs};
  }catch(e){return {rows,weights:validStored?stored:null,source:'unavailable',reason:e.message,costs};}
 }
 function apply(plan,rows,weights,mode){
