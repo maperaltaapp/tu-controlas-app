@@ -216,3 +216,19 @@ body>.elite-header{position:sticky;top:0;z-index:90}
 .tc-sheet-save-status{font-size:12px;line-height:1.35;color:#495f72;margin:4px 0}
 .tc-sheet-save-status.err{color:#a52c32}
 .tc-sheet-save-status:empty{display:none}
+
+/* Compact search controls on desktop; the work area remains full width. */
+.elite-header .helmet-mark{width:34px;height:34px;flex-shrink:0}
+.elite-header .helmet-mark svg{width:24px;height:24px}
+.elite-header .elite-brand{font-size:17px}
+@media(min-width:850px){
+ .elite-header .helmet-mark{width:38px;height:38px}
+ .elite-header .helmet-mark svg{width:27px;height:27px}
+ .elite-header .elite-brand{font-size:19px}
+ .tc-filter-bar{justify-content:flex-start;max-width:100%;flex-wrap:wrap}
+ .tc-filter-bar .tc-search{flex:0 1 420px;min-width:0;width:420px;max-width:100%}
+ .tc-filter-bar .tc-search input{width:100%;min-width:0}
+ .tc-filter-bar>select{flex:0 1 auto;width:auto;max-width:280px}
+}
+@media(max-width:600px){.elite-header .elite-brand{font-size:15px}.elite-header .helmet-mark{width:31px;height:31px}.elite-header .helmet-mark svg{width:23px;height:23px}}
+@media(max-width:370px){.elite-header .elite-brand{font-size:13px}.elite-header .helmet-mark{width:27px;height:27px}.elite-header .helmet-mark svg{width:20px;height:20px}}
