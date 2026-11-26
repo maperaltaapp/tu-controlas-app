@@ -57,4 +57,33 @@ begin
  if tg_op='UPDATE' then new.user_id:=old.user_id;new.created_at:=old.created_at;end if;
  if not public.tc_restore_preserve_v3(new.user_id) then new.updated_at:=now();end if;return new;
 end $$;
+-- A restored historical report must not replay its measurements into Gantt.
+-- Permit only validated INSERT in the private owner/transaction restore context.
+create or replace function elite_private.daily_activity_guard() returns trigger language plpgsql set search_path='' as $$
+begin
+ if tg_op='INSERT' and public.tc_restore_preserve_v3(new.user_id) then
+  if new.format_version=2 then
+   if jsonb_typeof(new.activities) is distinct from 'array' or jsonb_array_length(new.activities) not between 1 and 100 or octet_length(new.activities::text)>200000 then
+    raise exception 'Parte histórico no válido';
+   end if;
+   if exists(select 1 from jsonb_array_elements(new.activities) x where jsonb_typeof(x) is distinct from 'object') then raise exception 'Parte histórico no válido';end if;
+   if exists(select 1 from jsonb_array_elements(new.activities) x where
+    jsonb_typeof(x->'activity_name') is distinct from 'string' or length(btrim(x->>'activity_name')) not between 1 and 160 or
+    jsonb_typeof(x->'observations') is distinct from 'string' or length(x->>'observations')>10000 or
+    jsonb_typeof(x->'progress_pct') is distinct from 'number' or (x->>'progress_pct')::numeric not between 0 and 100 or (x->>'progress_pct')::numeric<>round((x->>'progress_pct')::numeric,2) or
+    jsonb_typeof(x->'workers') is distinct from 'number' or (x->>'workers')::numeric not between 0 and 500 or (x->>'workers')::numeric<>trunc((x->>'workers')::numeric) or
+    jsonb_typeof(x->'machines') is distinct from 'number' or (x->>'machines')::numeric not between 0 and 500 or (x->>'machines')::numeric<>trunc((x->>'machines')::numeric) or
+    (x ? 'activity_id' and jsonb_typeof(x->'activity_id') not in ('string','null'))
+   ) then raise exception 'Parte histórico no válido';end if;
+   if exists(select 1 from jsonb_array_elements(new.activities) x where nullif(x->>'activity_id','') is not null group by x->>'activity_id' having count(*)>1) then raise exception 'Parte histórico con actividad repetida';end if;
+  elsif new.activities is distinct from '[]'::jsonb then raise exception 'Parte histórico no válido';end if;
+  return new;
+ end if;
+ if current_setting('elite.daily_report_sync',true) is distinct from 'on' and
+  (new.format_version=2 or new.activities<>'[]'::jsonb or (tg_op='UPDATE' and (old.format_version=2 or new.activities is distinct from old.activities))) then
+  raise exception 'Guarda el parte y su avance mediante la operación conjunta';
+ end if;
+ return new;
+end $$;
+revoke all on function elite_private.daily_activity_guard() from public,anon,authenticated;
 commit;
