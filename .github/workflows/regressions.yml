@@ -20,5 +20,7 @@ jobs:
           cache: npm
       - name: Install pinned dependencies
         run: npm ci
+      - name: Validate new PM economy and backup V4 first
+        run: node test-economic-margin.cjs && node test-cost-forecast-db.cjs && node test-backup-v4.cjs && node test-backup-v4-db.cjs && node test-restore-v4.cjs
       - name: Run regressions
         run: npm test
