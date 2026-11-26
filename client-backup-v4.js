@@ -19,7 +19,7 @@ const own=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(v)?v.toLo
 function noSecrets(obj,depth=0){if(depth>45)throw Error('Datos anidados fuera del límite.');if(!obj||typeof obj!=='object')return;for(const [k,v] of Object.entries(obj)){if(SECRET.test(k))throw Error('Se encontró un dato confidencial; copia cancelada.');noSecrets(v,depth+1)}}
 function check(snapshot,userId){
  const uid=own(userId),names=new Set(SOURCE_KEYS.map(x=>x[0]));
- if(!snapshot||snapshot.format!=='tu-controlas-structured-export'||snapshot.version!==4||snapshot.owner_id!==uid||!snapshot.tables||!snapshot.counts)throw Error('Copia V3 incompatible o de otra cuenta.');
+ if(!snapshot||snapshot.format!=='tu-controlas-structured-export'||snapshot.version!==4||snapshot.owner_id!==uid||!snapshot.tables||!snapshot.counts)throw Error('Copia V4 incompatible o de otra cuenta.');
  if(Object.keys(snapshot.tables).length!==names.size||Object.keys(snapshot.tables).some(n=>!names.has(n)))throw Error('Tablas incompletas o inesperadas en la copia.');
  let count=0;
  for(const [table] of SOURCE_KEYS){
