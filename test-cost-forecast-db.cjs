@@ -8,6 +8,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
   await db.exec("create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;");
   await db.exec("create table public.elite_works(id uuid primary key,user_id uuid not null references auth.users(id),name text,unique(id,user_id));");
   await db.exec("create table public.elite_work_plans(work_id uuid primary key,user_id uuid not null,phases jsonb not null,baseline jsonb not null,baseline_at timestamptz);");
+  await db.exec("alter table public.elite_work_plans enable row level security; grant select on public.elite_work_plans to authenticated; create policy fixture_owner_plan on public.elite_work_plans for select to authenticated using ((select auth.uid())=user_id);");
   await db.query("insert into auth.users(id) values($1),($2)",[A,B]);
   const wA='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',wB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   await db.query("insert into elite_works(id,user_id,name) values($1,$2,'A'),($3,$4,'B')",[wA,A,wB,B]);
