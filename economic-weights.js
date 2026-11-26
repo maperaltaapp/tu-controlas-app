@@ -49,26 +49,27 @@ function derive(plan,entries=[],snapshots=[],date='9999-12-31',respectManual=tru
  const rows=leaves(plan?.phases);if(!rows.length)return {rows:[],weights:[],source:'none',reason:'No hay partidas ejecutables en el Gantt.',costs:[]};
  const stored=rows.map(r=>Number(r.weight));
  const validStored=stored.every(n=>validAmount(n)&&n<=100)&&Math.abs(stored.reduce((a,b)=>a+b,0)-100)<.005;
- if(respectManual&&rows.every(r=>r.weight_source==='manual')&&validStored)
-  return {rows,weights:stored,source:'manual',reason:'Pesos ajustados manualmente y guardados en el Gantt.',costs:[]};
+ const manualSaved=respectManual&&rows.every(r=>r.weight_source==='manual')&&validStored;
+ const unavailable=(reason,costs=[])=>manualSaved?{rows,weights:stored,source:'manual',reason:'Pesos manuales guardados. '+reason,costs}:{rows,weights:validStored?stored:null,source:'unavailable',reason,costs};
  const baselines=(snapshots||[]).filter(s=>s.snapshot_type==='baseline'&&s.as_of<=date).sort((a,b)=>a.as_of.localeCompare(b.as_of)||String(a.created_at||'').localeCompare(String(b.created_at||'')));
  const approved=baselines.at(-1),byId=new Map(),costs=[];
  if(approved){
   const approvedLines=approved.activity_costs||[];
-  if(!Array.isArray(approvedLines)||approvedLines.length!==rows.length)return {rows,weights:validStored?stored:null,source:'unavailable',reason:'La línea base de costes aprobada no coincide con las partidas del Gantt. Revisar antes de calcular.',costs:[]};
-  for(const l of approvedLines)if(!l||!l.activity_id||byId.has(l.activity_id)||!validAmount(Number(l.amount)))return {rows,weights:null,source:'unavailable',reason:'Costes de línea base incompletos o duplicados.',costs:[]};else byId.set(l.activity_id,Number(l.amount));
+  if(!Array.isArray(approvedLines)||approvedLines.length!==rows.length)return unavailable('La línea base de costes aprobada no coincide con las partidas del Gantt. Revisar antes de calcular.');
+  for(const l of approvedLines)if(!l||!l.activity_id||byId.has(l.activity_id)||!validAmount(Number(l.amount)))return unavailable('Costes de línea base incompletos o duplicados.');else byId.set(l.activity_id,Number(l.amount));
   for(const p of rows)costs.push(byId.get(p.id));
-  if(costs.some(n=>n===undefined))return {rows,weights:null,source:'unavailable',reason:'Falta una partida en la línea base de costes.',costs:[]};
+  if(costs.some(n=>n===undefined))return unavailable('Falta una partida en la línea base de costes.');
  }else{
   const budget=(entries||[]).filter(e=>e.kind==='budget'&&e.entry_date<=date&&e.activity_id&&validAmount(Number(e.amount)));
   for(const entry of budget)byId.set(entry.activity_id,(byId.get(entry.activity_id)||0)+Number(entry.amount));
   for(const p of rows)costs.push(byId.get(p.id));
-  if(costs.some(n=>n===undefined))return {rows,weights:validStored?stored:null,source:'unavailable',reason:'Completa el coste previsto de todas las partidas para calcular pesos automáticamente.',costs:[]};
+  if(costs.some(n=>n===undefined))return unavailable('Completa el coste previsto de todas las partidas para calcular pesos automáticamente.');
  }
  try {
   const weights=allocate(costs);
+  if(manualSaved)return {rows,weights:stored,source:'manual',reason:'Pesos ajustados manualmente y guardados en el Gantt.',costs};
   return {rows,weights,source:approved?'approved':'budget',reason:approved?'Pesos calculados sobre costes de la línea base de ejecución aprobada.':'Pesos provisionales calculados sobre costes de oferta por partida, hasta aprobar el presupuesto de ejecución del PM.',costs};
- }catch(e){return {rows,weights:validStored?stored:null,source:'unavailable',reason:e.message,costs};}
+ }catch(e){return unavailable(e.message,costs);}
 }
 function apply(plan,rows,weights,mode){
  if(!['manual','cost'].includes(mode))throw Error('Modo de pesos no válido.');
