@@ -103,15 +103,16 @@ async function show(id=DEMO){
  $('content').innerHTML=htmlPanel({work,plan,entries:records,forecasts,date:data?.date||planningToday(),demo:id===DEMO},warning);
  if(keepCosts){$('ecCosts').open=true;$('ecCosts').querySelector('.ec-table-scroll').scrollLeft=tableOffset}
  const forecastButton=$('ecMarginEdit');if(forecastButton){forecastButton.disabled=id===DEMO||!!warning;forecastButton.onclick=()=>openMarginForm(view,plan,records,forecasts)}
+ const kButton=$('ecKEdit');if(kButton){kButton.disabled=id===DEMO||!!warning;kButton.onclick=()=>openMarginForm(view,plan,records,forecasts,'k_setting')}
  $('ecBack').onclick=()=>works();$('ecWork').onchange=e=>show(e.target.value);
  $('ecCurrent').onclick=()=>show(id);
  if(id!==DEMO){$('ecImport').onclick=()=>importDialog(view,plan);document.querySelectorAll('[data-cost-kind]:not([readonly])').forEach(input=>input.onchange=async()=>{if(!validView(view)||saving)return;const raw=input.value.trim(),total=Number(raw),activity=input.dataset.costActivity||null,kind=input.dataset.costKind;if(!raw||!VALID(total)||total>1e10){$('ecCellStatus').textContent='Introduce un importe válido, incluido 0.';return}const sources=records.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>({id:e.id,amount:Number(e.amount),source_name:e.source_name}));saving=true;input.disabled=true;try{await eliteRequest('/rest/v1/rpc/tc_set_manual_cost',{method:'POST',body:JSON.stringify({target_work:id,target_activity:activity,target_kind:kind,expected_rows:sources,new_total:total})});if(!validView(view))return;const live=await readEntries(id);if(!validView(view))return;const changed=live.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).reduce((n,e)=>n+Number(e.amount),0);if(Math.abs(changed-total)>.001)throw Error('No se verificó el importe. Actualiza antes de reintentar.');await show(id)}catch(e){if(validView(view)){$('ecCellStatus').textContent=e.message;input.disabled=false}}finally{saving=false}})}
 }
-function openMarginForm(view,plan,records,forecasts){
+function openMarginForm(view,plan,records,forecasts,presetKind=null){
  if(!validView(view)||saving)return;
  const info={id:view.id,plan,date:planningToday(),finance:finance(plan,records,planningToday()),forecasts};
  dialogForm(marginLib.formHTML({plan,finance:info.finance,records:forecasts,date:info.date}));
- const form=$('ecMarginForm');if(!form)return;marginLib.configureForm(form);
+ const form=$('ecMarginForm');if(!form)return;if(presetKind)form.querySelector('#ecMarginKind').value=presetKind;marginLib.configureForm(form);
  form.onsubmit=async e=>{
   e.preventDefault();if(!validView(view)||saving||$('ecMarginForm')!==form)return;
   let payload;try{payload=marginLib.parseForm(form,info)}catch(err){$('ecMarginError').textContent=err.message;return}
