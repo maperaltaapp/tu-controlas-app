@@ -176,6 +176,18 @@ begin
    raise exception 'Restauración incompleta en %, operación revertida.',tbl;
   end if;
  end loop;
+ -- Economic forecasts and approved baselines have no regenerated identity IDs:
+ -- require exact equality of every field, not just matching row counts.
+ select count(*) into n from (
+  (select value as obj from pg_catalog.jsonb_array_elements(archive->'tables'->'tc_cost_forecast_snapshots')
+    except all
+   select to_jsonb(t) from public.tc_cost_forecast_snapshots t where t.user_id=uid)
+  union all
+  (select to_jsonb(t) from public.tc_cost_forecast_snapshots t where t.user_id=uid
+    except all
+   select value as obj from pg_catalog.jsonb_array_elements(archive->'tables'->'tc_cost_forecast_snapshots'))
+ ) mismatches;
+ if n<>0 then raise exception 'La restauración del historial económico no es exacta; se ha revertido todo.';end if;
  delete from elite_private.tc_restore_context_v3
   where txid=pg_catalog.txid_current() and backend_pid=pg_catalog.pg_backend_pid() and user_id=uid;
  return pg_catalog.jsonb_build_object(
