@@ -32,7 +32,7 @@ button:disabled {cursor:default}
 .tc-filter-bar>select,.tc-sheet .tc-filter-bar select {font:400 13px system-ui;padding:5px 8px}
 .tc-task-history,.tc-settings-actions,.form-actions {gap:6px}
 .tc-task-history {padding:12px 0}
-body>.elite-header {background:#133659;box-shadow:none;padding:8px max(16px,calc((100% - 1240px)/2))}
+body>.elite-header {background:#133659;box-shadow:none;padding:8px 16px}
 .elite-header .elite-header-inner {gap:12px}
 .elite-header .elite-brand {color:#fff;letter-spacing:.01em;font-size:16px;font-weight:650}
 .elite-header .helmet-mark {width:29px;height:29px;border-radius:7px;background:#215b95}
@@ -52,7 +52,7 @@ body>.elite-header {background:#133659;box-shadow:none;padding:8px max(16px,calc
 .tc-nav svg {width:19px;height:19px}
 .tc-nav button[aria-current=page] {color:#155c9e;background:#eaf2fa}
 .tc-nav button span {max-width:none}
-.wrap {max-width:1280px}
+.wrap {box-sizing:border-box;width:100%;max-width:none;min-width:0}
 #app {padding-bottom:72px}
 #content>.panel,.tc-sheet,.ec-card,.tc-work-scroll {border-color:var(--tc-line);border-radius:9px;box-shadow:none}
 .tc-panel-tabs {display:flex;align-items:center;gap:3px;padding:0 0 3px;border-bottom:1px solid var(--tc-line);margin:0 0 12px}
@@ -166,4 +166,22 @@ body>.elite-header {background:#133659;box-shadow:none;padding:8px max(16px,calc
   .tc-calendar-grid .wc-day-label {white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .g-clean .g-tools {gap:5px}
   .g-clean :is(.g-top-actions,.g-tools,.g-footer) button,.g-clean .g-tools select {padding-inline:7px}
+}
+
+/* Fluid application shell: respect the browser's CSS viewport, not a fixed
+   desktop canvas. Tables/timelines retain their own horizontal scroll areas.
+   Login and dialogs intentionally remain compact. */
+@media (min-width:850px) {
+  :root {--tc-screen-gutter:clamp(16px,1.5vw,32px)}
+  body>.elite-header {padding-inline:var(--tc-screen-gutter);grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+  body>.wrap {width:100%;max-width:none;padding-inline:var(--tc-screen-gutter)}
+  #app,#content {min-width:0;max-width:100%}
+  .ec-panel-root,.evm-dashboard {width:100%;max-width:none;min-width:0}
+  .tc-nav {padding-inline:var(--tc-screen-gutter)}
+  .tc-nav button {max-width:240px}
+  .home-copy {grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+}
+/* Gantt deliberately uses a tighter gutter and independent timeline scrolling. */
+@media (min-width:850px) {
+  body:has(.g-clean)>.wrap {max-width:none;padding-inline:6px}
 }
