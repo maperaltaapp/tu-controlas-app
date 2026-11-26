@@ -37,7 +37,7 @@ const WA='33333333-3333-4333-8333-333333333333',WB='44444444-4444-4444-8444-4444
   await db.query("update elite_work_plans set phases=$2::jsonb where work_id=$1",[WA,JSON.stringify(changed)]);
   await db.query("insert into elite_tasks(id,user_id,work_id,name) values('task-A',$1,$2,'Tarea A'),('task-B',$3,$4,'Tarea B')",[A,WA,B,WB]);
   const snapshot={format:'tu-controlas-structured-export',version:4,owner_id:A,counts:{},tables:{}};
-  for(const [table] of V4.sources){const rows=(await db.query('select * from public."'+table+'" where user_id=$1',[A])).rows;snapshot.tables[table]=rows;snapshot.counts[table]=rows.length}
+  for(const [table] of V4.sources){const rows=(await db.query('select coalesce(jsonb_agg(to_jsonb(t)),\'[]\'::jsonb) items from public."'+table+'" t where t.user_id=$1',[A])).rows[0].items;snapshot.tables[table]=rows;snapshot.counts[table]=rows.length}
   assert.equal(V4.check(snapshot,A),7,'work+plan+task+4 economic versions');
   // Empty only customer A; keep B to prove isolation.
   for(const [table] of [...V4.sources].reverse())await db.query('delete from public."'+table+'" where user_id=$1',[A]);
