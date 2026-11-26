@@ -38,6 +38,9 @@ jobs:
       - name: Ejecutar regresiones (datos ficticios y PostgreSQL local)
         run: npm test
 
+      - name: Verificar diseño adaptable en Chromium (360–3440 px)
+        run: node test-responsive-layout.cjs
+
       - name: Comprobar que las pruebas no han modificado archivos versionados
         run: |
           if ! git diff --quiet -- .; then
