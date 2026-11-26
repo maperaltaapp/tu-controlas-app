@@ -6,6 +6,8 @@
 .tc-task-actions button:focus-visible,.tc-quick-form button:focus-visible{outline:3px solid #337ab7;outline-offset:2px}
 .tc-quick-form{display:grid;gap:14px;min-width:0}
 .tc-quick-form>.top{margin-bottom:0}
+.tc-quick-form>.tc-quick-top{justify-content:flex-end}
+.tc-quick-form>.tc-quick-top button{margin-left:auto}
 .tc-quick-form>label{display:grid;gap:6px;font-size:13px;font-weight:600;color:#344b61}
 .tc-quick-form>label input,.tc-quick-form>label select{box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:44px;padding:9px 12px;font-size:16px;color:#18334a;border:1px solid #cdd9e3;border-radius:9px;background:white}
 .tc-quick-form>label[hidden]{display:none}
