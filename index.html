@@ -654,9 +654,11 @@ function tcAttachLegacyWeightEditor(){
  };
  let toolbar=$('phaseWeightToolbar');
  if(!toolbar){toolbar=document.createElement('div');toolbar.id='phaseWeightToolbar';toolbar.className='ec-weight-legacy-toolbar';toolbar.innerHTML='<button id="phaseWeightAuto" type="button" class="light">Calcular pesos por costes</button><small id="phaseWeightAutoStatus"></small>';$('phaseEditor').prepend(toolbar);}
- const manual=rows.every(p=>p.weight_source==='manual');
+ const manual=rows.every(p=>p.weight_source==='manual'),savedCost=rows.every(p=>p.weight_source==='cost');
  const auto=fromCosts();
- if(auto&&!manual)paint(auto,'cost');
+ // A previously saved PMI-approved cost distribution must not be overwritten
+ // on merely opening this legacy editor, whose fields may refer to offer costs.
+ if(auto&&!manual&&!savedCost)paint(auto,'cost');
  else if(current().every(Number.isFinite))$('phaseWeightAutoStatus').textContent='Total: '+current().reduce((a,b)=>a+b,0).toFixed(2)+' %'+(manual?' · Ajuste manual':' · Completa los costes para cálculo automático');
  $('phaseWeightAuto').disabled=!auto;
  $('phaseWeightAuto').onclick=()=>{const weights=fromCosts();if(weights)paint(weights,'cost')};
