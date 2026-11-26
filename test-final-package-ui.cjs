@@ -15,9 +15,9 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  run('renderChecklist()');assert.equal(document.querySelectorAll('[data-sheet-type]').length,4);assert.equal(document.querySelectorAll('.tc-sheet-table tbody tr').length,1);assert(!document.querySelector('.tc-sheet h2'));assert.equal(document.querySelector('input[aria-label="Notas · Ensayo"]').value,'Dato original');
  // Navigation regression: first entry fetches three canonical collections; switching
  // between types and works must not perform any network read. Reentry refreshes.
- const reads=[];ctx.readAll=async(table)=>{reads.push(table);return table==='elite_work_checklist_items'?run('CHECKLIST_ITEMS'):[]};
+ const reads=[];const checklistTables=['elite_tasks','elite_work_checklist_items','elite_work_contractors'].sort();const readSnapshot=async(table)=>{if(checklistTables.includes(table))reads.push(table);return table==='elite_work_checklist_items'?run('CHECKLIST_ITEMS'):[]};ctx.readAll=readSnapshot;
  run("selectSection('tasks')");await run("openChecklist('prep')");
- assert.equal(reads.length,3);
+ assert.deepEqual([...reads].sort(),checklistTables,'initial entry must read each checklist table once');
  await run("openChecklist('providers')");assert.equal(reads.length,3);assert.equal(run('checkSection'),'providers');
  await run("openChecklist('prep')");assert.equal(reads.length,3);
  assert.equal(document.querySelector('input[aria-label="Notas · Ensayo"]').value,'Dato original');
@@ -25,7 +25,7 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  // A failed first read cannot promote a stale snapshot into an active cache.
  run("selectSection('works')");ctx.readAll=async()=>{throw Error('Sin conexión')};
  await run("openChecklist('prep')");assert(document.getElementById('content').textContent.includes('Sin conexión'));
- ctx.readAll=async(table)=>{reads.push(table);return table==='elite_work_checklist_items'?run('CHECKLIST_ITEMS'):[]};
+ ctx.readAll=readSnapshot;
  await run("openChecklist('prep')");assert.equal(reads.length,9);
  // A late first-load response from another account cannot enter B's cache.
  run("selectSection('works')");let release;const slow=new Promise(r=>release=r);ctx.readAll=()=>slow;
