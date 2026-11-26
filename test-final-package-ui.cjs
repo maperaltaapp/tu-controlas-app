@@ -13,6 +13,28 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
 (async()=>{
  run('tasks()');assert(!document.getElementById('filterWork'));assert(document.getElementById('filterPriority'));assert(document.querySelector('#content .tc-task-history'));assert(!document.querySelector('#content #newOwn'));
  run('renderChecklist()');assert.equal(document.querySelectorAll('[data-sheet-type]').length,4);assert.equal(document.querySelectorAll('.tc-sheet-table tbody tr').length,1);assert(!document.querySelector('.tc-sheet h2'));assert.equal(document.querySelector('input[aria-label="Notas · Ensayo"]').value,'Dato original');
+ // Navigation regression: first entry fetches three canonical collections; switching
+ // between types and works must not perform any network read. Reentry refreshes.
+ const reads=[];ctx.readAll=async(table)=>{reads.push(table);return table==='elite_work_checklist_items'?run('CHECKLIST_ITEMS'):[]};
+ run('tasks()');await run("openChecklist('prep')");
+ assert.equal(reads.length,3);
+ await run("openChecklist('providers')");assert.equal(reads.length,3);assert.equal(run('checkSection'),'providers');
+ await run("openChecklist('prep')");assert.equal(reads.length,3);
+ assert.equal(document.querySelector('input[aria-label="Notas · Ensayo"]').value,'Dato original');
+ run('works()');await run("openChecklist('prep')");assert.equal(reads.length,6);
+ // A failed first read cannot promote a stale snapshot into an active cache.
+ run('works()');ctx.readAll=async()=>{throw Error('Sin conexión')};
+ await run("openChecklist('prep')");assert(document.getElementById('content').textContent.includes('Sin conexión'));
+ ctx.readAll=async(table)=>{reads.push(table);return table==='elite_work_checklist_items'?run('CHECKLIST_ITEMS'):[]};
+ await run("openChecklist('prep')");assert.equal(reads.length,9);
+ // A late first-load response from another account cannot enter B's cache.
+ run('works()');let release;const slow=new Promise(r=>release=r);ctx.readAll=()=>slow;
+ const original=run('CHECKLIST_ITEMS');const old=run("openChecklist('prep')");
+ run("sessionEpoch++;session={access_token:'B',user:{id:'B'}};CHECKLIST_ITEMS=[];WORK_CONTRACTORS=[];OWN_TASKS=[]");
+ release(original);await old;assert.equal(run('CHECKLIST_ITEMS.length'),0);
+ run("sessionEpoch++;session={access_token:'fixture',user:{id:'A'}}");run('works()');
+ ctx.readAll=async(table)=>table==='elite_work_checklist_items'?original:[];
+ await run("openChecklist('prep')");assert.equal(run('CHECKLIST_ITEMS.length'),1);
  const writes=[];ctx.capture=async(path,opts)=>{const payload=JSON.parse(opts.body);writes.push({path,payload});if(path.includes('elite_works'))return [{...run('NATIVE_WORKS[0]'),...payload,updated_at:'v'+writes.length}];return [{...run('CHECKLIST_ITEMS[0]'),...payload,updated_at:'r'+writes.length}]};run('eliteRequest=capture');
  await run(`tcSheetCell('${item}','title','Ensayo corregido')`);assert.equal(run('CHECKLIST_ITEMS[0].title'),'Ensayo corregido');assert(writes[0].path.includes('updated_at=eq.r1'));
  prompts.push('Resistencia');run('tcSheetAddColumn()');await new Promise(r=>setTimeout(r,0));assert(document.querySelector('[data-column-menu^="col_"]'));assert(run('NATIVE_WORKS[0].workspace_layout.sheets.prep.columns.length')===5);
