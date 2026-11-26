@@ -54,8 +54,8 @@ function graph(data,amountScale=null){
 }
 if(typeof document==='undefined')return {DEMO,physical,planned,curve,finance,example,graph};
 let shown=null,seq=0,saving=false;
-const marginLib=root.TCCostMargin;
-if(!marginLib)throw Error('Falta el módulo de previsiones económicas');
+const marginLib=root.TCCostMargin,weightLib=root.TCWeights;
+if(!marginLib||!weightLib)throw Error('Falta el módulo de previsiones económicas o pesos');
 const oldDetail=detail;
 const validView=view=>shown===view&&view.epoch===sessionEpoch&&view.owner===session?.user?.id&&mode==='works'&&workDetailId===view.id;
 const readEntries=id=>readAll('elite_work_economic_entries','work_id=eq.'+encodeURIComponent(id)+'&order=entry_date.asc,id.asc');
@@ -71,6 +71,25 @@ function moneyCurve(plan,entries,date,baseline){
  const available=points.flatMap(p=>[p.planned,p.real]).filter(v=>v!==null),max=Math.max(1,...available);
  return graph({points:points.map(p=>({...p,planned:p.planned===null?null:p.planned/max*100,real:p.real===null?null:p.real/max*100})),trend:[]},max);
 }
+
+function weightsSection(data){
+ const m=weightLib.derive(data.plan,data.entries,data.forecasts,data.date);
+ const euroWeight=v=>v===undefined||v===null?'—':euro(v);
+ const current=weightLib.leaves(data.plan?.phases||[]);
+ const sum=Array.isArray(m.weights)?m.weights.reduce((a,b)=>a+b,0):null;
+ let output='<section class="ec-card ec-weights"><div class="ec-weights-head"><div><h2>Pesos de partidas</h2><p class="small">Calculados a partir de costes previstos de ejecución. La suma debe ser 100,00 %.</p></div><button id="ecWeightsEdit" class="light" type="button">Ajustar pesos</button></div>';
+ if(!current.length)return output+'<p class="small">Crea primero las actividades en el Gantt.</p></section>';
+ output+='<p class="ec-weights-origin">'+escape(m.reason)+(m.source==='approved'||m.source==='budget'?' · Cálculo automático disponible; guardar para sincronizarlo con Gantt.':'')+'</p>';
+ output+='<div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Coste previsto €</th><th>Peso calculado</th><th>En Gantt</th></tr></thead><tbody>';
+ for(let i=0;i<current.length;i++){
+  const p=current[i];const cost=m.costs[i],suggested=m.weights?.[i];
+  output+='<tr><td>'+escape(p.name)+'</td><td>'+euroWeight(cost)+'</td><td>'+percent(suggested??null)+'</td><td>'+percent(p.weight)+'</td></tr>';
+ }
+ output+='</tbody><tfoot><tr><th>Total</th><th>'+euroWeight(m.costs?.length?m.costs.reduce((a,b)=>a+b,0):null)+'</th><th>'+(sum===null?'Sin datos':percent(sum))+'</th><th>'+percent(current.reduce((a,p)=>a+Number(p.weight||0),0))+'</th></tr></tfoot></table></div>';
+ output+='<p class="small">Los pesos de las fases contenedoras se calculan desde las partidas finales, sin duplicarlas. Los cambios manuales se distribuyen por igual entre las demás partidas, sin tocar costes ni la línea base original.</p></section>';
+ return output;
+}
+
 function htmlPanel(data,warning){
  const {work,plan,entries,date}=data,f=finance(plan,entries,date),baseline=marginLib.latest(data.forecasts||[],'baseline',date),pmi=marginLib.evm(plan,entries,date,baseline),p=planned(plan,date),r=physical(plan,date),d=p===null||r===null?null:r-p,chart=curve(plan,date),end=leaves(plan.baseline||[]).map(x=>x.end).sort().at(-1);
  const options=[...NATIVE_WORKS.filter(w=>!w.archived_at||w.id===work.id).map(w=>[w.id,w.name]),[DEMO,'Prueba (ejemplo)']];
@@ -80,6 +99,7 @@ function htmlPanel(data,warning){
  if(warning)out+='<p class="ec-warning">No se pudieron cargar los costes: '+escape(warning)+'</p>';
  out+='<div class="ec-top"><section class="ec-card ec-curve"><h2>Avance previsto frente al real</h2>'+graph(chart)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>Previsto</span><span><i class="ec-color-green"></i>Real medido</span><span><i class="ec-color-orange"></i>Tendencia estimada</span></div></section><section class="ec-card ec-summary"><h2>Situación de la obra</h2>'+metric('Avance previsto',percent(p),'Línea base')+metric('Avance real',percent(r),'Mediciones ponderadas')+metric('Diferencia',d===null?'Sin datos':(d>0?'+':'')+new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(d)+' pp','Puntos porcentuales')+metric('Fin previsto',end?end.split('-').reverse().join('/'):'Sin línea base','Fecha del Gantt original')+'</section></div>';
  out+=marginLib.render({records:data.forecasts||[],date,offerCost:f.bac,contract:f.contract});
+ out+=weightsSection(data);
  out+='<section class="ec-card ec-cost-card"><h2>Costes</h2><div class="ec-stats">'+metric('Costes de Oferta',euro(f.bac))+metric('Coste real acumulado',euro(f.ac))+'</div><details id="ecCosts" data-work="'+escape(work.id)+'"><summary>Costes por partidas <small>'+f.rows.length+' '+(f.rows.length===1?'partida':'partidas')+'</small></summary><p>Los importes manuales se editan en la tabla. Los importes importados muestran el valor del documento.</p><div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Peso físico</th><th>Avance real</th><th>Costes de Oferta €</th><th>Coste real €</th></tr></thead><tbody>'+f.rows.map(row=>'<tr><td>'+escape(row.name)+'</td><td>'+percent(row.weight)+'</td><td>'+percent(row.progress)+'</td><td>'+inputCell(data,'budget',row.id,row.budget)+'</td><td>'+inputCell(data,'actual',row.id,row.actual)+'</td></tr>').join('')+'</tbody></table></div><div class="ec-table-scroll"><table><thead><tr><th>Contrato €</th><th>Certificado acumulado €</th></tr></thead><tbody><tr><td>'+inputCell(data,'contract',null,f.contract)+'</td><td>'+inputCell(data,'certified',null,f.certified)+'</td></tr></tbody></table></div><p id="ecCellStatus" role="status"></p></details></section>';
  out+='<section class="ec-card"><h2>Curvas S · costes acumulados</h2>'+moneyCurve(plan,entries,date,baseline)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>PV · Coste planificado</span><span><i class="ec-color-green"></i>AC · Coste real</span></div></section>';
  out+='<section class="ec-card ec-indicators"><h2>Indicadores de control</h2><div class="ec-stats">'+metric('SPI · Plazo',decimal(pmi.spi),'EV / PV · Base aprobada')+metric('CPI · Coste',decimal(pmi.cpi),'EV / AC · Base aprobada')+metric('PV · Planificado',euro(pmi.pv),'Según línea base aprobada')+metric('EV · Valor ganado',euro(pmi.ev),'Coste base × avance medido')+metric('EAC · Tendencia PMI',euro(pmi.eacTrend),'BAC / CPI; contraste con estimación PM')+'</div><details><summary>Criterios de cálculo</summary><p>Los pesos físicos proceden del Gantt. PV y EV usan la línea base de costes aprobada y las mediciones del Gantt. AC usa los costes reales incurridos. La previsión principal de cierre se registra con AC + ETC; BAC / CPI se muestra solo como tendencia. Sin datos fiables, no se calculan índices. La tendencia es una estimación, no una medición.</p></details></section></div>';
@@ -104,10 +124,80 @@ async function show(id=DEMO){
  if(keepCosts){$('ecCosts').open=true;$('ecCosts').querySelector('.ec-table-scroll').scrollLeft=tableOffset}
  const forecastButton=$('ecMarginEdit');if(forecastButton){forecastButton.disabled=id===DEMO||!!warning;forecastButton.onclick=()=>openMarginForm(view,plan,records,forecasts)}
  const kButton=$('ecKEdit');if(kButton){kButton.disabled=id===DEMO||!!warning;kButton.onclick=()=>openMarginForm(view,plan,records,forecasts,'k_setting')}
+ const weightButton=$('ecWeightsEdit');if(weightButton){weightButton.disabled=id===DEMO||!!warning;weightButton.onclick=()=>openWeightsForm(view,plan,records,forecasts)}
  $('ecBack').onclick=()=>works();$('ecWork').onchange=e=>show(e.target.value);
  $('ecCurrent').onclick=()=>show(id);
  if(id!==DEMO){$('ecImport').onclick=()=>importDialog(view,plan);document.querySelectorAll('[data-cost-kind]:not([readonly])').forEach(input=>input.onchange=async()=>{if(!validView(view)||saving)return;const raw=input.value.trim(),total=Number(raw),activity=input.dataset.costActivity||null,kind=input.dataset.costKind;if(!raw||!VALID(total)||total>1e10){$('ecCellStatus').textContent='Introduce un importe válido, incluido 0.';return}const sources=records.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>({id:e.id,amount:Number(e.amount),source_name:e.source_name}));saving=true;input.disabled=true;try{await eliteRequest('/rest/v1/rpc/tc_set_manual_cost',{method:'POST',body:JSON.stringify({target_work:id,target_activity:activity,target_kind:kind,expected_rows:sources,new_total:total})});if(!validView(view))return;const live=await readEntries(id);if(!validView(view))return;const changed=live.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).reduce((n,e)=>n+Number(e.amount),0);if(Math.abs(changed-total)>.001)throw Error('No se verificó el importe. Actualiza antes de reintentar.');await show(id)}catch(e){if(validView(view)){$('ecCellStatus').textContent=e.message;input.disabled=false}}finally{saving=false}})}
 }
+
+function openWeightsForm(view,plan,entries,forecasts){
+ if(!validView(view)||saving)return;
+ const on=planningToday(),current=planOf(view.id),base=weightLib.derive(current,entries,forecasts,on);
+ const currentLeaves=weightLib.leaves(current.phases),originalWeights=currentLeaves.map(p=>Number(p.weight));
+ if(!currentLeaves.length){statusMessage('Primero crea las partidas del Gantt.',true);return}
+ let weights=base.weights&&base.weights.length===currentLeaves.length?[...base.weights]:[...originalWeights];
+ let method=base.source==='manual'?'manual':'cost';
+ const costSnapshot=weightLib.derive(current,entries,forecasts,on,false);
+ const formatter=n=>new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+ const rows=currentLeaves.map((p,i)=>'<tr><td>'+escape(p.name)+'</td><td>'+((base.costs||[])[i]===undefined?'—':euro(base.costs[i]))+'</td><td><input data-w-index="'+i+'" type="number" step="0.01" min="0" max="100" value="'+(weights[i]??'')+'" aria-label="Peso de '+escape(p.name)+'"></td></tr>').join('');
+ const message=base.source==='unavailable'?base.reason:'Cambia el peso de una partida y se redistribuirá la diferencia entre las demás.';
+ dialogForm('<form id="ecWeightsForm"><div class="top"><h2>Pesos físicos por partida</h2><button id="closeTask" type="button" class="light">✕</button></div><p class="small">'+escape(message)+'</p><div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Coste previsto</th><th>Peso %</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="ec-weight-total"><strong>Total: <span id="ecWeightsTotal"></span></strong><span id="ecWeightsMethod"></span></div><div class="ec-weight-actions"><button type="button" class="light" id="ecWeightsReset">Recalcular por costes</button><button type="submit" class="dark" id="ecWeightsSave">Guardar pesos en Gantt</button></div><p id="ecWeightsError" class="status err" role="alert"></p></form>');
+ const form=$('ecWeightsForm');if(!form)return;const inputs=[...form.querySelectorAll('[data-w-index]')];
+ const alive=()=>validView(view)&&$('ecWeightsForm')===form&&planOf(view.id).revision===current.revision;
+ const messageEl=$('ecWeightsError');
+ const render=()=>{
+  inputs.forEach((field,i)=>field.value=formatter(weights[i]).replace(',','.'));
+  $('ecWeightsTotal').textContent=formatter(weights.reduce((a,b)=>a+b,0))+' %';
+  $('ecWeightsMethod').textContent=method==='manual'?'Ajuste manual':'Cálculo automático';
+  const unavailable=weights.some(w=>!Number.isFinite(w)||w<=0);
+  $('ecWeightsSave').disabled=unavailable;
+  messageEl.textContent=unavailable?'El Gantt actual requiere pesos mayores que cero para sus partidas. Revisa las partidas de coste nulo o un ajuste al 100 %.':'';
+ };
+ inputs.forEach((field,i)=>field.onchange=()=>{
+  if(!alive())return;
+  try{
+   const raw=field.value.trim(),requested=Number(raw);
+   if(!raw)throw Error('Indica el porcentaje de la partida.');
+   weights=weightLib.equalAdjust(weights,i,requested);method='manual';render();
+  }catch(err){messageEl.textContent=err.message;field.value=formatter(weights[i]).replace(',','.')}
+ });
+ $('ecWeightsReset').disabled=!['approved','budget'].includes(costSnapshot.source);
+ $('ecWeightsReset').onclick=()=>{
+  if(!alive())return;
+  if(!['approved','budget'].includes(costSnapshot.source)||!costSnapshot.weights)return;
+  weights=[...costSnapshot.weights];method='cost';render();
+ };
+ render();
+ form.onsubmit=async e=>{
+  e.preventDefault();if(!alive()||saving)return;
+  let next;
+  try{
+   if(weights.some(w=>w<=0))throw Error('No se puede guardar una partida ejecutable con peso cero en el Gantt actual.');
+   next=weightLib.apply(current,currentLeaves,weights,method);
+   next=ElitePlanning.derive(next);ElitePlanning.validate(next);
+   if((current.phases||[]).some(p=>!p.task_id&&!p.is_group&&!current.phases.some(c=>c.parent_id===p.id))
+     &&!confirm('Este Gantt contiene actividades sin tarea vinculada. Guardarlo puede crear tareas vinculadas. ¿Continuar?'))return;
+   if(!confirm('¿Guardar estos pesos en el Gantt? Se actualizará el avance ponderado, conservando la línea base original.'))return;
+  }catch(err){messageEl.textContent=err.message;return}
+  saving=true;$('ecWeightsSave').disabled=true;
+  try{
+   if(!alive())throw Error('La planificación cambió. Vuelve a abrir el editor.');
+   await eliteRequest('/rest/v1/rpc/elite_save_gantt',{method:'POST',body:JSON.stringify({target_work:view.id,new_phases:next,expected_revision:current.revision,freeze_baseline:false,confirm_work:!!current.confirmed_at,exception_reason:''})});
+   if(!validView(view))return;
+   const refreshed=await readAll('elite_work_plans','work_id=eq.'+encodeURIComponent(view.id));
+   if(!validView(view))return;
+   const saved=refreshed[0];
+   if(!saved||saved.revision!==current.revision+1)throw Error('No se verificó la actualización del Gantt.');
+   const actual=new Map(weightLib.leaves(saved.phases).map(p=>[p.id,p]));
+   if(currentLeaves.some((p,i)=>!actual.has(p.id)||Math.abs(Number(actual.get(p.id).weight)-weights[i])>.001||actual.get(p.id).weight_source!==method))
+    throw Error('Los pesos guardados no coinciden. Actualiza la obra antes de volver a guardar.');
+   await load();if(!validView(view))return;
+   closeTaskDialog();await show(view.id);
+  }catch(err){if(validView(view)&&$('ecWeightsForm')===form){messageEl.textContent=err.message;$('ecWeightsSave').disabled=false}}
+  finally{saving=false}
+ };
+}
+
 function openMarginForm(view,plan,records,forecasts,presetKind=null){
  if(!validView(view)||saving)return;
  const info={id:view.id,plan,date:planningToday(),finance:finance(plan,records,planningToday()),forecasts};
