@@ -18,3 +18,6 @@
 
 /* Long press must select the task, never the browser's text context menu. */
 .home-row .home-open,.home-row .home-name,.home-row .home-work,.home-row .home-date{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+
+.tc-quick-form>.tc-quick-top{justify-content:flex-end}
+.tc-quick-form>.tc-quick-top button{margin-left:auto}

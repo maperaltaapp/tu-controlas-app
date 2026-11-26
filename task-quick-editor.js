@@ -51,7 +51,7 @@ function edit(id){
  const type=linked?'date':'datetime-local';
  const info=linked?'<p class="small">Actividad vinculada al Gantt. Las fechas con dependencias se editan desde el cronograma.</p>':'';
  const extras=task.extra_remind_at?.length?'<p class="small">Se conservan los avisos adicionales existentes.</p>':'';
- const html='<form id="tcQuickTaskForm" class="tc-quick-form"><div class="top"><h2>Editar tarea</h2><button type="button" class="light" id="closeTask" aria-label="Cerrar">✕</button></div>'
+ const html='<form id="tcQuickTaskForm" class="tc-quick-form" aria-label="Datos de tarea"><div class="top tc-quick-top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">✕</button></div>'
  +'<label>Nombre<input name="title" maxlength="240" required value="'+title+'"></label>'
  +'<label>Vencimiento<input name="due" type="'+type+'" value="'+esc(dateValue)+'"></label>'
  +'<label>Recordatorio<select name="reminder">'
@@ -61,6 +61,7 @@ function edit(id){
  +info+extras+'<details class="task-form-section"'+(checklistDraft.length?' open':'')+'><summary>Checklist <span id="tcQuickCheckSummary"></span></summary><div id="tcQuickCheckEditor"></div><button type="button" class="light" id="tcQuickAddChecklist">+ Checklist</button></details><div id="tcQuickError" class="status err" role="alert"></div>'
  +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
  const dialog=dialogForm(html),form=dialog.querySelector('#tcQuickTaskForm');
+ dialog.setAttribute?.('aria-label','Datos de tarea');
  if(typeof mountTaskChecklists==='function')mountTaskChecklists(form.querySelector('#tcQuickCheckEditor'),form.querySelector('#tcQuickCheckSummary'),checklistDraft,form.querySelector('#tcQuickAddChecklist'));
  const switchCustom=()=>{form.querySelector('#tcQuickCustomRow').hidden=form.elements.reminder.value!=='custom'};
  form.elements.reminder.onchange=switchCustom;
