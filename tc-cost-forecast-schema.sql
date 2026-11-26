@@ -54,7 +54,7 @@ create policy tc_cost_forecast_owner_insert on public.tc_cost_forecast_snapshots
 -- Each approved baseline must cover exactly the current executable activities
 -- and those activity IDs must also exist in the frozen schedule. No partial BAC.
 create or replace function elite_private.tc_check_cost_baseline()
-returns trigger language plpgsql security definer set search_path = '' as $
+returns trigger language plpgsql security definer set search_path = '' as $tc_cost_baseline$
 declare p record;line jsonb;item_id text;item_amount numeric;cost_sum numeric:=0;items integer:=0;leaves integer:=0;
 begin
  if new.snapshot_type <> 'baseline' then return new; end if;
@@ -112,7 +112,7 @@ begin
    raise exception 'El total aprobado no coincide con la suma de partidas.';
  end if;
  return new;
-end $$;
+end $tc_cost_baseline$;
 revoke all on function elite_private.tc_check_cost_baseline() from public,anon,authenticated;
 drop trigger if exists tc_cost_forecast_baseline_guard on public.tc_cost_forecast_snapshots;
 create trigger tc_cost_forecast_baseline_guard before insert on public.tc_cost_forecast_snapshots
