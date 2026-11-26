@@ -95,7 +95,7 @@ function formHTML({plan,finance,records,date}){
  return '<form id="ecMarginForm"><div class="top"><h2>Control de costes · PM</h2><button type="button" id="closeTask" class="light">✕</button></div>'+
  '<p class="small">Cada guardado añade una versión fechada, sin sobrescribir ofertas, líneas base ni cierres anteriores.</p>'+
  '<label>Tipo de registro<select id="ecMarginKind">'+types+'</select></label>'+
- '<div class="ec-margin-field ec-m-offer ec-m-initial"><label>Coste estimado (€)<input id="ecMarginTotal" type="number" step=".01" min="0" max="10000000000" value="'+(valid(s.initial?.total_cost)?s.initial.total_cost:valid(finance.bac)?finance.bac:'')+'"></label></div>'+
+ '<div class="ec-margin-field ec-m-offer ec-m-initial"><label>Coste estimado (€)<input id="ecMarginTotal" type="number" step=".01" min="0" max="10000000000" data-offer-default="'+(valid(s.offer?.total_cost)?s.offer.total_cost:valid(finance.bac)?finance.bac:'')+'" data-pm-default="'+(valid(s.initial?.total_cost)?s.initial.total_cost:valid(finance.bac)?finance.bac:'')+'"></label></div>'+
  '<div class="ec-margin-field ec-m-forecast"><label>Coste real acumulado al corte (AC)<input id="ecMarginActual" type="number" readonly value="'+(valid(finance.ac)?finance.ac:'')+'" placeholder="Faltan costes por registrar"></label>'+
  '<label>Coste que falta para terminar (ETC)<input id="ecMarginRemaining" type="number" step=".01" min="0" max="10000000000" placeholder="Pendiente de ejecutar"></label></div>'+
  '<div class="ec-margin-field ec-m-baseline"><p class="small">Distribuí el presupuesto aprobado por actividades. La suma constituirá BAC; no es el coste de oferta.</p>'+rows+
@@ -105,7 +105,13 @@ function formHTML({plan,finance,records,date}){
  '<p class="status err" id="ecMarginError" role="alert"></p><button id="ecMarginSave" class="dark" type="submit">Guardar revisión</button></form>';
 }
 function configureForm(form){
+ const totalInput=form.querySelector('#ecMarginTotal');
+ const costs={offer:totalInput.dataset.offerDefault||'',pm_initial:totalInput.dataset.pmDefault||''};
+ let previousKind=null;
  const choose=()=>{const kind=form.querySelector('#ecMarginKind').value;
+ if(previousKind==='offer'||previousKind==='pm_initial')costs[previousKind]=totalInput.value;
+ if(kind==='offer'||kind==='pm_initial')totalInput.value=costs[kind]||'';
+ previousKind=kind;
  for(const el of form.querySelectorAll('.ec-margin-field'))el.hidden=!(kind==='offer'&&el.classList.contains('ec-m-offer')||kind==='pm_initial'&&el.classList.contains('ec-m-initial')||kind==='forecast'&&el.classList.contains('ec-m-forecast')||kind==='baseline'&&el.classList.contains('ec-m-baseline'));
  const baseline=kind==='baseline';form.querySelector('#ecMarginRevenue').closest('label').hidden=baseline;
  form.querySelector('#ecMarginApproval').required=baseline;
