@@ -12,10 +12,10 @@ declare
  collist text; key text;
  approved text[]:=array[
   'elite_works','elite_contractors','elite_work_contractors','elite_tasks',
-  'elite_work_plans','elite_plan_versions','elite_plan_exceptions',
+  'elite_holiday_calendars','elite_work_plans','elite_plan_versions','elite_plan_exceptions',
   'elite_work_checklist_items','elite_daily_reports','elite_incidents',
   'elite_capacity_reviews','elite_contract_plan_versions','elite_contract_plan_drafts',
-  'elite_holiday_calendars','elite_task_orders','elite_history',
+  'elite_task_orders','elite_history',
   'elite_work_economic_entries','elite_ai_learnings','elite_ai_corrections',
   'elite_ai_learning_history','elite_ai_correction_history','elite_ai_agent_settings'
  ];
@@ -100,6 +100,7 @@ begin
    where w->>'id'=a->>'work_id')
  ) then raise exception 'Hay costes que no corresponden a las obras de la copia.';end if;
 
+ -- Shared holidays must be restored before any Gantt whose working calendar inherits them.
  -- The table is private, not exposed through REST, and keyed by transaction ID,
  -- backend process and owner. Only this definer can insert a restore context.
  insert into elite_private.tc_restore_context_v3(txid,backend_pid,user_id)
