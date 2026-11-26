@@ -53,6 +53,22 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  await new Promise(r=>setTimeout(r,0));assert.equal(run('NATIVE_WORKS[0].workspace_layout.sheets.prep.widths')[col],231);
  assert.equal(handle.getAttribute('aria-valuenow'),'231');
 
+ // A stale row cannot overwrite a concurrent edit. The message remains beside
+ // the planilla and refresh reloads authoritative data without leaving the tool.
+ const oldCapture=ctx.capture;
+ ctx.eliteRequest=async()=>[];
+ await ctx.tcSheetCell(item,'notes','Cambio no confirmado');
+ assert.equal(run('CHECKLIST_ITEMS[0].notes'),'Dato original');
+ assert.match(document.getElementById('sheetSaveStatus').textContent,/cambió en otro dispositivo/);
+ assert.equal(document.querySelector('.tc-sheet').getAttribute('aria-busy')==='true',false);
+ const refreshed=[];
+ const freshRow={...run('CHECKLIST_ITEMS[0]'),notes:'Dato de otro dispositivo',updated_at:'r-refresh'};
+ ctx.readAll=async table=>{refreshed.push(table);return table==='elite_work_checklist_items'?[freshRow]:[]};
+ await document.getElementById('sheetRefresh').onclick();
+ assert.deepEqual(refreshed.sort(),checklistTables);
+ assert.equal(run('CHECKLIST_ITEMS[0].notes'),'Dato de otro dispositivo');
+ assert.equal(document.getElementById('sheetSaveStatus').textContent,'');
+ ctx.eliteRequest=oldCapture;
  // New custom types can be renamed, archived and restored with existing metadata intact.
  prompts.push('Control QA');await ctx.tcSheetAddType();
  const type=run('checkSection');assert.match(type,/^custom_/);
