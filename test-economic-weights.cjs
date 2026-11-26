@@ -11,6 +11,7 @@ assert.throws(()=>W.equalAdjust([30,30,30],0,50),/100/);
 assert.throws(()=>W.allocate([0,0]),/mayor que cero/);
 assert.deepEqual(W.allocate([0,500,500]),[0,50,50]);
 assert.deepEqual(W.allocate([1,1,1]),[33.34,33.33,33.33]);
+assert.deepEqual(W.equalAdjust([33.333,33.333,33.334],0,40),[40,30,30],'Legacy float weights normalize correctly before manual adjustment.');
 for(let n=2;n<=100;n++){
  const costs=Array.from({length:n},(_,i)=>((i+1)*117)%193+1);
  const weights=W.allocate(costs);
