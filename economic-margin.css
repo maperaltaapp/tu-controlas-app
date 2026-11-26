@@ -29,3 +29,12 @@
  .ec-margin-line input {max-width:115px}
  #ecMarginForm .ec-margin-line input {width:110px}
 }
+
+.ec-margin-title button, .ec-k-line button {height:36px;font-size:12px;width:auto;min-width:0}
+.ec-margin-k-line {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 4px;flex-wrap:wrap;font-size:12px}
+.ec-margin-k-line strong {font-weight:650}
+.ec-margin-k-line button {border:1px solid #cbd6db;padding:0 12px;border-radius:8px}
+.ec-k-warning {font-size:12px;color:#664719;background:#fff8e9;border:1px solid #eedcaa;border-radius:8px;padding:8px 10px;margin:7px 0 10px}
+#ecMarginForm .ec-k-check {display:flex;align-items:center;gap:9px;font-weight:500;line-height:1.35}
+#ecMarginForm .ec-k-check input {width:17px;height:17px;flex:0 0 auto;margin:0}
+@media(max-width:600px){.ec-margin-k-line {align-items:stretch}.ec-margin-k-line button {flex:0 0 100%;width:100%}}
