@@ -18,7 +18,9 @@ function allocate(costs){
 function equalAdjust(current,index,desired){
  if(!Array.isArray(current)||!current.length||current.length>100||!Number.isInteger(index)||index<0||index>=current.length)throw Error('Selecciona una partida válida.');
  const toCents=n=>{if(typeof n!=='number'||!Number.isFinite(n)||n<0||n>100)throw Error('Peso no válido: debe estar entre 0 % y 100 %.');return Math.round(n*100)};
- const now=current.map(toCents);if(now.reduce((a,b)=>a+b,0)!==10000)throw Error('Primero normaliza los pesos para que sumen 100 %.');
+ const originalSum=current.reduce((a,b)=>a+b,0);
+ if(Math.abs(originalSum-100)>.01)throw Error('Primero normaliza los pesos para que sumen 100 %.');
+ const now=allocate(current).map(toCents);
  const wanted=toCents(desired);if(now.length===1){if(wanted!==10000)throw Error('La única partida debe pesar 100 %.');return [100];}
  const diff=wanted-now[index],others=now.map((_,i)=>i).filter(i=>i!==index);
  if(diff>0){
