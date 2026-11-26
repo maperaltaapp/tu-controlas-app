@@ -38,5 +38,6 @@ const moved=W.apply(plan,cost.rows,[40,35,25],'manual');
 assert.deepEqual(W.leaves(moved).map(x=>x.weight),[40,35,25]);assert.equal(moved[0].weight,0);
 assert.equal(phases[1].weight,20);assert.equal(plan.baseline[0].weight,30);
 assert.equal(W.derive({...plan,phases:moved},budget,approved,'2026-11-26').source,'manual');
+assert.deepEqual(W.derive({...plan,phases:moved},budget,approved,'2026-11-26').costs,[60000,36000,24000],'Keep costs visible while preserving manual weights.');
 assert.throws(()=>W.apply(plan,cost.rows,[40,34,25],'manual'),/100/);
 console.log('PASS: auto cost weights, hierarchical leaves, exact 100.00%, equitably redistributed points, rounding, saturation, manual override and unchanged original baseline');
