@@ -34,7 +34,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  await db.query('insert into elite_work_plans(user_id,work_id,phases) values($1,$2,$3::jsonb)',[A,wA,JSON.stringify([{id:'phase-A',name:'Actividad',weight:100,start:'2026-11-01',end:'2026-12-01'}])]);
  // Realistic dependency: custom shared holidays must precede plans that inherit them.
  const calendarWork=(await db.query("insert into elite_works(user_id,name) values($1,'Calendario QA') returning id",[A])).rows[0].id;
- await db.query("insert into elite_holiday_calendars(user_id,revision,exceptions) values($1,3,$2::jsonb)",[A,JSON.stringify([{date:'2026-11-23',working:false,label:'Festivo ficticio'}])]);
+ await db.query("insert into elite_holiday_calendars(user_id,revision,exceptions) values($1,3,$2::jsonb)",[A,JSON.stringify([{date:'2026-11-23',working:false,name:'Festivo ficticio'}])]);
  const inherited=(await db.query("select elite_private.shared_calendar('{}'::jsonb,'2026-11-20'::date,$1) as calendar",[A])).rows[0].calendar;
  assert.equal(inherited.holiday_revision,3);
  await db.query("insert into elite_work_plans(user_id,work_id,phases,working_calendar) values($1,$2,'[]'::jsonb,$3::jsonb)",[A,calendarWork,JSON.stringify(inherited)]);
