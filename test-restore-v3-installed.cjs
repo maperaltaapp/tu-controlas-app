@@ -32,6 +32,13 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const tA=(await db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'Task A','work') returning id",[A,wA])).rows[0].id;
  await db.query("insert into elite_tasks(user_id,work_id,title,category) values($1,$2,'Task B','work')",[B,wB]);
  await db.query('insert into elite_work_plans(user_id,work_id,phases) values($1,$2,$3::jsonb)',[A,wA,JSON.stringify([{id:'phase-A',name:'Actividad',weight:100,start:'2026-11-01',end:'2026-12-01'}])]);
+ // A V2 daily report written through the normal RPC must survive restoration.
+ const reportA='55555555-5555-4555-8555-555555555555';
+ const reportRows=[{activity_id:null,activity_name:'Trabajo manual',progress_pct:25,observations:'Parte ficticio',workers:3,machines:1}];
+ await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
+ const planRevision=(await db.query('select revision from elite_work_plans where work_id=$1',[wA])).rows[0].revision;
+ await db.query('select public.elite_save_daily_activities($1,$2,$3,$4::jsonb,null,$5)',[reportA,wA,'2026-11-20',JSON.stringify(reportRows),planRevision]);
+ await db.exec('reset role');
  const eA=(await db.query("insert into elite_work_economic_entries(user_id,work_id,activity_id,kind,amount,source_name,source_line) values($1,$2,'phase-A','budget',1250,'Ficticio','1') returning id",[A,wA])).rows[0].id;
  const lA=(await db.query("insert into elite_ai_learnings(user_id,work_id,title) values($1,$2,'Learn A') returning id",[A,wA])).rows[0].id;
  await db.query("update elite_ai_learnings set status='approved' where id=$1",[lA]);
@@ -46,7 +53,7 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  assert.equal(archive.version,3);assert.equal(archive.tables.elite_ai_learnings[0].status,'approved');
  assert.equal(archive.tables.elite_ai_corrections[0].status,'confirmed');
  await db.exec('reset role');
- const clear=async()=>{for(const t of ['elite_ai_correction_history','elite_ai_learning_history','elite_ai_corrections','elite_ai_learnings','elite_ai_agent_settings','elite_work_economic_entries','elite_work_plans','elite_tasks','elite_history','elite_works'])await db.query('delete from public."'+t+'" where user_id=$1',[A])};
+ const clear=async()=>{for(const t of ['elite_ai_correction_history','elite_ai_learning_history','elite_ai_corrections','elite_ai_learnings','elite_ai_agent_settings','elite_work_economic_entries','elite_daily_reports','elite_work_plans','elite_tasks','elite_history','elite_works','elite_holiday_calendars'])await db.query('delete from public."'+t+'" where user_id=$1',[A])};
  await clear();
  await db.exec(fs.readFileSync('restore-metadata-guard-v3-candidate.sql','utf8'));
  const restore=async snap=>db.query('select public.tc_restore_empty_owner_v3($1::jsonb) as result',[JSON.stringify(snap)]);
@@ -56,6 +63,11 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  assert.equal((await db.query('select id from elite_works')).rows[0].id,wA);
  assert.equal((await db.query('select id from elite_tasks')).rows[0].id,tA);
  assert.equal((await db.query('select id,amount from elite_work_economic_entries')).rows[0].id,eA);
+ const restoredReport=(await db.query('select to_jsonb(r) as row from elite_daily_reports r where id=$1',[reportA])).rows[0].row;
+ assert.deepEqual(restoredReport,archive.tables.elite_daily_reports[0],'V2 report must retain every original field');
+ await assert.rejects(db.query("update elite_daily_reports set notes='directo' where id=$1",[reportA]),/operación conjunta/,'Normal direct edits must remain blocked');
+ assert.equal((await db.query("select public.tc_restore_preserve_v3($1) as allowed",[A])).rows[0].allowed,false);
+
  const learn=(await db.query('select status,version from elite_ai_learnings')).rows[0];assert.equal(learn.status,'approved');assert.equal(learn.version,2);
  const correction=(await db.query('select status,version from elite_ai_corrections')).rows[0];assert.equal(correction.status,'confirmed');assert.equal(correction.version,2);
  assert.equal((await db.query('select count(*)::int n from elite_ai_learning_history')).rows[0].n,archive.tables.elite_ai_learning_history.length);
@@ -74,6 +86,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
  const bad=JSON.parse(JSON.stringify(archive));bad.tables.elite_ai_learnings[0].work_id=wB;
  await db.exec("set role authenticated;set request.jwt.claim.sub='"+A+"';");
  await assert.rejects(restore(bad),/obra externa/);
+ assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,0);
+ const malformedReport=structuredClone(archive);malformedReport.tables.elite_daily_reports[0].activities[0].workers=2.5;
+ await assert.rejects(restore(malformedReport),/Parte histórico no válido/);
  assert.equal((await db.query('select count(*)::int n from elite_works')).rows[0].n,0);
  const mismatch=JSON.parse(JSON.stringify(archive));mismatch.tables.elite_ai_learning_history[0].learning_id=cA;
  await assert.rejects(restore(mismatch),/historial de IA/);
