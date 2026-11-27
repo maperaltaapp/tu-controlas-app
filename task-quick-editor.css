@@ -1,5 +1,5 @@
 /* Task selection has a visible exit and does not cover the task date. */
-.home-row.is-task-selected{background:#edf5ff!important;outline:2px solid #337ab7;outline-offset:-2px}
+.home-row.is-task-selected,.compact-task.is-task-selected{background:#edf5ff!important;outline:2px solid #337ab7;outline-offset:-2px}
 .tc-task-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding:8px 12px;background:#f6faff;border-bottom:1px solid #d5e4f2}
 .tc-task-actions button{min-height:40px;min-width:78px;padding:8px 12px;font-size:13px;font-weight:600;border-radius:8px;border:1px solid #cad9e7;background:#fff;color:#23405c;cursor:pointer}
 .tc-task-actions button.tc-action-delete{color:#aa2531;border-color:#eac9ce}
@@ -17,7 +17,7 @@
 @media(max-width:420px){.tc-task-actions{justify-content:flex-start;padding:8px}.tc-task-actions button{flex:1;min-width:75px}.tc-quick-actions button{flex:1}.tc-quick-actions .tc-quick-delete{flex:0 0 100%;margin:0}}
 
 /* Long press must select the task, never the browser's text context menu. */
-.home-row .home-open,.home-row .home-name,.home-row .home-work,.home-row .home-date{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.compact-task .task-open,.home-row .home-open,.home-row .home-name,.home-row .home-work,.home-row .home-date{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 
 .tc-quick-form>.tc-quick-top{justify-content:flex-end}
 .tc-quick-form>.tc-quick-top button{margin-left:auto}
