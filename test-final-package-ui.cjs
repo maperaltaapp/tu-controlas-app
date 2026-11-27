@@ -22,6 +22,17 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.deepEqual([...get('supplierBody').querySelectorAll('[data-company]')].map(x=>x.dataset.company),[companyId,'z']);
  get('supplierSearch').oninput({target:{value:'aridos pavimentos'}});assert.equal(get('supplierBody').children.length,1);
  get('supplierBody').firstElementChild.onclick();assert.equal(get('contractorPhone').value,'123');run('closeTaskDialog()');
+ assert(!document.querySelector('#tcCreateActions [data-create="company"]'));
+ run('editContractor()');
+ const contactButton=[...get('contractorForm').querySelectorAll('button')].find(button=>button.textContent==='Elegir contacto del móvil');
+ let selectedProperties;
+ ctx.navigator.contacts={select:async(properties,options)=>{selectedProperties={properties,options};return [{name:['Contacto de prueba'],tel:['654321'],email:['contacto@example.invalid']}]}};
+ await contactButton.onclick();assert.equal(get('contractorName').value,'Contacto de prueba');assert.equal(get('contractorPhone').value,'654321');
+ assert.equal(get('contractorEmail').value,'contacto@example.invalid');assert.deepEqual([...selectedProperties.properties],['name','tel','email']);assert.equal(selectedProperties.options.multiple,false);
+ get('contractorName').value='Empresa editada';await contactButton.onclick();assert.equal(get('contractorName').value,'Empresa editada');
+ let resolveContact;ctx.navigator.contacts.select=()=>new Promise(resolve=>resolveContact=resolve);
+ const pendingContact=contactButton.onclick();run('closeTaskDialog();editContractor()');resolveContact([{name:['No debe aparecer']}]);await pendingContact;
+ assert.equal(get('contractorName').value,'');run('closeTaskDialog()');
  get('supplierState').onchange({target:{value:'archived'}});assert.equal(get('supplierBody').firstElementChild.dataset.company,'retired');
  const canonical=run('CHECKLIST_ITEMS');
  ctx.readAll=async table=>table==='elite_work_contractors'?[provider]:table==='elite_work_checklist_items'?canonical:[];
