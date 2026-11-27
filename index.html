@@ -282,9 +282,70 @@ function lockOwnForm(value){document.querySelectorAll('#ownTaskForm button').for
 function pushSupport(){return window.isSecureContext&&'serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window}
 function pushMessage(message,error=false){if($('pushStatus')){$('pushStatus').textContent=message;$('pushStatus').className='status '+(error?'err':'ok')}}
 async function currentSubscription(){const reg=await navigator.serviceWorker.getRegistration('./');return reg?await reg.pushManager.getSubscription():null}
-async function refreshPushStatus(){try{if(!pushSupport()){pushMessage('Este navegador no admite avisos. Usa Chrome en Android; en iPhone, añade la App a la pantalla de inicio y ábrela desde allí.',true);$('enablePush').disabled=true;$('testPush').disabled=true;return}try{const config=await eliteRequest('/functions/v1/elite-notifications');if(!config?.ready)throw Error('Pendiente')}catch{pushMessage('Falta activar el servicio de avisos en Supabase. Tus tareas sí se pueden guardar.',true);$('enablePush').disabled=true;$('testPush').disabled=true;$('disablePush').disabled=true;return}const sub=await currentSubscription();const rows=sub?await eliteRequest('/rest/v1/elite_push_subscriptions?select=id&endpoint=eq.'+encodeURIComponent(sub.endpoint)):[];const active=Notification.permission==='granted'&&rows.length>0;pushMessage(active?'Avisos activados para tu cuenta en este dispositivo.':Notification.permission==='denied'?'Los avisos están bloqueados. Permítelos en los ajustes del navegador.':'Avisos aún no activados.',Notification.permission==='denied');$('testPush').disabled=!active;$('disablePush').disabled=!sub}catch(e){pushMessage(e.message,true)}}
+async function refreshPushStatus(){try{if(!pushSupport()){$('testLocalPush').disabled=true;pushMessage('Este navegador no admite avisos. Usa Chrome en Android; en iPhone, añade la App a la pantalla de inicio y ábrela desde allí.',true);$('enablePush').disabled=true;$('testPush').disabled=true;return}try{const config=await eliteRequest('/functions/v1/elite-notifications');if(!config?.ready)throw Error('Pendiente')}catch{pushMessage('Falta activar el servicio de avisos en Supabase. Tus tareas sí se pueden guardar.',true);$('enablePush').disabled=true;$('testPush').disabled=true;$('disablePush').disabled=true;return}const sub=await currentSubscription();const rows=sub?await eliteRequest('/rest/v1/elite_push_subscriptions?select=id&endpoint=eq.'+encodeURIComponent(sub.endpoint)):[];const active=Notification.permission==='granted'&&rows.length>0;pushMessage(active?'Avisos activados para tu cuenta en este dispositivo.':Notification.permission==='denied'?'Los avisos están bloqueados. Permítelos en los ajustes del navegador.':'Avisos aún no activados.',Notification.permission==='denied');$('testPush').disabled=!active;$('disablePush').disabled=!sub}catch(e){pushMessage(e.message,true)}}
 function vapidBytes(value){const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
-async function enablePush(){if(!pushSupport())return;try{const permission=await Notification.requestPermission();if(permission!=='granted'){pushMessage('No se ha concedido permiso para avisos.',true);return}$('enablePush').disabled=true;pushMessage('Activando…');const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./'});await navigator.serviceWorker.ready;const config=await eliteRequest('/functions/v1/elite-notifications');let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(config.publicKey)});await eliteRequest('/functions/v1/elite-notifications',{method:'POST',body:JSON.stringify({action:'subscribe',subscription:sub.toJSON()})});await refreshPushStatus()}catch(e){pushMessage(e.message,true)}finally{if($('enablePush'))$('enablePush').disabled=false}}
+async function enablePush(){
+ const button=$('enablePush'),status=$('pushStatus'),epoch=sessionEpoch;
+ if(!button||button.disabled||!pushSupport())return;
+ const current=()=>epoch===sessionEpoch&&$('pushStatus')===status;
+ let stage='permiso';
+ button.disabled=true;
+ try{
+  const permission=await Notification.requestPermission();
+  if(!current())return;
+  if(permission!=='granted'){pushMessage('Permite los avisos de TU CONTROLAS en los ajustes del sitio del navegador.',true);return}
+  pushMessage('Activando avisos…');
+  stage='aplicación';
+  const registered=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+  const reg=await navigator.serviceWorker.ready;
+  if(!current())return;
+  if(reg.scope!==registered.scope||!reg.active)throw Error('Service worker con alcance distinto');
+  stage='servidor';
+  const config=await eliteRequest('/functions/v1/elite-notifications');
+  if(!current())return;
+  if(!config?.ready||typeof config.publicKey!=='string')throw Error('Configuración pendiente');
+  const key=vapidBytes(config.publicKey);
+  if(key.length!==65||key[0]!==4)throw Error('Clave push no válida');
+  stage='navegador';
+  let sub=await reg.pushManager.getSubscription();
+  if(!current())return;
+  const savedKey=sub?.options?.applicationServerKey;
+  if(savedKey&&new Uint8Array(savedKey).some((byte,i)=>byte!==key[i])){
+   $('disablePush').disabled=false;$('testPush').disabled=true;
+   pushMessage('El registro de avisos está obsoleto. Pulsa «Desactivar» y vuelve a activar los avisos.',true);return;
+  }
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+  if(!current())return;
+  stage='cuenta';
+  await eliteRequest('/functions/v1/elite-notifications',{method:'POST',body:JSON.stringify({action:'subscribe',subscription:sub.toJSON()})});
+  if(current())await refreshPushStatus();
+ }catch(error){
+  if(!current())return;
+  const messages={
+   permiso:'El navegador no pudo comprobar el permiso de avisos.',
+   aplicación:'No se pudo iniciar el componente de avisos. Cierra y vuelve a abrir TU CONTROLAS.',
+   servidor:'No se pudo obtener la configuración de avisos del servidor.',
+   navegador:'El servicio push del navegador rechazó el registro. En Android, abre TU CONTROLAS directamente en Chrome y vuelve a intentarlo. «Probar en este dispositivo» permite comprobar si se muestra y suena un aviso local.',
+   cuenta:'El dispositivo se registró en el navegador, pero la vinculación con tu cuenta falló. '+error.message
+  };
+  pushMessage(messages[stage],true);
+ }finally{if(current())button.disabled=false}
+}
+async function testLocalPush(){
+ const status=$('pushStatus'),button=$('testLocalPush');
+ if(!status||!button||button.disabled)return;
+ button.disabled=true;
+ try{
+  if(Notification.permission!=='granted')throw Error('Permite primero los avisos del sitio en el navegador.');
+  const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+  const ready=await navigator.serviceWorker.ready;
+  if(ready.scope!==reg.scope||!ready.active)throw Error('No se pudo iniciar el componente de avisos.');
+  if($('pushStatus')!==status)return;
+  await ready.showNotification('TU CONTROLAS',{body:'Prueba de aviso local',tag:'tc-local-test'});
+  if($('pushStatus')===status)pushMessage('Aviso local mostrado. Comprueba si aparece y suena. Esta prueba no comprueba el envío de recordatorios.');
+ }catch(error){if($('pushStatus')===status)pushMessage(error.message,true)}
+ finally{button.disabled=false}
+}
 async function testPush(){try{$('testPush').disabled=true;const sub=await currentSubscription();if(!sub)throw Error('Activa los avisos primero');await eliteRequest('/functions/v1/elite-notifications',{method:'POST',body:JSON.stringify({action:'test',endpoint:sub.endpoint})});pushMessage('Aviso de prueba enviado. Comprueba las notificaciones de este dispositivo.')}catch(e){pushMessage(e.message,true)}finally{if($('testPush'))$('testPush').disabled=false}}
 async function unsubscribeOwn(){if(!pushSupport())return;const sub=await currentSubscription();if(sub){await eliteRequest('/rest/v1/elite_push_subscriptions?endpoint=eq.'+encodeURIComponent(sub.endpoint),{method:'DELETE'});await sub.unsubscribe()}}
 async function disablePush(){try{await unsubscribeOwn();await refreshPushStatus()}catch(e){pushMessage(e.message,true)}}
@@ -648,8 +709,7 @@ async function completeNativeTask(t){
 }
 async function changeOwnTask(data){lockOwnForm(true);try{await patchNativeTask(editingTask,data);await fetchOwnTasks();closeTaskDialog();render();statusMessage(data.deleted_at?'Tarea archivada. Puedes restaurarla desde Archivo.':'Tarea restaurada.')}catch(e){$('ownFormStatus').textContent=e.message;lockOwnForm(false)}}
 async function showHistory(id){try{const rows=await eliteRequest('/rest/v1/elite_history?select=*&entity_id=eq.'+id+'&order=created_at.desc&limit=100');dialogForm(`<div class="top"><h2>Historial</h2><button id="closeTask" class="light">✕</button></div><p class="small">Últimos 100 cambios guardados en TU CONTROLAS.</p>${rows.map(r=>`<div class="history-row"><b>${esc(r.action)}</b> · ${esc(new Date(r.created_at).toLocaleString('es-ES'))}<div class="small">${esc(r.title)}</div><div class="small">${esc((r.fields||[]).map(f=>FIELD_NAMES[f]||f).join(' · '))}</div></div>`).join('')||'<p class="small">Sin cambios registrados.</p>'}`)}catch(e){statusMessage(e.message,true)}}
-// Push remains explicitly paused until the owner approves and validates its configuration.
-function showNotificationSettings(){closeTaskDialog();const d=document.createElement('dialog');d.id='taskDialog';d.className='task-dialog';d.innerHTML='<div class="top"><h2>Avisos en este dispositivo</h2><button class="light" id="closeTask" aria-label="Cerrar">✕</button></div><p class="small">Actívalos desde tu móvil. Los recordatorios de las tareas que crees aquí pueden llegar aunque cierres la App. Requieren conexión y permiso del navegador. Los avisos se activan por dispositivo. Después pulsa «Probar aviso» y comprueba que llega al móvil.</p><div id="pushStatus" class="status" role="status">Comprobando…</div><div class="form-actions"><button id="enablePush" class="dark">Activar avisos</button><button id="testPush" class="light">Probar aviso</button><button id="disablePush" class="light">Desactivar</button></div>';document.body.appendChild(d);$('closeTask').onclick=closeTaskDialog;d.addEventListener('cancel',()=>d.remove());$('enablePush').onclick=enablePush;$('testPush').onclick=testPush;$('disablePush').onclick=disablePush;d.showModal();refreshPushStatus()}
+function showNotificationSettings(){closeTaskDialog();const d=document.createElement('dialog');d.id='taskDialog';d.className='task-dialog';d.innerHTML='<div class="top"><h2>Avisos en este dispositivo</h2><button class="light" id="closeTask" aria-label="Cerrar">✕</button></div><p class="small">Actívalos desde tu móvil. Los recordatorios de las tareas que crees aquí pueden llegar aunque cierres la App. Requieren conexión y permiso del navegador. Los avisos se activan por dispositivo. Después pulsa «Probar aviso remoto» y comprueba que llega al móvil.</p><div id="pushStatus" class="status" role="status">Comprobando…</div><div class="form-actions"><button id="enablePush" class="dark">Activar avisos</button><button id="testPush" class="light" disabled>Probar aviso remoto</button><button id="testLocalPush" class="light">Probar en este dispositivo</button><button id="disablePush" class="light" disabled>Desactivar</button></div>';document.body.appendChild(d);$('closeTask').onclick=closeTaskDialog;d.addEventListener('cancel',()=>d.remove());$('enablePush').onclick=enablePush;$('testPush').onclick=testPush;$('testLocalPush').onclick=testLocalPush;$('disablePush').onclick=disablePush;d.showModal();refreshPushStatus()}
 function compactTask(c,b,showBoard=true,showCheckbox=true){const d=validTaskDate(c),label=d?fd(d):'Sin fecha',time=d?d.toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'}):'';const items=(c.checklists||[]).flatMap(cl=>cl.items||[]);const meta=[showBoard?b.name:'',c.priority&&c.priority!=='normal'?PRIORITY_NAMES[c.priority]:'',items.length?'☑ '+items.filter(i=>i.done).length+'/'+items.length:''].filter(Boolean).join(' · ');return `<div class="compact-task task-row ${taskUrgency(c)} ${taskTone(c)} ${taskPriorityClass(c)}">${showCheckbox?`<input class="task-complete" type="checkbox" aria-label="${esc((taskDone(c)?'Reabrir: ':'Completar: ')+c.name)}" ${taskDone(c)?'checked':''} ${c.closed?'disabled':''} onchange="toggleTaskComplete('${c.id}',this)">`:''}<button type="button" class="task-open" data-hold-kind="task" data-hold-id="${c.id}" onclick="openQuickTaskEditor(this.dataset.holdId)" title="${esc(c.name+' · '+b.name)}" aria-label="${esc(c.name+' · '+b.name+' · '+label)}"><span class="task-copy"><span class="task-name">${taskPriorityIcon(c)}${taskDone(c)?'✓ ':''}${esc(mode==='calendar'?shortTaskName(c.name):c.name)}</span>${meta?`<span class="task-board">${esc(meta)}</span>`:''}</span><span class="task-date">${label}${time?`<small>${time}</small>`:''}</span></button></div>`}
 
 let WORK_PLANS=[],CONTRACTORS=[],planningWork=null,phaseDraft=[],planPayload=null;
