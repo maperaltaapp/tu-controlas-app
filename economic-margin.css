@@ -1,13 +1,4 @@
-/* TU CONTROLAS · PM cost forecasts, mobile first. */
-.ec-margin-section {margin:10px 0}
-.ec-margin-title {display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.ec-margin-title p {margin:2px 0 0;font-size:12px;color:#526879}
-.ec-margin-title button {width:auto;min-width:145px;flex-shrink:0;height:36px;font-size:12px}
-.ec-margin-kpis {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
-.ec-margin-kpi {display:flex;flex-direction:column;gap:3px;min-width:0;padding:10px;background:#f7fafb;border:1px solid #e3ebef;border-radius:8px}
-.ec-margin-kpi small {font-size:11px;color:#4d6473}
-.ec-margin-kpi strong {font-size:clamp(15px,1.8vw,20px);line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.ec-margin-kpi span {font-size:11px;color:#667987}
+/* Historial y edición de previsiones. */
 .ec-margin-chart {width:100%;height:auto;max-height:210px;margin-top:14px;display:block;overflow:visible}
 .ec-margin-chart text {font:12px system-ui;fill:#536775}
 .ec-margin-legend {display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#536775}
@@ -19,22 +10,12 @@
 #ecMarginForm label input,#ecMarginForm label select {display:block;width:100%;max-width:100%;margin-top:5px}
 #ecMarginForm .ec-margin-line {display:flex}
 #ecMarginForm .ec-margin-line input {width:150px}
-@media(max-width:700px) {
- .ec-margin-title {flex-wrap:wrap}
- .ec-margin-title button {width:100%;min-width:0}
- .ec-margin-kpis {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
- .ec-margin-kpi {padding:8px}
- .ec-margin-kpi strong {font-size:16px}
+#ecMarginForm .ec-k-check {display:flex;align-items:center;gap:9px;font-weight:500;line-height:1.35}
+#ecMarginForm .ec-k-check input {width:17px;height:17px;flex:0 0 auto;margin:0}
+
+.ec-card .ec-k-warning {color:#684e1c;font-size:.8125rem;margin-bottom:0}
+@media(max-width:700px){
  .ec-margin-chart {max-height:145px}
  .ec-margin-line input {max-width:115px}
  #ecMarginForm .ec-margin-line input {width:110px}
 }
-
-.ec-margin-title button, .ec-k-line button {height:36px;font-size:12px;width:auto;min-width:0}
-.ec-margin-k-line {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 4px;flex-wrap:wrap;font-size:12px}
-.ec-margin-k-line strong {font-weight:650}
-.ec-margin-k-line button {border:1px solid #cbd6db;padding:0 12px;border-radius:8px}
-.ec-k-warning {font-size:12px;color:#664719;background:#fff8e9;border:1px solid #eedcaa;border-radius:8px;padding:8px 10px;margin:7px 0 10px}
-#ecMarginForm .ec-k-check {display:flex;align-items:center;gap:9px;font-weight:500;line-height:1.35}
-#ecMarginForm .ec-k-check input {width:17px;height:17px;flex:0 0 auto;margin:0}
-@media(max-width:600px){.ec-margin-k-line {align-items:stretch}.ec-margin-k-line button {flex:0 0 100%;width:100%}}

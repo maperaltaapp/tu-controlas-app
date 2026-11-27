@@ -4,7 +4,7 @@
 'use strict';
 const valid=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=10000000000;
 const positive=n=>valid(n)&&n>0;
-const money=n=>valid(n)?new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n):'Sin datos';
+const money=n=>Number.isFinite(n)?new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n):'Sin datos';
 const pct=n=>Number.isFinite(n)?new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(n)+' %':'Sin datos';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const day=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')?Date.parse(s+'T00:00:00Z')/86400000:NaN;
@@ -82,30 +82,30 @@ function chart(records,offerMargin,date,k){
  obs.forEach((p,i)=>{out+='<circle cx="'+xpos(i).toFixed(1)+'" cy="'+ypos(p.margin).toFixed(1)+'" r="4" fill="#16835d"/>';if(i===0||i===obs.length-1||obs.length<5)out+='<text x="'+xpos(i).toFixed(1)+'" y="207" text-anchor="middle">'+p.date.slice(8)+'/'+p.date.slice(5,7)+'</text>';});
  return out+'</svg><div class="ec-margin-legend"><span>━━ Margen previsto PM</span><span>┄ Margen de oferta</span></div>';
 }
-function render({records,date,offerCost,contract}){
- const s=summary({records,date,offerCost,contract});
- const val=(label,v,note)=>'<article class="ec-margin-kpi"><small>'+esc(label)+'</small><strong>'+esc(v)+'</strong>'+(note?'<span>'+esc(note)+'</span>':'')+'</article>';
- let out='<section class="ec-card ec-margin-section" aria-label="Previsión económica de cierre"><div class="ec-margin-title"><div><h2>Rentabilidad prevista al finalizar</h2><p>Comparación de oferta y estimaciones del PM · No confundir con certificación</p></div><button id="ecMarginEdit" class="light">Actualizar previsión</button></div>';
- out+='<div class="ec-margin-k-line"><span><strong>Indirectos · K:</strong> '+(s.hasK?pct(s.kPercent):'Sin configurar')+'</span><button type="button" class="light" id="ecKEdit">Configurar K</button></div>';
- out+='<p class="ec-k-warning" role="status">'+(s.hasK
-  ?'K '+pct(s.kPercent)+' aplicado a los costes declarados directos. No se aplica dos veces cuando el presupuesto ya incluye indirectos.'
-  :'No se consideran costes indirectos mediante factor K. El margen mostrado no añade indirectos; revisa si ya están incluidos en tus costes.')+'</p>';
- out+='<div class="ec-margin-kpis">'+val('Margen de oferta',pct(s.offerMargin),s.offer?'Referencia original conservada':'Pendiente de fijar')+
-  val('Margen previsto PM',pct(s.currentMargin),s.forecast?'Revisado '+s.forecast.as_of:s.initial?'Estimación inicial':'Sin previsión del PM')+
-  val('Coste final previsto · EAC',money(s.finalCost),s.forecast?'Estimación actualizada':'No es un coste real')+
-  val('Desviación margen vs oferta',s.gapOffer===null?'Sin datos':(s.gapOffer>0?'+':'')+pct(s.gapOffer),'Puntos porcentuales')+'</div>';
- out+=chart(records,s.offerMargin,date,s.kPercent);
- out+='<details><summary>Detalle del control</summary><div class="ec-margin-kpis">'+
-  val('Coste de oferta · base',money(s.offerCost),s.offer?'Sin modificar':'Sin fijar')+
-  val('Coste oferta con indirectos',money(s.offerCostWithK),'Se aplica K solo si no están incluidos')+
-  val('Coste inicial PM · base',money(s.initial?Number(s.initial.total_cost):null),s.initial?'Conservado':'Pendiente')+
-  val('Línea base de ejecución',money(s.baseline?Number(s.baseline.total_cost):null),s.baseline?'Referencia: '+String(s.baseline.approval_reference||''):'Pendiente de aprobación')+
-  val('Beneficio final previsto',money(s.benefit),'Venta prevista menos EAC')+
-  val('Coste real en último cierre',money(s.forecast?Number(s.forecast.actual_cost):null),'AC registrado al corte · sin recargar K')+
-  val('Indirectos previstos por K',money(s.indirectCharge),s.hasK?'Sobre base directa':'Sin K configurado')+
-  val('Coste pendiente último cierre',money(s.forecast?Number(s.forecast.remaining_cost):null),'ETC estimado por el PM')+'</div>'+
-  '<p>La previsión se actualiza al guardar un nuevo cierre; nunca modifica ni elimina versiones anteriores. K se aplica de forma homogénea al comparar históricos y puede recalcular márgenes visualizados, pero no cambia importes guardados. Verifica qué partidas ya incorporan indirectos.</p></details></section>';
- return out;
+function render(inputs, s=summary(inputs)){
+ const review=s.forecast||s.initial;
+ const reviewed=review?new Intl.DateTimeFormat('es-ES',{timeZone:'UTC'}).format(new Date(review.as_of+'T12:00Z')):'';
+ const gap=s.gapOffer===null?'Sin comparación':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1,signDisplay:'exceptZero'}).format(s.gapOffer)+' pp frente a oferta';
+ return `<section class="ec-card ec-margin-section" aria-labelledby="ecReturnTitle">
+  <h2 id="ecReturnTitle">Previsión de cierre</h2>
+  <dl class="ec-lead-values"><div><dt>Margen previsto</dt><dd>${pct(s.currentMargin)}</dd></div><div><dt>Margen de oferta</dt><dd>${pct(s.offerMargin)}</dd></div></dl>
+  <p class="ec-difference">${gap}</p>
+  <dl class="ec-amounts"><div><dt>Coste final estimado (EAC)</dt><dd>${money(s.finalCost)}</dd></div></dl>
+  ${review?`<p class="ec-source">${s.forecast?'Previsión revisada':'Estimación inicial'} el ${esc(reviewed)}</p>`:''}
+  <p class="${s.hasK?'ec-source':'ec-k-warning'}">${s.hasK?'Factor K de indirectos: '+pct(s.kPercent)+'. Solo se aplica a costes directos.':'No se consideran costes indirectos mediante factor K.'}</p>
+ </section>`;
+}
+function marginHistory(records,date,s){
+ const values=[
+  ['Coste original de oferta',s.offerCost],['Coste de oferta con indirectos',s.offerCostWithK],
+  ['Coste inicial del PM',s.initial?Number(s.initial.total_cost):null],['Venta final prevista',s.currentSale],
+  ['Beneficio final previsto',s.benefit],['Coste real en el último cierre',s.forecast?Number(s.forecast.actual_cost):null],
+  ['Coste pendiente en el último cierre (ETC)',s.forecast?Number(s.forecast.remaining_cost):null],
+  ['Indirectos previstos por K',s.hasK?s.indirectCharge:null]
+ ];
+ return chart(records,s.offerMargin,date,s.kPercent)+
+  '<dl class="ec-amounts">'+values.map(([label,v])=>'<div><dt>'+label+'</dt><dd>'+money(v)+'</dd></div>').join('')+'</dl>'+
+  (s.hasK?'<p class="ec-source">El histórico compara las previsiones con el K vigente al corte. Los importes registrados conservan su valor original.</p>':'');
 }
 function formHTML({plan,finance,records,date}){
  const s=summary({records,date,offerCost:finance.bac,contract:finance.contract});
@@ -175,5 +175,5 @@ function parseForm(form,info){
  const note=form.querySelector('#ecMarginNote').value.trim();
  return {work_id:info.id,snapshot_type:kind,as_of:info.date,total_cost:total,forecast_revenue:revenue,actual_cost:actual,remaining_cost:remaining,activity_costs,approval_reference,source_note:note||null,k_indirect_pct,cost_includes_indirect};
 }
-return {valid,validK,effectiveCost,latestK,leaves,first,latest,margin,summary,evm,chart,render,formHTML,configureForm,parseForm};
+return {valid,validK,effectiveCost,latestK,leaves,first,latest,margin,summary,evm,chart,render,marginHistory,formHTML,configureForm,parseForm};
 });
