@@ -11,6 +11,29 @@ for(const script of document.querySelectorAll('script')){const src=script.getAtt
 const run=s=>vm.runInContext(s,ctx),id='11111111-1111-4111-8111-111111111111',item='22222222-2222-4222-8222-222222222222';
 run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORKS=[{id:'${id}',user_id:'A',name:'Obra de prueba',execution_state:'execution',updated_at:'v1',workspace_layout:null}];WORK_PLANS=[{work_id:'${id}',revision:1,phases:[{id:'leaf',name:'Partida',start:'2026-11-01',end:'2026-12-01',weight:100,observations:[{date:'2026-11-25',percent:50}]}],baseline:[{id:'leaf',name:'Partida',start:'2026-11-01',end:'2026-12-01',weight:100}],baseline_at:'2026-11-01'}];CHECKLIST_ITEMS=[{id:'${item}',work_id:'${id}',section:'prep',title:'Ensayo',notes:'Dato original',position:0,updated_at:'r1'}];checkWorkId='${id}';checkSection='prep';statusMessage=(m)=>messages.push(m);`);ctx.messages=messages;
 (async()=>{
+ // Both entry points edit the same provider sheet. Registry rows retain their company IDs.
+ const companyId='33333333-3333-4333-8333-333333333333';
+ const company={id:companyId,name:'Áridos y suministros industriales de Levante',kind:'supplier',trade:'Áridos para cimentaciones y pavimentos',phone:'123',updated_at:'c1'};
+ const provider={id:item,work_id:id,contractor_id:companyId,name:company.name,scope:company.trade,updated_at:'r1',notes:'',cell_values:{}};
+ ctx.testCompanies=[{...company,id:'z',name:'Zanjas',trade:'Excavación',kind:'subcontractor'},company,{...company,id:'retired',archived_at:'ayer'}];
+ run("CONTRACTORS=testCompanies;eliteNavigate('suppliers')");
+ const get=k=>document.getElementById(k);
+ assert.equal(document.querySelector('#tcNav [aria-current="page"]').textContent,'Subcontratas y Proveedores');
+ assert.deepEqual([...get('supplierBody').querySelectorAll('[data-company]')].map(x=>x.dataset.company),[companyId,'z']);
+ get('supplierSearch').oninput({target:{value:'aridos pavimentos'}});assert.equal(get('supplierBody').children.length,1);
+ get('supplierBody').firstElementChild.onclick();assert.equal(get('contractorPhone').value,'123');run('closeTaskDialog()');
+ get('supplierState').onchange({target:{value:'archived'}});assert.equal(get('supplierBody').firstElementChild.dataset.company,'retired');
+ const canonical=run('CHECKLIST_ITEMS');
+ ctx.readAll=async table=>table==='elite_work_contractors'?[provider]:table==='elite_work_checklist_items'?canonical:[];
+ await ctx.tcSupplierTab('checklist');assert.equal(run('selectedSection'),'suppliers');
+ const matrix=document.querySelector('.tc-sheet-table').outerHTML;
+ await run("openChecklist('providers')");assert.equal(run('selectedSection'),'checklist');assert.equal(document.querySelector('.tc-sheet-table').outerHTML,matrix);
+ ctx.eliteRequest=async(path,options)=>{assert(path.includes('elite_work_contractors'));Object.assign(provider,JSON.parse(options.body),{updated_at:'r2'});return [provider]};
+ await ctx.tcSheetCell(item,'entry_date','2026-12-02');await ctx.tcSupplierTab('checklist');
+ assert.equal(document.querySelector('.tc-sheet-table input[type=date]').value,'2026-12-02');
+ assert.equal(document.querySelectorAll('.tc-sheet-table tbody tr').length,1);
+ await ctx.tcSupplierTab('capacity');assert(get('supplierAlerts').textContent.includes('Sin avisos'));
+ run("selectSection('tasks');mode='tasks';checkSection='prep'");
  run('tasks()');assert(!document.getElementById('filterWork'));assert(document.getElementById('filterPriority'));assert(document.querySelector('#content .tc-task-history'));assert(!document.querySelector('#content #newOwn'));
  run('renderChecklist()');assert.equal(document.querySelectorAll('[data-sheet-type]').length,4);assert.equal(document.querySelectorAll('.tc-sheet-table tbody tr').length,1);assert(!document.querySelector('.tc-sheet h2'));assert.equal(document.querySelector('input[aria-label="Notas · Ensayo"]').value,'Dato original');
  const search=document.getElementById('sheetSearch');search.oninput({target:{value:'original ensa',selectionStart:13}});assert.equal(document.querySelectorAll('.tc-sheet-table tbody tr input[aria-label="Notas · Ensayo"]').length,1);document.getElementById('sheetSearch').oninput({target:{value:'palabra inexistente',selectionStart:18}});assert(!document.querySelector('input[aria-label="Notas · Ensayo"]'));document.getElementById('sheetSearch').oninput({target:{value:'',selectionStart:0}});

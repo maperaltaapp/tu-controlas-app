@@ -3,7 +3,7 @@
 'use strict';
 const $=id=>document.getElementById(id),clone=x=>structuredClone(x),E=s=>esc(s),work=()=>NATIVE_WORKS.find(w=>w.id===checkWorkId);
 let query='',busy=false,loadSequence=0,navSequence=0,sheetObserver=null,checklistSnapshot=null;
-const baseSelect=selectSection;selectSection=function(...args){sheetObserver?.disconnect();sheetObserver=null;navSequence++;if(args[0]!=='checklist')checklistSnapshot=null;return baseSelect(...args)};
+const baseSelect=selectSection;selectSection=function(...args){sheetObserver?.disconnect();sheetObserver=null;navSequence++;if(!['checklist','suppliers'].includes(args[0]))checklistSnapshot=null;return baseSelect(...args)};
 const ctx=()=>({owner:session?.user?.id,epoch:sessionEpoch,work:checkWorkId,section:checkSection,nav:navSequence});
 const live=c=>c.owner&&c.owner===session?.user?.id&&c.epoch===sessionEpoch&&c.work===checkWorkId&&c.section===checkSection&&c.nav===navSequence;
 const layout=w=>clone(w?.workspace_layout||{});
@@ -28,7 +28,7 @@ root.TCFinal={layout,saveLayout};
 function sameOwner(c){return c.owner&&c.owner===session?.user?.id&&c.epoch===sessionEpoch}
 function lockSheet(value){document.querySelectorAll('.tc-sheet input,.tc-sheet select,.tc-sheet button').forEach(e=>e.disabled=value);const panel=document.querySelector('.tc-sheet');if(panel)panel.setAttribute('aria-busy',String(value));const status=$('sheetSaveStatus');if(status&&value){status.classList.remove('err');status.textContent='Guardando…'}else if(status&&status.textContent==='Guardando…')status.textContent=''}
 function sheetError(message){const status=$('sheetSaveStatus');if(status){status.textContent=message;status.classList.add('err')}statusMessage(message,true)}
-root.tcSheetRefresh=()=>{if(busy)return;checklistSnapshot=null;return openChecklist(checkSection,checkWorkId)};
+root.tcSheetRefresh=()=>{if(busy)return;checklistSnapshot=null;return openChecklist(checkSection,checkWorkId,mode==='supplierChecklist')};
 async function changeConfig(edit, repaint=renderChecklist){
  if(busy||!work())return false;
  const w=work(),context=ctx(),next=layout(w),cfg=config();
@@ -139,13 +139,52 @@ async function applyTemplate(){
  finally{if(sameOwner(c)){busy=false;if(live(c))lockSheet(false);const apply=$('tcTemplateApply');if(apply)apply.disabled=!$('tcTemplateSelect')?.value}}
 }
 
-function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select><button type="button" class="light tc-sheet-refresh" id="sheetRefresh" aria-label="Actualizar planilla" title="Actualizar planilla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}" title="${id===checkSection?(id.startsWith('custom_')?'Toca de nuevo para editar o archivar':'Toca de nuevo para editar el nombre'):E(name)}">${E(name)}</button>`).join('')}</div>`}
-openChecklist=async function(section=checkSection,workId=checkWorkId){
+const supplierSections={registry:'Registro de empresas',checklist:'Checklist de Subcontratas y Proveedores',capacity:'Avisos de capacidad'};
+let registryQuery='',registryKind='',registryArchived=false;
+function supplierTabs(active){
+ return '<nav class="tc-supplier-tabs" aria-label="Subcontratas y Proveedores">'+Object.entries(supplierSections).map(([id,label])=>`<button type="button" class="${id===active?'dark':'light'}" aria-pressed="${id===active}" onclick="tcSupplierTab('${id}')">${label}</button>`).join('')+'</nav>';
+}
+function registryRows(){
+ const rows=CONTRACTORS.filter(c=>!!c.archived_at===registryArchived&&(!registryKind||registryKind===c.kind)&&tcSearchMatches(registryQuery,c.name,c.trade)).sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base',numeric:true})||a.id.localeCompare(b.id));
+ const body=$('supplierBody');
+ body.innerHTML=rows.map(c=>`<tr data-company="${E(c.id)}"><th scope="row"><button type="button" class="tc-company-name">${E(c.name)}</button></th><td>${E(c.trade||'—')}</td><td>${c.kind==='supplier'?'Proveedor':'Subcontrata'}</td></tr>`).join('')||'<tr><td colspan="3">Sin empresas para esta selección.</td></tr>';
+ body.querySelectorAll('[data-company]').forEach(row=>row.onclick=()=>editContractor(row.dataset.company));
+}
+function renderRegistry(){
+ $('content').innerHTML=`<section class="panel tc-companies">${supplierTabs('registry')}<div class="tc-company-controls">
+ <label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="supplierSearch" type="search" aria-label="Buscar empresa o especialidad" placeholder="Buscar empresa o especialidad" value="${E(registryQuery)}"></label>
+ <select id="supplierKind" aria-label="Tipo de empresa"><option value="">Todos los tipos</option><option value="subcontractor">Subcontratas</option><option value="supplier">Proveedores</option></select><select id="supplierState" aria-label="Estado de la empresa"><option value="active">Activas</option><option value="archived">Retiradas</option></select><button type="button" class="dark" onclick="editContractor()">+ Empresa</button></div>
+ <div class="tc-company-scroll" tabindex="0" aria-label="Registro de empresas"><table><thead><tr><th scope="col">Empresa</th><th scope="col">Especialidad</th><th scope="col">Tipo</th></tr></thead><tbody id="supplierBody"></tbody></table></div></section>`;
+ $('supplierSearch').oninput=e=>{registryQuery=e.target.value;registryRows()};
+ $('supplierKind').value=registryKind;$('supplierKind').onchange=e=>{registryKind=e.target.value;registryRows()};
+ $('supplierState').value=registryArchived?'archived':'active';$('supplierState').onchange=e=>{registryArchived=e.target.value==='archived';registryRows()};
+ registryRows();
+}
+root.tcSupplierTab=async function(tab='registry'){
+ if(!session?.user?.id||!nativeReady||busy||!Object.hasOwn(supplierSections,tab))return;
+ if(tab==='checklist'){query='';return openChecklist('providers',checkWorkId,true)}
+ checklistSnapshot=null;
+ mode=tab==='registry'?'supplierRegistry':'supplierCapacity';workDetailId=null;selectSection('suppliers');
+ if(tab==='registry')return renderRegistry();
+ $('content').innerHTML=`<section class="panel tc-companies">${supplierTabs('capacity')}<div id="supplierAlerts" role="status">Comprobando avisos…</div></section>`;
+ const target=$('supplierAlerts');
+ await tcRefreshCapacity();
+ if(target.isConnected)tcRenderCapacity(target);
+};
+const previousRender=render;render=function(...args){
+ if(mode==='supplierRegistry')return tcSupplierTab('registry');
+ if(mode==='supplierCapacity')return tcSupplierTab('capacity');
+ if(mode==='supplierChecklist')return tcSupplierTab('checklist');
+ return previousRender(...args);
+};
+
+function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select><button type="button" class="light tc-sheet-refresh" id="sheetRefresh" aria-label="Actualizar planilla" title="Actualizar planilla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button></div><div class="tc-sheet-tabs" ${mode==='supplierChecklist'?'hidden':''}>${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}" title="${id===checkSection?(id.startsWith('custom_')?'Toca de nuevo para editar o archivar':'Toca de nuevo para editar el nombre'):E(name)}">${E(name)}</button>`).join('')}</div>`}
+openChecklist=async function(section=checkSection,workId=checkWorkId,supplier=false){
  // Keep an in-flight write on its originating view until its confirmed response.
  if(busy)return;
  const owner=session?.user?.id,epoch=sessionEpoch;
- const reuse=!!owner&&nativeReady&&selectedSection==='checklist'&&checklistSnapshot?.owner===owner&&checklistSnapshot?.epoch===epoch;
- checkWorkId=workId||NATIVE_WORKS.find(w=>!w.archived_at)?.id||'';checkSection=section;const names=sections();if(!Object.hasOwn(names,section))checkSection='prep';mode='checklist';workDetailId=null;selectSection('checklist');const c=ctx(),sequence=++loadSequence;
+ const reuse=!!owner&&nativeReady&&selectedSection===(supplier?'suppliers':'checklist')&&checklistSnapshot?.owner===owner&&checklistSnapshot?.epoch===epoch;
+ checkWorkId=workId||NATIVE_WORKS.find(w=>!w.archived_at)?.id||'';checkSection=section;const names=sections();if(!Object.hasOwn(names,section))checkSection='prep';mode=supplier?'supplierChecklist':'checklist';workDetailId=null;selectSection(supplier?'suppliers':'checklist');const c=ctx(),sequence=++loadSequence;
  // A single confirmed snapshot covers all checklist types and works of this account.
  // Changing tabs is a local view operation; entering from another tool reloads fresh data.
  if(reuse){renderChecklist();return}
@@ -158,7 +197,7 @@ openChecklist=async function(section=checkSection,workId=checkWorkId){
   checklistSnapshot={owner,epoch};
   renderChecklist();
  }catch(e){
-  if(live(c)&&sequence===loadSequence){checklistSnapshot=null;$('content').innerHTML='<p class="err">'+E(e.message)+'</p><button onclick="openChecklist()">Reintentar</button>'}
+  if(live(c)&&sequence===loadSequence){checklistSnapshot=null;$('content').innerHTML='<p class="err">'+E(e.message)+'</p><button onclick="tcSheetRefresh()">Reintentar</button>'}
  }
 };
 function cells(row,col,providers){
@@ -182,23 +221,23 @@ function sheetMatrix(rows,cfg,providers){
  return `<div class="control-scroll tc-sheet-scroll" role="region" tabindex="0" aria-label="Cuadro de ${E(sections()[checkSection])}"><table class="control-table tc-sheet-table" style="width:${width}px;--sheet-scale:${cfg.scale}"><colgroup>${widths.map(w=>`<col style="width:${w}px">`).join('')}<col style="width:${actionWidth}px"></colgroup><thead><tr>${head}<th scope="col" aria-label="Acciones de fila">Fila</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 renderChecklist=function(){
- selectSection('checklist');mode='checklist';const w=work();if(!w){$('content').innerHTML='<section class="panel"><p>Crea una obra para usar sus checklists.</p></section>';return}
+ const supplier=mode==='supplierChecklist';selectSection(supplier?'suppliers':'checklist');if(!supplier)mode='checklist';const w=work();if(!w){$('content').innerHTML='<section class="panel">'+(supplier?supplierTabs('checklist'):'')+'<p>Crea una obra para usar sus checklists.</p></section>';return}
  const providers=checkSection==='providers',q=query.trim().toLocaleLowerCase('es'),rows=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).filter(r=>r.work_id===w.id&&(providers||r.section===checkSection)).filter(r=>tcSearchMatches(q,w.name,r.title,r.name,r.notes,r.scope,Object.values(r.cell_values||{}))),cfg=config(),cols=columns();planningWork=w.id;
  const previous=document.querySelector('.tc-sheet-scroll');
  const left=previous?.scrollLeft||0,top=previous?.scrollTop||0;
  const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&tcSearchMatches(q,other.name)):[];
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
- $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}</div>
+ $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${supplier?supplierTabs('checklist'):''}${header()}</div>
  ${templateBox()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
- <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button><button type="button" class="light" onclick="tcSheetEditType()">Editar tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
+ <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button>${supplier?'':`<button class="light" onclick="tcSheetAddType()">+ Tipo</button><button type="button" class="light" onclick="tcSheetEditType()">Editar tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}` }${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}</div>
  <p class="tc-sheet-save-status" id="sheetSaveStatus" role="status" aria-live="polite"></p>${sheetMatrix(rows,cfg,providers)}
  <p class="tc-sheet-help">${rows.length} ${rows.length===1?'fila':'filas'} · Arrastra el borde de una columna para ajustar su ancho.</p></section>`;
  $('sheetRefresh').onclick=()=>tcSheetRefresh();
  $('tcTemplateSelect').onchange=()=>{$('tcTemplateApply').disabled=!$('tcTemplateSelect').value};$('tcTemplateApply').onclick=applyTemplate;
- $('sheetWork').onchange=e=>{query='';openChecklist(checkSection,e.target.value)};
+ $('sheetWork').onchange=e=>{query='';openChecklist(checkSection,e.target.value,supplier)};
  $('sheetSearch').oninput=e=>{const pos=e.target.selectionStart;query=e.target.value;renderChecklist();$('sheetSearch').focus();$('sheetSearch').setSelectionRange(pos,pos)};
- document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{if(b.dataset.sheetType===checkSection)return tcSheetEditType();query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
+ document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork,supplier)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{if(b.dataset.sheetType===checkSection)return tcSheetEditType();query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
 };
 async function writeRow(row,payload,providers,c){const table=providers?'elite_work_contractors':'elite_work_checklist_items',rows=await eliteRequest('/rest/v1/'+table+'?id=eq.'+row.id+'&updated_at=eq.'+encodeURIComponent(row.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});if(!live(c))return;if(rows?.length!==1)throw Error('La fila cambió en otro dispositivo. Actualiza antes de guardar.');if(providers)WORK_CONTRACTORS=WORK_CONTRACTORS.map(x=>x.id===row.id?rows[0]:x);else CHECKLIST_ITEMS=CHECKLIST_ITEMS.map(x=>x.id===row.id?rows[0]:x);renderChecklist()}
 root.tcSheetCell=async(id,key,value)=>{if(busy)return;const providers=checkSection==='providers',row=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).find(r=>r.id===id&&r.work_id===checkWorkId);if(!row)return;const c=ctx();busy=true;lockSheet(true);try{if(key==='title'&&!value.trim())throw Error('El elemento necesita nombre.');if(key==='completed_at')await writeRow(row,{completed_at:value?new Date().toISOString():null},false,c);else if(key.startsWith('col_'))await writeRow(row,{cell_values:{...row.cell_values,[key]:String(value)}},providers,c);else if(['title','notes','due_date','entry_date'].includes(key))await writeRow(row,{[key]:value||(['due_date','entry_date'].includes(key)?null:'')},providers,c)}catch(e){if(live(c)){renderChecklist();sheetError(e.message)}}finally{if(sameOwner(c)){busy=false;if(live(c))lockSheet(false)}}};
@@ -287,6 +326,6 @@ function bindTable(cfg,left,top){
   scale=pinch.scale;draw();host.scrollLeft=pinch.left;host.scrollTop=pinch.top;pinch=null;
  });
 }
-const oldControls=renderControlTable;renderControlTable=function(){if(mode==='checklist'&&checkSection==='providers'){checkWorkId=planningWork||checkWorkId;return renderChecklist()}return oldControls()};
-const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){sheetObserver?.disconnect();sheetObserver=null;query='';loadSequence++;checklistSnapshot=null;busy=false;return oldEnd(...args)};
+const oldControls=renderControlTable;renderControlTable=function(){if(['checklist','supplierChecklist'].includes(mode)&&checkSection==='providers'){checkWorkId=planningWork||checkWorkId;return renderChecklist()}return oldControls()};
+const oldEnd=sessionViewEnded;sessionViewEnded=function(...args){sheetObserver?.disconnect();sheetObserver=null;query='';registryQuery='';registryKind='';registryArchived=false;loadSequence++;checklistSnapshot=null;busy=false;return oldEnd(...args)};
 })(window);
