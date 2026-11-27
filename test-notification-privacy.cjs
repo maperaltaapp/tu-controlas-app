@@ -78,6 +78,7 @@ async function push(payload){
  const publicKey=Buffer.concat([Buffer.from([4]),Buffer.alloc(64)]).toString('base64url');
  const page=vm.createContext({
   $:id=>controls[id],sessionEpoch:1,pushSupport:()=>true,atob,
+  setTimeout:fn=>setTimeout(fn,5),clearTimeout,
   Notification:{permission:'granted',requestPermission:async()=>'granted'},
   navigator:{serviceWorker:{register:async()=>registration,ready:Promise.resolve(registration)}},
   eliteRequest:async(_url,options)=>{if(options)remoteWrites++;return {ready:true,publicKey}},
@@ -92,5 +93,12 @@ async function push(payload){
  assert.equal(localNotices,1);
  assert.equal(remoteWrites,0);
  assert.match(controls.pushStatus.textContent,/Aviso local mostrado/);
+ page.navigator.serviceWorker.ready=new Promise(()=>{});
+ await page.enablePush();
+ assert.match(controls.pushStatus.textContent,/componente de avisos/);
+ assert.equal(controls.enablePush.disabled,false);
+ await page.testLocalPush();
+ assert.match(controls.pushStatus.textContent,/tardó demasiado/);
+ assert.equal(controls.testLocalPush.disabled,false);
  console.log('PASS: private lock-screen content, unsafe tag and URL rejection, neutral same-origin navigation, shared-device safety.');
 })().catch(e=>{console.error(e);process.exitCode=1});

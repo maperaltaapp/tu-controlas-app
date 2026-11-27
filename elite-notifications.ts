@@ -1,13 +1,25 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 const APP='https://maperaltaapp.github.io/tu-controlas-app/';
-const headers={'Access-Control-Allow-Origin':new URL(APP).origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-elite-cron','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
+const allowedOrigins=new Set([new URL(APP).origin]);
+for(const value of (Deno.env.get('TC_PUSH_ALLOWED_ORIGINS')||'').split(',')){
+ try{
+  const origin=value.trim(),url=new URL(origin);
+  if(url.protocol==='https:'&&url.origin===origin)allowedOrigins.add(origin);
+ }catch{/* Ignore invalid entries. */}
+}
+const baseHeaders={'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-elite-cron','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
 function safeEndpoint(value:string){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['fcm.googleapis.com','updates.push.services.mozilla.com','push.services.mozilla.com','web.push.apple.com','notify.windows.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))}catch{return false}}
 async function configuration(){let {data,error}=await db.rpc('elite_push_config');if(error)throw error;if(!data.public_key){const k=webpush.generateVAPIDKeys();const result=await db.rpc('elite_init_vapid',{pub:k.publicKey,priv:k.privateKey});if(result.error)throw result.error;data=result.data}if(!data.gateway_jwt){const token=Deno.env.get('SUPABASE_ANON_KEY')||'';if(!token.startsWith('eyJ'))throw new Error('Legacy gateway token unavailable');const result=await db.rpc('elite_set_gateway_jwt',{token});if(result.error)throw result.error;data=result.data}return data}
 function pushOptions(config:any){return {TTL:3600,timeout:10000,vapidDetails:{subject:APP,publicKey:config.public_key,privateKey:config.private_key}}}
 Deno.serve(async req=>{
+ const origin=req.headers.get('Origin');
+ const headers=new Headers(baseHeaders);
+ headers.set('Vary','Origin');
+ if(origin&&allowedOrigins.has(origin))headers.set('Access-Control-Allow-Origin',origin);
+ const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
+ if(origin&&!allowedOrigins.has(origin))return reply({error:'Origen no permitido'},403);
  if(req.method==='OPTIONS')return new Response('ok',{headers});
  try{
   if(req.method==='GET'){const c=await configuration();return reply({publicKey:c.public_key,ready:true})}

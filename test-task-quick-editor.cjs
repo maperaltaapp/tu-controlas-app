@@ -234,16 +234,19 @@ async function main(){
  sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
  sandbox.fetchOwnTasks=initialFetch;sandbox.patchNativeTask=initialPatch;
 
- // A delayed Gantt preparation must not issue a save under a switched identity.
- let beganPrepare,finishPrepare,commits=0;
- const prepareStarted=new Promise(resolve=>beganPrepare=resolve);
- sandbox.redistributeDeletedWeight=async()=>{beganPrepare();return new Promise(resolve=>finishPrepare=()=>resolve([]))};
- sandbox.gCommit=async()=>{commits++;return true};
- const ganttDelete=sandbox.deleteHeldItem('task',gantt.id);await prepareStarted;
+ // A delayed Gantt save must not refresh the next account once it finishes.
+ sandbox.ElitePlanning={derive:rows=>rows,validate:()=>{}};
+ sandbox.TCGantt={removal:(rows,id)=>rows.filter(row=>row.id!==id)};
+ let finishCommit,enterCommit;
+ const commitStarted=new Promise(resolve=>{enterCommit=resolve});
+ sandbox.gCommit=async()=>{enterCommit();await new Promise(resolve=>{finishCommit=resolve});return true};
+ let postCommitReads=0;
+ sandbox.fetchOwnTasks=async()=>{postCommitReads++};
+ const ganttDelete=sandbox.deleteHeldItem('task',gantt.id);await commitStarted;
  sandbox.sessionEpoch=oldTaskEpoch+12;sandbox.session={user:{id:'another-account'}};
- finishPrepare();
+ finishCommit();
  assert.equal(await ganttDelete,false);
- assert.equal(commits,0,'Never start a Gantt write after switching accounts');
+ assert.equal(postCommitReads,0);
  sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
 
  console.log('PASS: selección cancelable, editor mínimo, borrado/restauración, Gantt y aislamiento de sesión en guardado y borrado tardío');

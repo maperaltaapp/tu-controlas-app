@@ -284,6 +284,15 @@ function pushMessage(message,error=false){if($('pushStatus')){$('pushStatus').te
 async function currentSubscription(){const reg=await navigator.serviceWorker.getRegistration('./');return reg?await reg.pushManager.getSubscription():null}
 async function refreshPushStatus(){try{if(!pushSupport()){$('testLocalPush').disabled=true;pushMessage('Este navegador no admite avisos. Usa Chrome en Android; en iPhone, añade la App a la pantalla de inicio y ábrela desde allí.',true);$('enablePush').disabled=true;$('testPush').disabled=true;return}try{const config=await eliteRequest('/functions/v1/elite-notifications');if(!config?.ready)throw Error('Pendiente')}catch{pushMessage('Falta activar el servicio de avisos en Supabase. Tus tareas sí se pueden guardar.',true);$('enablePush').disabled=true;$('testPush').disabled=true;$('disablePush').disabled=true;return}const sub=await currentSubscription();const rows=sub?await eliteRequest('/rest/v1/elite_push_subscriptions?select=id&endpoint=eq.'+encodeURIComponent(sub.endpoint)):[];const active=Notification.permission==='granted'&&rows.length>0;pushMessage(active?'Avisos activados para tu cuenta en este dispositivo.':Notification.permission==='denied'?'Los avisos están bloqueados. Permítelos en los ajustes del navegador.':'Avisos aún no activados.',Notification.permission==='denied');$('testPush').disabled=!active;$('disablePush').disabled=!sub}catch(e){pushMessage(e.message,true)}}
 function vapidBytes(value){const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+async function waitForPushWorker(){
+ let timer;
+ try{
+  return await Promise.race([
+   navigator.serviceWorker.ready,
+   new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('El componente de avisos tardó demasiado en activarse.')),10000)})
+  ]);
+ }finally{clearTimeout(timer)}
+}
 async function enablePush(){
  const button=$('enablePush'),status=$('pushStatus'),epoch=sessionEpoch;
  if(!button||button.disabled||!pushSupport())return;
@@ -297,7 +306,7 @@ async function enablePush(){
   pushMessage('Activando avisos…');
   stage='aplicación';
   const registered=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
-  const reg=await navigator.serviceWorker.ready;
+  const reg=await waitForPushWorker();
   if(!current())return;
   if(reg.scope!==registered.scope||!reg.active)throw Error('Service worker con alcance distinto');
   stage='servidor';
@@ -338,7 +347,7 @@ async function testLocalPush(){
  try{
   if(Notification.permission!=='granted')throw Error('Permite primero los avisos del sitio en el navegador.');
   const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
-  const ready=await navigator.serviceWorker.ready;
+  const ready=await waitForPushWorker();
   if(ready.scope!==reg.scope||!ready.active)throw Error('No se pudo iniciar el componente de avisos.');
   if($('pushStatus')!==status)return;
   await ready.showNotification('TU CONTROLAS',{body:'Prueba de aviso local',tag:'tc-local-test'});
@@ -1209,4 +1218,4 @@ $('enter').onclick=login;$('logout').onclick=logoutElite;initAccountRecovery();d
 </script><script src="interaction-refinement.js?v=ad7fe4c69bf3"></script><script src="work-dashboard.js?v=3d71ef1c7212"></script><script src="gantt-contract-pdf.js"></script><script src="gantt-workbench.js?v=e2c056e551bf"></script><script src="gantt-calendar.js?v=a4891e0879e4"></script>
 <script src="gantt-dependencies.js"></script>
 <script src="gantt-print.js"></script>
-<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127a"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>
+<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127b"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>
