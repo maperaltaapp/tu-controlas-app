@@ -40,7 +40,7 @@ function reminderValues(task,mode,custom,due){
 }
 function edit(id){
  selectionClear();
- const task=OWN_TASKS.find(t=>t.id===id);
+ let task=OWN_TASKS.find(t=>t.id===id);
  if(!task){
   if(CHECKLIST_ITEMS.some(c=>c.id===id))return editChecklistItem(id);
   statusMessage('La tarea ya no está disponible. Actualizá la lista.',true);return;
@@ -48,14 +48,15 @@ function edit(id){
  if(task.control_id)return originalTaskForm(id);
  const editorEpoch=sessionEpoch,editorOwner=session?.user?.id;
  const sameSession=()=>sessionEpoch===editorEpoch&&session?.user?.id===editorOwner;
- const linked=linkFor(id),due=linked?linked.row.end:localDateTime(task.due_at);
+ let linked=linkFor(id);
+ const due=linked?linked.row.end:localDateTime(task.due_at);
  const reminder=task.remind_at?'custom':(!task.due_at&&!linked?'none':task.remind_minutes==null?'none':String(task.remind_minutes));
  const title=esc(task.title||'');
  const checklistDraft=JSON.parse(JSON.stringify(task.checklists||[])),checklistOriginal=JSON.stringify(checklistDraft);
  const dateValue=due||'';
  const type=linked?'date':'datetime-local';
  const info=linked?'<p class="small">Actividad vinculada al Gantt. Las fechas con dependencias se editan desde el cronograma.</p>':'';
- const originalExtras=task.extra_remind_at||[];
+ let originalExtras=task.extra_remind_at||[];
  const reminderExtras='<details class="task-form-section"><summary>Avisos adicionales</summary>'+[0,1].map(i=>'<label>Aviso '+(i+2)+'<input name="extra'+i+'" type="datetime-local" value="'+esc(localDateTime(originalExtras[i]))+'"></label>').join('')+'</details>';
  const html='<form id="tcQuickTaskForm" class="tc-quick-form" aria-label="Datos de tarea"><div class="top tc-quick-top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">✕</button></div>'
  +'<label>Nombre<input name="title" maxlength="240" required value="'+title+'"></label>'
@@ -96,6 +97,7 @@ function edit(id){
   event.preventDefault();if(busy||!sameSession())return;
   const title=form.elements.title.value.trim(),selectedDue=form.elements.due.value,reminderMode=form.elements.reminder.value;
   const error=form.querySelector('#tcQuickError');
+  let planSaved=false,taskSaved=false;
   try{
    if(!title)throw Error('Escribe el nombre de la tarea.');
    let iso=linked?(selectedDue?selectedDue+'T12:00:00Z':null):(selectedDue===localDateTime(task.due_at)?task.due_at||null:validLocalDateTime(selectedDue));
@@ -128,7 +130,6 @@ function edit(id){
    const dueChanged=!!linked&&selectedDue!==linked.row.end;
    if(!Object.keys(add).length&&!dueChanged){closeTaskDialog();return}
    busy=true;error.textContent='';form.querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
-   let planSaved=false;
    if(linked&&(title!==task.title||dueChanged)){
     const rows=gHydrate(linked.plan.phases),row=rows.find(p=>p.id===linked.row.id);
     if(!row)throw Error('La actividad cambió. Actualiza el Gantt.');
@@ -150,10 +151,17 @@ function edit(id){
     row.name=title;
     if(G2.busy||G2.draft)throw Error('Termina los cambios abiertos del Gantt antes de editar esta tarea.');
     G2.work=task.work_id;
-    const ok=await gCommit(rows,{reschedule:false});
+    const saving=gCommit(rows,{reschedule:false}),token=G2.saveToken;
+    const ok=await saving;
     if(!sameSession())return;
-    if(!ok)throw Error(G2.message||'No se pudo guardar el Gantt.');
+    if(!ok){
+     if(G2.work===task.work_id&&!G2.busy&&G2.saveToken===token)G2.draft=null;
+     throw Error(G2.message||'No se pudo guardar el Gantt.');
+    }
     planSaved=true;
+    const currentTask=OWN_TASKS.find(t=>t.id===id),currentLink=linkFor(id);
+    if(!currentTask||!currentLink)throw Error('Vuelve a abrir la tarea para comprobar su versión actual.');
+    task=currentTask;linked=currentLink;
    }
    const reminderPatch={};
    if('remind_minutes' in add){reminderPatch.remind_minutes=add.remind_minutes;reminderPatch.remind_at=add.remind_at}
@@ -164,12 +172,16 @@ function edit(id){
      const fresh=OWN_TASKS.find(t=>t.id===id);
      if(!fresh)throw Error('No se encontró la tarea vinculada después de actualizar el Gantt.');
      if(!sameSession())return;
-     await patchNativeTask(fresh,reminderPatch);
+     task=await patchNativeTask(fresh,reminderPatch);
+     taskSaved=true;
+     originalExtras=task.extra_remind_at||[];
      if(!sameSession())return;
     }
    }else{
     if(!sameSession())return;
-    await patchNativeTask(task,add);
+    task=await patchNativeTask(task,add);
+    taskSaved=true;
+    originalExtras=task.extra_remind_at||[];
     if(!sameSession())return;
    }
    await fetchOwnTasks();
@@ -179,8 +191,8 @@ function edit(id){
    statusMessage('Tarea guardada y comprobada.');
   }catch(e){
    if(sameSession()&&dialog.isConnected){
-    error.textContent=e.message;
-    if(linked&&G2.draft)G2.draft=null;
+    error.textContent=taskSaved?'Se guardaron los cambios, pero no se pudo actualizar la vista. Vuelve a abrir la tarea para comprobarlos. '+e.message:
+     planSaved?'Se guardó el Gantt. Los cambios adicionales de la tarea siguen pendientes. Puedes volver a pulsar Guardar. '+e.message:e.message;
     form.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);
     switchCustom();
    }

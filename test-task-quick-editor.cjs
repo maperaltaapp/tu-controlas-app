@@ -234,16 +234,41 @@ async function main(){
  sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
  sandbox.fetchOwnTasks=initialFetch;sandbox.patchNativeTask=initialPatch;
 
- // A delayed Gantt preparation must not issue a save under a switched identity.
- let beganPrepare,finishPrepare,commits=0;
- const prepareStarted=new Promise(resolve=>beganPrepare=resolve);
- sandbox.redistributeDeletedWeight=async()=>{beganPrepare();return new Promise(resolve=>finishPrepare=()=>resolve([]))};
- sandbox.gCommit=async()=>{commits++;return true};
- const ganttDelete=sandbox.deleteHeldItem('task',gantt.id);await prepareStarted;
+ // A failed reminder write after the Gantt write must retry only the reminder.
+ let ganttSaves=0;
+ sandbox.gCommit=async rows=>{
+  ganttSaves++;
+  sandbox.WORK_PLANS[0].phases=rows;
+  gantt.title=rows[0].name;
+  return true;
+ };
+ sandbox.openQuickTaskEditor(gantt.id);
+ const form=lastDialog.form;
+ form.elements.title.value='Montaje de arquetas revisado';
+ form.elements.due.value='2026-12-05';
+ form.elements.reminder.value='15';
+ failSave=true;
+ await form.onsubmit({preventDefault(){}});
+ assert.match(lastDialog.error.textContent,/Se guardó el Gantt/);
+ assert.equal(ganttSaves,1);
+ failSave=false;
+ await form.onsubmit({preventDefault(){}});
+ assert.equal(ganttSaves,1,'El reintento solo debe guardar el aviso pendiente');
+ assert.equal(gantt.remind_minutes,15);
+
+ // A delayed Gantt save must not refresh the next account once it finishes.
+ sandbox.ElitePlanning={derive:rows=>rows,validate:()=>{}};
+ sandbox.TCGantt={removal:(rows,id)=>rows.filter(row=>row.id!==id)};
+ let finishCommit,enterCommit;
+ const commitStarted=new Promise(resolve=>{enterCommit=resolve});
+ sandbox.gCommit=async()=>{enterCommit();await new Promise(resolve=>{finishCommit=resolve});return true};
+ let postCommitReads=0;
+ sandbox.fetchOwnTasks=async()=>{postCommitReads++};
+ const ganttDelete=sandbox.deleteHeldItem('task',gantt.id);await commitStarted;
  sandbox.sessionEpoch=oldTaskEpoch+12;sandbox.session={user:{id:'another-account'}};
- finishPrepare();
+ finishCommit();
  assert.equal(await ganttDelete,false);
- assert.equal(commits,0,'Never start a Gantt write after switching accounts');
+ assert.equal(postCommitReads,0);
  sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
 
  console.log('PASS: selección cancelable, editor mínimo, borrado/restauración, Gantt y aislamiento de sesión en guardado y borrado tardío');
