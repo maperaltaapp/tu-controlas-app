@@ -236,3 +236,5 @@ body>.elite-header{position:sticky;top:0;z-index:90}
 /* Compact reusable checklist template selector. */
 .tc-check-template{border:1px solid var(--tc-line);border-radius:8px;padding:8px;margin:6px 0;display:grid;gap:4px;max-width:620px}
 .tc-check-template>label{font-size:12px;font-weight:600;margin:0}.tc-template-controls{display:flex;align-items:center;gap:6px;min-width:0}.tc-template-controls select{flex:1;min-width:0;width:0}.tc-template-controls button{flex:none}.tc-check-template small{font-size:11px;color:var(--tc-muted);line-height:1.3}
+
+.tc-sheet>.tc-check-template{position:relative;background:#fff;margin:8px 0;padding:9px 10px}.tc-check-template>label{color:var(--tc-ink,#20384d)}.tc-template-controls select{width:auto;flex:1 1 0;min-width:0}

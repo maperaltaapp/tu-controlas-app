@@ -104,6 +104,7 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  const sourceId='33333333-3333-4333-8333-333333333333',alienId='44444444-4444-4444-8444-444444444444';
  run(`NATIVE_WORKS.push({id:'${sourceId}',user_id:'A',name:'Origen',workspace_layout:{sheets:{prep:{columns:[{id:'title',label:'Control'}]}}}},{id:'${alienId}',user_id:'B',name:'Ajena',workspace_layout:{sheets:{prep:{columns:[{id:'title',label:'Privado'}]}}}});renderChecklist()`);
  const template=document.getElementById('tcTemplateSelect');
+ assert(template.closest('.tc-check-template'));assert(!template.closest('.tc-tool-sticky'),'Template selector must not be hidden in mobile sticky header');
  assert(template.textContent.includes('Origen'));assert(!template.textContent.includes('Ajena'));
  const templateValue=sourceId+'|prep';template.value=templateValue;template.onchange();
  assert.equal(document.getElementById('tcTemplateApply').disabled,false);
