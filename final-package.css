@@ -238,3 +238,31 @@ body>.elite-header{position:sticky;top:0;z-index:90}
 .tc-check-template>label{font-size:12px;font-weight:600;margin:0}.tc-template-controls{display:flex;align-items:center;gap:6px;min-width:0}.tc-template-controls select{flex:1;min-width:0;width:0}.tc-template-controls button{flex:none}.tc-check-template small{font-size:11px;color:var(--tc-muted);line-height:1.3}
 
 .tc-sheet>.tc-check-template{position:relative;background:#fff;margin:8px 0;padding:9px 10px}.tc-check-template>label{color:var(--tc-ink,#20384d)}.tc-template-controls select{width:auto;flex:1 1 0;min-width:0}
+.tc-supplier-tabs,.tc-company-controls {display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tc-company-controls :is(button,select),.tc-supplier-tabs button {min-height:38px;width:auto}
+.tc-company-controls .tc-search {width:min(100%,26rem)}
+.tc-company-scroll {overflow:auto;max-height:60dvh;border:1px solid #d9e3eb;border-radius:7px}
+.tc-company-scroll table {width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:14px;color:#233e52}
+.tc-company-scroll th,.tc-company-scroll td {padding:8px;text-align:left;vertical-align:middle;overflow-wrap:anywhere;border-bottom:1px solid #dce5ed}
+.tc-company-scroll thead th {position:sticky;top:0;background:#edf3f7;z-index:1}
+.tc-company-scroll th:first-child {width:40%}.tc-company-scroll th:nth-child(2) {width:36%}
+.tc-company-scroll tbody tr {cursor:pointer}.tc-company-scroll tbody tr:is(:hover,:focus-within) {background:#eef6fb}
+.tc-company-name {background:transparent;border:0;padding:0;text-align:left;color:#155c86;font:inherit;font-weight:650;overflow-wrap:anywhere}
+.tc-sheet-tabs[hidden] {display:none}
+@media(max-width:600px){
+ #tcNav button[data-section=suppliers] {flex:1.65}
+ #tcNav button span {white-space:normal;overflow-wrap:anywhere}
+ .tc-company-controls .tc-search {width:100%}
+ .tc-company-scroll th,.tc-company-scroll td {padding:7px 4px}
+ .tc-supplier-tabs button {font-size:12px}
+}
+.tc-company-controls .tc-search {position:relative;display:flex;align-items:center;margin:0}
+.tc-company-controls .tc-search input {width:100%;min-width:0;margin:0;padding-left:34px}
+.tc-company-controls select {padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;background:white;color:#233e52}
+@media(max-width:600px){
+ .tc-supplier-tabs {display:grid;grid-template-columns:1fr 1.5fr 1fr;align-items:stretch}
+ .tc-supplier-tabs button {padding:5px;line-height:1.2}
+ .tc-company-scroll th:first-child {width:37%}
+ .tc-company-scroll th:nth-child(2) {width:auto}
+ .tc-company-scroll th:last-child {width:90px}
+}

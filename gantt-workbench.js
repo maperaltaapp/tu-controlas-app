@@ -190,7 +190,31 @@ const desktopBarDrag=gDrag;gDrag=function(e,el){if(e.pointerType==='touch')retur
 root.tcRefreshCapacity=async function(){const account=owner();try{const conflicts=ElitePlanning.capacity(capacityPlans(),CONTRACTORS).filter(c=>c.end>=planningToday());const next=await Promise.all(conflicts.map(async c=>{const encoded=new TextEncoder().encode(capacitySignature(c,WORK_PLANS)),hash=await crypto.subtle.digest('SHA-256',encoded);return {...c,key:'capacity-v1-'+[...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}}));const reviews=await readAll('elite_capacity_reviews','order=approved_at.desc');if(account!==owner())return;alerts=next;capacityReviews=reviews;alertsError='';updateBell()}catch(e){if(account!==owner())return;alertsError=e.message;updateBell()}};
 function updateBell(){ $g('tcBell')?.remove(); }
 root.tcShowCapacity=()=>capacityDialog();
-function capacityDialog(){if(!session?.access_token)return;dialogForm(`<div class="top"><h2>Avisos operativos</h2><button id="closeTask" class="light" type="button">✕</button></div>${alertsError?'<p class="err">No se pudieron comprobar los avisos.</p><button class="light" id="gCapacityRetry">Reintentar</button>':alerts.map((c,i)=>{const acknowledged=capacityReviews.some(r=>r.alert_key===c.key);return `<article class="capacity-alert"><b>${esc(c.name)}</b><p>${c.works.map(id=>esc(NATIVE_WORKS.find(w=>w.id===id)?.name||'Obra')).join(' · ')}</p><p>${workDateLabel(c.start)} → ${workDateLabel(c.end)} · ${c.works.length} obras / capacidad ${c.capacity}</p>${acknowledged?'<small>Revisado · Está OK</small>':`<button data-capacity-ok="${i}" class="light">Está OK</button>`}</article>`}).join('')||'<p>Sin avisos de capacidad pendientes.</p>'}<p class="small">Si cambian las actividades, fechas o capacidad implicadas, se solicitará una nueva revisión.</p><div id="gCapacityError" class="status err"></div>`);$g('gCapacityRetry')?.addEventListener('click',async()=>{await tcRefreshCapacity();capacityDialog()});document.querySelectorAll('[data-capacity-ok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const c=alerts[Number(b.dataset.capacityOk)];await eliteRequest('/rest/v1/elite_capacity_reviews?on_conflict=user_id,alert_key',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({alert_key:c.key})});await tcRefreshCapacity();if(!capacityReviews.some(r=>r.alert_key===c.key))throw Error('No se pudo verificar la revisión.');capacityDialog()}catch(e){$g('gCapacityError').textContent=e.message;b.disabled=false}})}
+function capacityDialog(){
+ if(!session?.access_token)return;
+ const dialog=dialogForm('<div class="top"><h2>Avisos de capacidad</h2><button id="closeTask" class="light" type="button">✕</button></div><div id="gCapacityBody"></div>');
+ tcRenderCapacity(dialog.querySelector('#gCapacityBody'));
+}
+root.tcRenderCapacity=function(target){
+ const account=owner(),epoch=sessionEpoch,current=()=>target.isConnected&&account===owner()&&epoch===sessionEpoch;
+ target.innerHTML=`${alertsError?'<p class="err">No se pudieron comprobar los avisos.</p><button class="light" id="gCapacityRetry">Reintentar</button>':alerts.map((c,i)=>{const acknowledged=capacityReviews.some(r=>r.alert_key===c.key);return `<article class="capacity-alert"><b>${esc(c.name)}</b><p>${c.works.map(id=>esc(NATIVE_WORKS.find(w=>w.id===id)?.name||'Obra')).join(' · ')}</p><p>${workDateLabel(c.start)} → ${workDateLabel(c.end)} · ${c.works.length} obras / capacidad ${c.capacity}</p>${acknowledged?'<small>Revisado · Está OK</small>':`<button data-capacity-ok="${i}" class="light">Está OK</button>`}</article>`}).join('')||'<p>Sin avisos de capacidad pendientes.</p>'}<p class="small">Si cambian las actividades, fechas o capacidad implicadas, se solicitará una nueva revisión.</p><div id="gCapacityError" class="status err"></div>`;
+ const retry=target.querySelector('#gCapacityRetry');if(retry)retry.onclick=async()=>{retry.disabled=true;await tcRefreshCapacity();if(current())tcRenderCapacity(target)};
+ target.querySelectorAll('[data-capacity-ok]').forEach(button=>{
+  const conflict=alerts[Number(button.dataset.capacityOk)];
+  button.onclick=async()=>{
+   if(!current()||button.disabled)return;
+   button.disabled=true;
+   try{
+    await eliteRequest('/rest/v1/elite_capacity_reviews?on_conflict=user_id,alert_key',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({alert_key:conflict.key})});
+    if(!current())return;
+    await tcRefreshCapacity();
+    if(!current())return;
+    if(!capacityReviews.some(r=>r.alert_key===conflict.key))throw Error('No se pudo verificar la revisión.');
+    tcRenderCapacity(target);
+   }catch(e){if(current()){target.querySelector('#gCapacityError').textContent=e.message;button.disabled=false}}
+  };
+ });
+};
 root.tcClearOperationalState=function(){alerts=[];capacityReviews=[];contractVersions=[];contractDraft=null;selectedVersion=null;contractError='';alertsError='';updateBell()};
 const baseLoad=load;load=async function(){await baseLoad();if(nativeReady)await tcRefreshCapacity()};
 const baseCommit=gCommit;gCommit=async function(rows,options){const ok=await baseCommit(rows,options);if(ok)await tcRefreshCapacity();return ok};
