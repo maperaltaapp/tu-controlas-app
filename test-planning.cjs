@@ -22,3 +22,26 @@ h.validate(hierarchy);assert.equal(hierarchy[0].start,'2026-11-02');assert.equal
 assert.throws(()=>h.validate([phase('Root','2026-11-01','2026-11-20',100),phase('Orphan','2026-11-02','2026-11-03',0,{level:3,parent_id:'missing'})]),/nivel anterior/);
 assert.throws(()=>h.validate(hierarchy.map(x=>x.id==='F'?{...x,weight:10}:x)),/contenedora/);
 console.log('PASS: immutable baseline, dependency propagation, weighted observations, three-level hierarchy rollup, cycle/date validation, capacity conflicts and no invented future progress.');
+
+const C=require('./work-calendar.js');
+const weekday=C.normalize({anchor:'2026-11-20',weekdays:[1,2,3,4,5],exceptions:[]});
+const saturday=C.normalize({...weekday,exceptions:[{date:'2026-11-21',working:true,name:'Sábado excepcional'}]});
+const make=(work,phases,calendar=weekday,patch={})=>({work_id:work,phases,calendar,...patch});
+const x={id:'x',name:'Empresa ficticia',kind:'subcontractor',capacity:5};
+const assigned=(id,start='2026-11-20',end='2026-11-23',patch={})=>phase(id,start,end,50,{contractor_id:'x',...patch});
+const opts={workingDay:(plan,date)=>C.working(date,plan.calendar)};
+const same=make('W1',[assigned('A'),assigned('B')]);
+let overlap=p.assignmentOverlaps([same],[x],opts);
+assert.deepEqual(overlap.map(c=>[c.start,c.end,c.assignments.length,c.works.length]),[['2026-11-20','2026-11-20',2,1],['2026-11-23','2026-11-23',2,1]]);
+assert.deepEqual(p.assignmentOverlaps([make('W1',[assigned('A')]),make('W2',[assigned('B')],weekday,{archived:true})],[x],opts),[]);
+const different=[make('W1',[assigned('A')],saturday),make('W2',[assigned('B')],saturday)];
+overlap=p.assignmentOverlaps(different,[x],opts);
+assert.deepEqual(overlap.map(c=>[c.start,c.end,c.works.length]),[['2026-11-20','2026-11-21',2],['2026-11-23','2026-11-23',2]]);
+assert.deepEqual(p.assignmentOverlaps([...different].reverse(),[x],opts).map(c=>c.signature),overlap.map(c=>c.signature));
+const moved=[different[0],make('W2',[assigned('B','2026-11-19','2026-11-23')],saturday)];
+assert.notEqual(p.assignmentOverlaps(moved,[x],opts)[0].signature,overlap[0].signature);
+assert.deepEqual(p.assignmentOverlaps([make('W1',[assigned('Parent','2026-11-20','2026-11-23',{is_group:true}),assigned('Child','2026-11-20','2026-11-23',{parent_id:'Parent'})])],[x],opts),[]);
+assert.deepEqual(p.assignmentOverlaps([same],[{...x,kind:'supplier'}],opts),[]);
+assert.equal(p.assignmentOverlaps([same],[x],{...opts,from:'2026-11-23'}).length,1);
+assert.throws(()=>p.assignmentOverlaps([same],[x]),/calendario laboral/);
+console.log('PASS: activity-level overlaps within and across works; per-work holidays and Saturday exceptions; stable signatures and no group double-counting.');
