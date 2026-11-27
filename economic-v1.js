@@ -21,11 +21,11 @@ function example(){
  return {work:{id:DEMO,name:'Prueba',execution_state:'execution'},plan:{phases,baseline,baseline_at:'2026-11-01T00:00:00Z'},entries,date:'2026-11-24',demo:true};
 }
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const euro=n=>n===null?'Sin datos':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
-const percent=n=>n===null?'Sin datos':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(n)+' %';
-const decimal=n=>n===null?'No calculable':new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(n);
+const euro=n=>!Number.isFinite(n)?'Sin datos':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+const percent=n=>!Number.isFinite(n)?'Sin datos':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(n)+' %';
+const decimal=n=>!Number.isFinite(n)?'No calculable':new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(n);
 function graph(data,amountScale=null){
- const points=data.points;if(points.length<2)return '<div class="ec-no-graph">Para ver las curvas, fija una línea base y registra mediciones en el Gantt.</div>';
+ const points=data.points;if(!points.some(p=>Number.isFinite(p.real)||Number.isFinite(p.planned)))return '<div class="ec-no-graph">Para ver las curvas, fija una línea base y registra mediciones en el Gantt.</div>';
  const lo=day(points[0].date),hi=day(points.at(-1).date);
  const x=date=>Number(((day(date)-lo)/Math.max(1,hi-lo)*100).toFixed(3)),y=value=>Number((100-value).toFixed(3));
  const path=kind=>{let result='',connected=false;for(const p of points){if(p[kind]===null){connected=false;continue}result+=(connected?' L':' M')+x(p.date)+' '+y(p[kind]);connected=true}return result.trim()};
@@ -35,8 +35,9 @@ function graph(data,amountScale=null){
   const caption=amountScale===null?tick+'%':new Intl.NumberFormat('es-ES',{notation:'compact',maximumFractionDigits:1}).format(amountScale*tick/100)+' €';
   svg+=`<line x2="100%" y1="${y(tick)}%" y2="${y(tick)}%" stroke="#e0e6ed"/><text x="0" dx="-7" y="${y(tick)}%" dy=".32em" text-anchor="end">${caption}</text>`;
  }
- for(let i=0;i<=4;i++){
-  const date=iso(lo+Math.round((hi-lo)*i/4)),anchor=i===0?'start':i===4?'end':'middle';
+ const intervals=Math.min(4,Math.max(0,hi-lo));
+ for(let i=0;i<=intervals;i++){
+  const date=iso(lo+Math.round((hi-lo)*i/Math.max(1,intervals))),anchor=i===0?'start':i===intervals?'end':'middle';
   svg+=`<text x="${x(date)}%" y="100%" dy="16" text-anchor="${anchor}">${date.slice(8,10)}/${date.slice(5,7)}</text>`;
  }
  // Only the line geometry scales. Axis labels keep the same readable size at every width.
@@ -53,17 +54,17 @@ function graph(data,amountScale=null){
  return svg+'</svg></div>';
 }
 if(typeof document==='undefined')return {DEMO,physical,planned,curve,finance,example,graph};
-let shown=null,seq=0,saving=false;
+
 const marginLib=root.TCCostMargin,weightLib=root.TCWeights;
 if(!marginLib||!weightLib)throw Error('Falta el módulo de previsiones económicas o pesos');
-const oldDetail=detail;
-const validView=view=>shown===view&&view.epoch===sessionEpoch&&view.owner===session?.user?.id&&mode==='works'&&workDetailId===view.id;
+const validView=view=>view.host===$('ecPanel')&&view.epoch===sessionEpoch&&view.owner===session?.user?.id
+ &&mode==='works'&&workDetailId===(view.id===DEMO?null:view.id);
 const readEntries=id=>readAll('elite_work_economic_entries','work_id=eq.'+encodeURIComponent(id)+'&order=entry_date.asc,id.asc');
 const readForecasts=id=>readAll('tc_cost_forecast_snapshots','work_id=eq.'+encodeURIComponent(id)+'&order=as_of.asc,created_at.asc');
 const metric=(name,value,description)=>'<article class="ec-metric"><span>'+escape(name)+'</span><strong>'+escape(value)+'</strong>'+(description?'<small>'+escape(description)+'</small>':'')+'</article>';
-function inputCell(data,kind,activity,value){
- const sources=data.entries.filter(e=>e.kind===kind&&(e.activity_id||null)===(activity||null)&&e.entry_date<=data.date),locked=data.demo||sources.some(e=>e.source_name!=='Entrada manual');
- return '<input class="ec-input-cell" type="number" min="0" max="10000000000" step=".01" aria-label="'+escape((kind==='budget'?'Costes de Oferta':kind==='actual'?'Coste real':kind==='contract'?'Contrato':'Certificado')+' · '+(activity||'obra'))+'" data-cost-kind="'+kind+'" data-cost-activity="'+escape(activity||'')+'" value="'+(value===null?'':value)+'" placeholder="Sin datos" '+(locked?'readonly title="'+(data.demo?'Ejemplo de demostración':'Importe procedente de documentos')+'"':'')+'>';
+function inputCell(data,kind,activity,value,name='obra'){
+ const sources=data.entries.filter(e=>e.kind===kind&&(e.activity_id||null)===(activity||null)),locked=data.demo||sources.some(e=>e.source_name!=='Entrada manual'||e.entry_date>data.date);
+ return '<input class="ec-input-cell" type="number" min="0" max="10000000000" step=".01" aria-label="'+escape((kind==='budget'?'Costes de Oferta':kind==='actual'?'Coste real':kind==='contract'?'Contrato':'Certificado')+' · '+name)+'" data-cost-kind="'+kind+'" data-cost-activity="'+escape(activity||'')+'" value="'+(value===null?'':value)+'" placeholder="Sin datos" '+(locked?'readonly title="'+(data.demo?'Ejemplo de demostración':'Importe importado o con movimientos posteriores al corte')+'"':'')+'>';
 }
 function moneyCurve(plan,entries,date,baseline){
  if(!baseline)return '<div class="ec-no-graph">Para ver la curva económica PMI, registra una línea base de costes aprobada.</div>';
@@ -72,66 +73,159 @@ function moneyCurve(plan,entries,date,baseline){
  return graph({points:points.map(p=>({...p,planned:p.planned===null?null:p.planned/max*100,real:p.real===null?null:p.real/max*100})),trend:[]},max);
 }
 
-function weightsSection(data){
- const m=weightLib.derive(data.plan,data.entries,data.forecasts,data.date);
- const euroWeight=v=>v===undefined||v===null?'—':euro(v);
- const current=weightLib.leaves(data.plan?.phases||[]);
- const sum=Array.isArray(m.weights)?m.weights.reduce((a,b)=>a+b,0):null;
- let output='<section class="ec-card ec-weights"><div class="ec-weights-head"><div><h2>Pesos de partidas</h2><p class="small">Calculados a partir de costes previstos de ejecución. La suma debe ser 100,00 %.</p></div><button id="ecWeightsEdit" class="light" type="button">Ajustar pesos</button></div>';
- if(!current.length)return output+'<p class="small">Crea primero las actividades en el Gantt.</p></section>';
- output+='<p class="ec-weights-origin">'+escape(m.reason)+(m.source==='approved'||m.source==='budget'?' · Cálculo automático disponible; guardar para sincronizarlo con Gantt.':'')+'</p>';
- output+='<div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Coste previsto €</th><th>Peso calculado</th><th>En Gantt</th></tr></thead><tbody>';
- for(let i=0;i<current.length;i++){
-  const p=current[i];const cost=m.costs[i],suggested=m.weights?.[i];
-  output+='<tr><td>'+escape(p.name)+'</td><td>'+euroWeight(cost)+'</td><td>'+percent(suggested??null)+'</td><td>'+percent(p.weight)+'</td></tr>';
- }
- output+='</tbody><tfoot><tr><th>Total</th><th>'+euroWeight(m.costs?.length?m.costs.reduce((a,b)=>a+b,0):null)+'</th><th>'+(sum===null?'Sin datos':percent(sum))+'</th><th>'+percent(current.reduce((a,p)=>a+Number(p.weight||0),0))+'</th></tr></tfoot></table></div>';
- output+='<p class="small">Los pesos de las fases contenedoras se calculan desde las partidas finales, sin duplicarlas. Los cambios manuales se distribuyen por igual entre las demás partidas, sin tocar costes ni la línea base original.</p></section>';
- return output;
+function progressCard(data, facts){
+ const {plan,date}=data,actual=physical(plan,date),target=planned(plan,date),delta=actual===null||target===null?null:actual-target;
+ const chart=curve(plan,date),measured=facts.rows.filter(r=>r.progress!==null).length;
+ const last=leaves(plan.phases||[]).flatMap(p=>(p.observations||[]).filter(o=>o.date<=date&&VALID(o.percent)).map(o=>o.date)).sort().at(-1);
+ const coverage=facts.rows.length?`Medición en ${measured} de ${facts.rows.length} partidas`:'Sin partidas en el Gantt';
+ const gap=delta===null?'':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1,signDisplay:'exceptZero'}).format(delta)+' pp frente al plan';
+ const milestone=(plan.phases||[]).filter(p=>p.milestone&&p.end>=date&&p.activity_status!=='done').sort((a,b)=>a.end.localeCompare(b.end))[0];
+ const hasCurve=chart.points.some(p=>p.planned!==null||p.real!==null);
+ return `<section class="ec-card ec-progress" aria-labelledby="ecProgressTitle">
+  <h2 id="ecProgressTitle">Avance físico</h2>
+  <dl class="ec-lead-values"><div><dt>Real medido</dt><dd>${percent(actual)}</dd></div><div><dt>Previsto</dt><dd>${percent(target)}</dd></div></dl>
+  ${gap?`<p class="ec-difference">${gap}</p>`:''}
+  ${graph(chart)}
+  ${hasCurve?`<div class="ec-legend">${target===null?'':'<span><i class="ec-color-blue"></i>Previsto</span>'}${measured&&actual!==null?'<span><i class="ec-color-green"></i>Real medido</span>':''}${chart.trend.length?'<span><i class="ec-color-orange"></i>Tendencia estimada</span>':''}</div>`:''}
+  <p class="ec-source">${coverage}${last?' · Última medición '+escape(workDateLabel(last)):''}</p>
+  ${milestone?`<p class="ec-source">Próximo hito · ${escape(milestone.name)} · ${escape(workDateLabel(milestone.end))}</p>`:''}
+ </section>`;
 }
-
-function htmlPanel(data,warning){
- const {work,plan,entries,date}=data,f=finance(plan,entries,date),baseline=marginLib.latest(data.forecasts||[],'baseline',date),pmi=marginLib.evm(plan,entries,date,baseline),p=planned(plan,date),r=physical(plan,date),d=p===null||r===null?null:r-p,chart=curve(plan,date),end=leaves(plan.baseline||[]).map(x=>x.end).sort().at(-1);
- const options=[...NATIVE_WORKS.filter(w=>!w.archived_at||w.id===work.id).map(w=>[w.id,w.name]),[DEMO,'Prueba (ejemplo)']];
- let out='<div class="ec-panel-root"><div class="tc-tool-sticky"><nav class="tc-panel-tabs" aria-label="Panel de control"><button class="light" id="ecBack">Obras</button><button class="dark" id="ecCurrent" aria-current="page">Control económico</button></nav><div class="ec-actions"><label>Obra <select id="ecWork">'+options.map(q=>'<option value="'+escape(q[0])+'" '+(q[0]===work.id?'selected':'')+'>'+escape(q[1])+'</option>').join('')+'</select></label>';
- if(!data.demo)out+='<button id="ecImport" class="light">Adjuntar PDF / planilla</button>';else out+='<span class="ec-demo-label">Datos de ejemplo</span>';
- out+='<span class="ec-cutoff">Corte <time datetime="'+escape(date)+'">'+escape(date.split('-').reverse().join('/'))+'</time></span></div></div>';
- if(warning)out+='<p class="ec-warning">No se pudieron cargar los costes: '+escape(warning)+'</p>';
- out+='<div class="ec-top"><section class="ec-card ec-curve"><h2>Avance previsto frente al real</h2>'+graph(chart)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>Previsto</span><span><i class="ec-color-green"></i>Real medido</span><span><i class="ec-color-orange"></i>Tendencia estimada</span></div></section><section class="ec-card ec-summary"><h2>Situación de la obra</h2>'+metric('Avance previsto',percent(p),'Línea base')+metric('Avance real',percent(r),'Mediciones ponderadas')+metric('Diferencia',d===null?'Sin datos':(d>0?'+':'')+new Intl.NumberFormat('es-ES',{maximumFractionDigits:1}).format(d)+' pp','Puntos porcentuales')+metric('Fin previsto',end?end.split('-').reverse().join('/'):'Sin línea base','Fecha del Gantt original')+'</section></div>';
- out+=marginLib.render({records:data.forecasts||[],date,offerCost:f.bac,contract:f.contract});
- out+=weightsSection(data);
- out+='<section class="ec-card ec-cost-card"><h2>Costes</h2><div class="ec-stats">'+metric('Costes de Oferta',euro(f.bac))+metric('Coste real acumulado',euro(f.ac))+'</div><details id="ecCosts" data-work="'+escape(work.id)+'"><summary>Costes por partidas <small>'+f.rows.length+' '+(f.rows.length===1?'partida':'partidas')+'</small></summary><p>Los importes manuales se editan en la tabla. Los importes importados muestran el valor del documento.</p><div class="ec-table-scroll"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Peso físico</th><th>Avance real</th><th>Costes de Oferta €</th><th>Coste real €</th></tr></thead><tbody>'+f.rows.map(row=>'<tr><td>'+escape(row.name)+'</td><td>'+percent(row.weight)+'</td><td>'+percent(row.progress)+'</td><td>'+inputCell(data,'budget',row.id,row.budget)+'</td><td>'+inputCell(data,'actual',row.id,row.actual)+'</td></tr>').join('')+'</tbody></table></div><div class="ec-table-scroll"><table><thead><tr><th>Contrato €</th><th>Certificado acumulado €</th></tr></thead><tbody><tr><td>'+inputCell(data,'contract',null,f.contract)+'</td><td>'+inputCell(data,'certified',null,f.certified)+'</td></tr></tbody></table></div><p id="ecCellStatus" role="status"></p></details></section>';
- out+='<section class="ec-card"><h2>Curvas S · costes acumulados</h2>'+moneyCurve(plan,entries,date,baseline)+'<div class="ec-legend"><span><i class="ec-color-blue"></i>PV · Coste planificado</span><span><i class="ec-color-green"></i>AC · Coste real</span></div></section>';
- out+='<section class="ec-card ec-indicators"><h2>Indicadores de control</h2><div class="ec-stats">'+metric('SPI · Plazo',decimal(pmi.spi),'EV / PV · Base aprobada')+metric('CPI · Coste',decimal(pmi.cpi),'EV / AC · Base aprobada')+metric('PV · Planificado',euro(pmi.pv),'Según línea base aprobada')+metric('EV · Valor ganado',euro(pmi.ev),'Coste base × avance medido')+metric('EAC · Tendencia PMI',euro(pmi.eacTrend),'BAC / CPI; contraste con estimación PM')+'</div><details><summary>Criterios de cálculo</summary><p>Los pesos físicos proceden del Gantt. PV y EV usan la línea base de costes aprobada y las mediciones del Gantt. AC usa los costes reales incurridos. La previsión principal de cierre se registra con AC + ETC; BAC / CPI se muestra solo como tendencia. Sin datos fiables, no se calculan índices. La tendencia es una estimación, no una medición.</p></details></section></div>';
- return out;
+function partsDetail(data,f){
+ const weights=data.forecastError?{weights:null,costs:[],reason:'Pendiente de cargar la línea base de costes.'}:weightLib.derive(data.plan,data.entries,data.forecasts,data.date);
+ if(!f.rows.length)return '<p>Esta obra todavía no tiene partidas en el Gantt.</p>';
+ const percentage=v=>Number.isFinite(v)?new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(v)+' %':'Sin datos';
+ const proposed=['approved','budget'].includes(weights.source)&&weights.weights?.some((w,i)=>Math.abs(w-f.rows[i].weight)>.005);
+ const approved=!!marginLib.latest(data.forecasts,'baseline',data.date)&&weights.costs.length===f.rows.length;
+ const rows=f.rows.map((r,i)=>`<tr><th scope="row">${escape(r.name)}</th><td>${percent(r.progress)}</td><td>${percentage(r.weight)}</td>
+  ${proposed?`<td>${percentage(weights.weights[i])}</td>`:''}${approved?`<td>${euro(weights.costs[i])}</td>`:''}<td>${euro(r.budget)}</td><td>${euro(r.actual)}</td></tr>`).join('');
+ const totalWeight=f.rows.reduce((n,r)=>n+r.weight,0);
+ return `<p>${escape(weights.reason)}</p><div class="ec-table-scroll" tabindex="0" aria-label="Avance y costes por partida"><table class="ec-entry-table">
+  <thead><tr><th scope="col">Partida</th><th>Avance real</th><th>Peso en Gantt</th>${proposed?'<th>Peso por coste</th>':''}${approved?'<th>Coste aprobado</th>':''}<th>Costes de Oferta</th><th>Coste real</th></tr></thead><tbody>${rows}</tbody>
+  <tfoot><tr><th scope="row">Total</th><td>${percent(physical(data.plan,data.date))}</td><td>${percentage(totalWeight)}</td>${proposed?'<td>100 %</td>':''}${approved?`<td>${euro(weights.costs.reduce((a,b)=>a+b,0))}</td>`:''}<td>${euro(f.bac)}</td><td>${euro(f.ac)}</td></tr></tfoot></table></div>`;
 }
-
-async function show(id=DEMO){
- const data=id===DEMO?example():null,work=data?.work||NATIVE_WORKS.find(w=>w.id===id);
- if(!work){works();return}
- const oldCosts=$('ecCosts'),samePanel=oldCosts?.dataset.work===id&&shown?.epoch===sessionEpoch&&shown?.owner===session?.user?.id;
- const keepCosts=samePanel&&oldCosts.open,tableOffset=keepCosts?oldCosts.querySelector('.ec-table-scroll').scrollLeft:0;
- const view={id,epoch:sessionEpoch,owner:session?.user?.id},token=++seq;shown=view;mode='works';selectSection('works');workDetailId=id===DEMO?null:id;$('title').textContent='Panel de Control';
- let records=data?.entries||[],forecasts=[],warning=null,plan=data?.plan||planOf(id);
- if(data?.demo)forecasts=[
-  {snapshot_type:'offer',as_of:'2026-11-01',total_cost:90000,forecast_revenue:118000},
-  {snapshot_type:'pm_initial',as_of:'2026-11-02',total_cost:94000,forecast_revenue:118000},
-  {snapshot_type:'baseline',as_of:'2026-11-02',total_cost:94000,approval_reference:'Ejemplo ficticio',activity_costs:[{activity_id:'prueba-0',amount:13000},{activity_id:'prueba-1',amount:38000},{activity_id:'prueba-2',amount:31000},{activity_id:'prueba-3',amount:12000}]},
-  {snapshot_type:'forecast',as_of:'2026-11-24',total_cost:99000,actual_cost:63500,remaining_cost:35500,forecast_revenue:118000}
+function indicators(data,f,margin){
+ const {plan,entries,date}=data,pmi=marginLib.evm(plan,entries,date,margin.baseline);
+ return '<h3>Curvas S de costes acumulados</h3>'+moneyCurve(plan,entries,date,margin.baseline)+
+   (pmi.validBaseline?'<div class="ec-legend"><span><i class="ec-color-blue"></i>Planificado (PV)</span><span><i class="ec-color-green"></i>Real (AC)</span></div>':'')+
+   '<div class="ec-stats">'+metric('SPI · Plazo',decimal(pmi.spi),'Valor ganado / planificado')+metric('CPI · Coste',decimal(pmi.cpi),'Valor ganado / coste real')+
+   metric('Valor planificado (PV)',euro(pmi.pv))+metric('Valor ganado (EV)',euro(pmi.ev))+metric('Coste real acumulado',euro(f.ac))+
+   metric('Línea base aprobada (BAC)',euro(pmi.bac),margin.baseline?.approval_reference)+metric('Coste final por tendencia',euro(pmi.eacTrend),'BAC / CPI')+
+   metric('Importe contratado',euro(f.contract))+metric('Certificado acumulado',euro(f.certified))+'</div>';
+}
+function renderSummary(body,data){
+ const f=finance(data.plan,data.entries,data.date);
+ const inputs={records:data.forecasts,date:data.date,offerCost:f.bac,contract:f.contract},margin=marginLib.summary(inputs);
+ const pending='<p>Previsiones pendientes de cargar.</p>';
+ const closing=data.forecastError?'<section class="ec-card"><h2>Previsión de cierre</h2>'+pending+'</section>':marginLib.render(inputs,margin);
+ const sections=[
+  ['ecParts','Avance, pesos y costes por partida',()=>partsDetail(data,f)],
+  ['ecIndicators','Costes e indicadores de plazo y coste',()=>indicators(data,f,margin)],
+  ['ecHistory','Historial de márgenes y previsiones',()=>data.forecastError?pending:marginLib.marginHistory(data.forecasts,data.date,margin)]
  ];
- if(id!==DEMO){if(!view.owner||!session?.access_token)return;if(!samePanel)$('content').innerHTML='<p>Cargando datos económicos…</p>';try{records=await readEntries(id)}catch(e){warning=e.message}try{forecasts=await readForecasts(id)}catch(e){warning=(warning?warning+' · ':'')+'Previsiones no disponibles; comprobar migración tc-cost-forecast-schema.sql: '+e.message}if(!validView(view)||token!==seq)return}
- $('content').innerHTML=htmlPanel({work,plan,entries:records,forecasts,date:data?.date||planningToday(),demo:id===DEMO},warning);
- if(keepCosts){$('ecCosts').open=true;$('ecCosts').querySelector('.ec-table-scroll').scrollLeft=tableOffset}
- const forecastButton=$('ecMarginEdit');if(forecastButton){forecastButton.disabled=id===DEMO||!!warning;forecastButton.onclick=()=>openMarginForm(view,plan,records,forecasts)}
- const kButton=$('ecKEdit');if(kButton){kButton.disabled=id===DEMO||!!warning;kButton.onclick=()=>openMarginForm(view,plan,records,forecasts,'k_setting')}
- const weightButton=$('ecWeightsEdit');if(weightButton){weightButton.disabled=id===DEMO||!!warning;weightButton.onclick=()=>openWeightsForm(view,plan,records,forecasts)}
- $('ecBack').onclick=()=>works();$('ecWork').onchange=e=>show(e.target.value);
- $('ecCurrent').onclick=()=>show(id);
- if(id!==DEMO){$('ecImport').onclick=()=>importDialog(view,plan);document.querySelectorAll('[data-cost-kind]:not([readonly])').forEach(input=>input.onchange=async()=>{if(!validView(view)||saving)return;const raw=input.value.trim(),total=Number(raw),activity=input.dataset.costActivity||null,kind=input.dataset.costKind;if(!raw||!VALID(total)||total>1e10){$('ecCellStatus').textContent='Introduce un importe válido, incluido 0.';return}const sources=records.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>({id:e.id,amount:Number(e.amount),source_name:e.source_name}));saving=true;input.disabled=true;try{await eliteRequest('/rest/v1/rpc/tc_set_manual_cost',{method:'POST',body:JSON.stringify({target_work:id,target_activity:activity,target_kind:kind,expected_rows:sources,new_total:total})});if(!validView(view))return;const live=await readEntries(id);if(!validView(view))return;const changed=live.filter(e=>e.kind===kind&&(e.activity_id||null)===activity).reduce((n,e)=>n+Number(e.amount),0);if(Math.abs(changed-total)>.001)throw Error('No se verificó el importe. Actualiza antes de reintentar.');await show(id)}catch(e){if(validView(view)){$('ecCellStatus').textContent=e.message;input.disabled=false}}finally{saving=false}})}
+ body.innerHTML='<div class="ec-overview">'+progressCard(data,f)+closing+'</div>'+
+  sections.map(([id,title])=>`<details id="${id}" class="ec-card ec-fold"><summary>${title}</summary><div></div></details>`).join('');
+ for(const [id,,renderDetail] of sections){
+  const fold=$(id);
+  fold.ontoggle=()=>{if(fold.open){fold.lastElementChild.innerHTML=renderDetail();fold.ontoggle=null}};
+ }
+}
+function entryPage(data){
+ const f=finance(data.plan,data.entries,data.date);
+ const rows=f.rows.map(r=>`<tr><th scope="row">${escape(r.name)}</th><td>${inputCell(data,'budget',r.id,r.budget,r.name)}</td><td>${inputCell(data,'actual',r.id,r.actual,r.name)}</td></tr>`).join('');
+ const report=data.work.execution_state==='execution'&&!data.work.archived_at?'<button type="button" id="ecReport" class="light">Registrar parte de avance</button>':'';
+ return `<section class="ec-card ec-entry" aria-labelledby="ecEntryTitle"><h2 id="ecEntryTitle">Ingreso de datos</h2>
+  <fieldset id="ecEntryFields"${data.demo||data.entriesError||data.forecastError?' disabled':''}><legend class="sr-only">Datos de la obra</legend>
+  <div class="ec-entry-actions">${report}<button type="button" id="ecMarginEdit" class="light">Oferta, línea base y previsión</button>
+  <button type="button" id="ecKEdit" class="light">Configurar K</button><button type="button" id="ecWeightsEdit" class="light"${f.rows.length?'':' disabled'}>Ajustar pesos</button>
+  <button type="button" id="ecImport" class="light"${f.rows.length?'':' disabled'}>Importar PDF o planilla</button></div>
+  <h3>Costes por partida</h3>
+  ${rows?`<p>Introduce el importe acumulado. Cada cambio se guarda al salir de la celda. Los importes importados son de solo lectura.</p>
+   <div class="ec-table-scroll" tabindex="0" aria-label="Editar costes por partida"><table class="ec-entry-table"><thead><tr><th>Partida</th><th>Costes de Oferta (€)</th><th>Coste real (€)</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p>Las partidas aparecen al crearlas en el Gantt.</p>'}
+  <h3>Contrato y certificación</h3><div class="ec-contract-fields"><label>Importe contratado (€)${inputCell(data,'contract',null,f.contract)}</label><label>Certificado acumulado (€)${inputCell(data,'certified',null,f.certified)}</label></div>
+  </fieldset><p id="ecCellStatus" role="status" aria-live="polite"></p></section>`;
+}
+function showPage(view,page,focus=false){
+ if(!validView(view))return;
+ view.page=page;
+ const entry=page==='entry',body=$('ecBody'),toggle=$('ecEntryToggle'),data=view.data;
+ toggle.className=entry?'light':'dark';
+ toggle.textContent=entry?'Volver al resumen':'Ingresar datos';
+ if(entry)body.innerHTML=entryPage(data);else renderSummary(body,data);
+ if(focus){const title=body.querySelector('h2');if(title){title.tabIndex=-1;title.focus({preventScroll:true})}}
+ if(!entry||data.demo||data.entriesError||data.forecastError)return;
+ $('ecMarginEdit').onclick=()=>openMarginForm(view,data.plan,data.entries,data.forecasts);
+ $('ecKEdit').onclick=()=>openMarginForm(view,data.plan,data.entries,data.forecasts,'k_setting');
+ $('ecWeightsEdit').onclick=()=>openWeightsForm(view,data.plan,data.entries,data.forecasts);
+ $('ecImport').onclick=()=>importDialog(view,data.plan);
+ if($('ecReport'))$('ecReport').onclick=()=>editDailyReport(null,view.id,planningToday());
+ body.querySelectorAll('[data-cost-kind]:not([readonly])').forEach(input=>input.onchange=()=>saveCell(view,input));
+}
+async function saveCell(view,input){
+ if(!validView(view)||view.saving)return;
+ const raw=input.value.trim(),total=Number(raw),activity=input.dataset.costActivity||null,kind=input.dataset.costKind;
+ const status=$('ecCellStatus'),fields=$('ecEntryFields');
+ if(!raw||!VALID(total)||total>1e10||input.validity?.stepMismatch){status.textContent='Introduce un importe entre 0 y 10.000.000.000 con un máximo de dos decimales.';return}
+ const matches=e=>e.kind===kind&&(e.activity_id||null)===activity;
+ const sources=view.data.entries.filter(matches).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>({id:e.id,amount:Number(e.amount),source_name:e.source_name}));
+ view.saving=true;fields.disabled=true;$('ecEntryToggle').disabled=true;status.textContent='Guardando…';
+ try{
+  await eliteRequest('/rest/v1/rpc/tc_set_manual_cost',{method:'POST',body:JSON.stringify({target_work:view.id,target_activity:activity,target_kind:kind,expected_rows:sources,new_total:total})});
+  if(!validView(view))return;
+  const live=await readEntries(view.id);if(!validView(view))return;
+  const verified=live.filter(matches);
+  if(!verified.length||Math.abs(verified.reduce((n,e)=>n+Number(e.amount),0)-total)>.001)throw Error('No se verificó el importe. Actualiza antes de reintentar.');
+  view.data.entries=live;input.value=String(total);status.textContent='Importe guardado.';
+  if(view.page!=='entry')showPage(view,view.page);
+ }catch(e){if(validView(view)){status.textContent=e.message;if(view.page==='entry')$('ecRetry').hidden=false}}
+ finally{view.saving=false;fields.disabled=false;if(validView(view))$('ecEntryToggle').disabled=false}
+}
+async function show(id=DEMO,page='summary'){
+ const demo=id===DEMO,sample=demo?example():null,work=sample?.work||NATIVE_WORKS.find(w=>w.id===id);
+ if(!work){works();return}
+ if(!demo&&(!session?.user?.id||!session.access_token))return;
+ mode='works';selectSection('works');workDetailId=demo?null:id;$('title').textContent='Panel de Control';
+ const options=[...NATIVE_WORKS.filter(w=>!w.archived_at||w.id===id),{id:DEMO,name:'Prueba (ejemplo)'}];
+ const date=sample?.date||planningToday();
+ $('content').innerHTML=`<section class="ec-panel-root" id="ecPanel"><div class="tc-tool-sticky">${controlPanelTabs(true)}
+  <div class="ec-actions"><label>Obra<select id="ecWork">${options.map(w=>`<option value="${escape(w.id)}" ${w.id===id?'selected':''}>${escape(w.name)}</option>`).join('')}</select></label>
+  <button type="button" id="ecEntryToggle" class="dark" aria-controls="ecBody" disabled>Ingresar datos</button></div></div>
+  <div class="ec-context"><span class="ec-cutoff">Fecha de corte <time datetime="${date}">${workDateLabel(date)}</time></span>${demo?'<span class="ec-demo-label">Datos de ejemplo · Solo lectura</span>':''}</div>
+  <div id="ecLoadStatus" role="status"></div><button type="button" id="ecRetry" class="light" hidden>Actualizar datos</button>
+  <div id="ecBody"><p role="status">Cargando el avance de la obra…</p></div></section>`;
+ const view={id,owner:session?.user?.id,epoch:sessionEpoch,host:$('ecPanel'),page:page==='weights'?'entry':page,saving:false};
+ $('ecWork').onchange=e=>show(e.target.value);
+ $('tcAdvanceTab').onclick=()=>{if(view.data&&!view.saving)showPage(view,'summary')};
+ $('ecRetry').onclick=()=>show(id,view.page);
+ const data={work,date,demo,entries:[],forecasts:[],entriesError:false,forecastError:false};
+ if(demo){
+  data.entries=sample.entries;
+  data.forecasts=[
+   {snapshot_type:'offer',as_of:'2026-11-01',total_cost:90000,forecast_revenue:118000},
+   {snapshot_type:'pm_initial',as_of:'2026-11-02',total_cost:94000,forecast_revenue:118000},
+   {snapshot_type:'baseline',as_of:'2026-11-02',total_cost:94000,approval_reference:'Ejemplo ficticio',activity_costs:[{activity_id:'prueba-0',amount:13000},{activity_id:'prueba-1',amount:38000},{activity_id:'prueba-2',amount:31000},{activity_id:'prueba-3',amount:12000}]},
+   {snapshot_type:'forecast',as_of:'2026-11-24',total_cost:99000,actual_cost:63500,remaining_cost:35500,forecast_revenue:118000}
+  ];
+ }else{
+  const [ledger,forecasts]=await Promise.allSettled([readEntries(id),readForecasts(id)]);
+  if(!validView(view))return;
+  data.entriesError=ledger.status==='rejected';data.forecastError=forecasts.status==='rejected';
+  data.entries=ledger.value||[];data.forecasts=forecasts.value||[];
+  if(data.entriesError||data.forecastError){
+   const missing=[data.entriesError&&'costes',data.forecastError&&'previsiones'].filter(Boolean).join(' y ');
+   $('ecLoadStatus').textContent='No se pudieron cargar los datos de '+missing+'. Actualiza para volver a intentar.';
+   $('ecLoadStatus').className='ec-warning';$('ecRetry').hidden=false;
+  }
+ }
+ data.plan=sample?.plan||planOf(id);view.data=data;
+ const toggle=$('ecEntryToggle');toggle.disabled=false;
+ toggle.onclick=()=>{if(view.saving)return;showPage(view,view.page==='entry'?'summary':'entry',true)};
+ showPage(view,view.page);
+ if(page==='weights'&&!demo&&!data.entriesError&&!data.forecastError)openWeightsForm(view,data.plan,data.entries,data.forecasts);
 }
 
 function openWeightsForm(view,plan,entries,forecasts){
- if(!validView(view)||saving)return;
+ if(!validView(view)||view.saving)return;
  const on=planningToday(),current=planOf(view.id),base=weightLib.derive(current,entries,forecasts,on);
  const currentLeaves=weightLib.leaves(current.phases),originalWeights=currentLeaves.map(p=>Number(p.weight));
  if(!currentLeaves.length){statusMessage('Primero crea las partidas del Gantt.',true);return}
@@ -169,7 +263,7 @@ function openWeightsForm(view,plan,entries,forecasts){
  };
  render();
  form.onsubmit=async e=>{
-  e.preventDefault();if(!alive()||saving)return;
+  e.preventDefault();if(!alive()||view.saving)return;
   let next;
   try{
    if(weights.some(w=>w<=0))throw Error('No se puede guardar una partida ejecutable con peso cero en el Gantt actual.');
@@ -179,7 +273,7 @@ function openWeightsForm(view,plan,entries,forecasts){
      &&!confirm('Este Gantt contiene actividades sin tarea vinculada. Guardarlo puede crear tareas vinculadas. ¿Continuar?'))return;
    if(!confirm('¿Guardar estos pesos en el Gantt? Se actualizará el avance ponderado, conservando la línea base original.'))return;
   }catch(err){messageEl.textContent=err.message;return}
-  saving=true;$('ecWeightsSave').disabled=true;
+  view.saving=true;$('ecWeightsSave').disabled=true;
   try{
    if(!alive())throw Error('La planificación cambió. Vuelve a abrir el editor.');
    await eliteRequest('/rest/v1/rpc/elite_save_gantt',{method:'POST',body:JSON.stringify({target_work:view.id,new_phases:next,expected_revision:current.revision,freeze_baseline:false,confirm_work:!!current.confirmed_at,exception_reason:''})});
@@ -191,23 +285,24 @@ function openWeightsForm(view,plan,entries,forecasts){
    const actual=new Map(weightLib.leaves(saved.phases).map(p=>[p.id,p]));
    if(currentLeaves.some((p,i)=>!actual.has(p.id)||Math.abs(Number(actual.get(p.id).weight)-weights[i])>.001||actual.get(p.id).weight_source!==method))
     throw Error('Los pesos guardados no coinciden. Actualiza la obra antes de volver a guardar.');
-   await load();if(!validView(view))return;
-   closeTaskDialog();await show(view.id);
+   await fetchOwnTasks();if(!validView(view))return;
+   WORK_PLANS=WORK_PLANS.map(p=>p.work_id===view.id?saved:p);
+   view.data.plan=saved;closeTaskDialog();showPage(view,view.page);
   }catch(err){if(validView(view)&&$('ecWeightsForm')===form){messageEl.textContent=err.message;$('ecWeightsSave').disabled=false}}
-  finally{saving=false}
+  finally{view.saving=false}
  };
 }
 
 function openMarginForm(view,plan,records,forecasts,presetKind=null){
- if(!validView(view)||saving)return;
+ if(!validView(view)||view.saving)return;
  const info={id:view.id,plan,date:planningToday(),finance:finance(plan,records,planningToday()),forecasts};
  dialogForm(marginLib.formHTML({plan,finance:info.finance,records:forecasts,date:info.date}));
  const form=$('ecMarginForm');if(!form)return;if(presetKind)form.querySelector('#ecMarginKind').value=presetKind;marginLib.configureForm(form);
  form.onsubmit=async e=>{
-  e.preventDefault();if(!validView(view)||saving||$('ecMarginForm')!==form)return;
+  e.preventDefault();if(!validView(view)||view.saving||$('ecMarginForm')!==form)return;
   let payload;try{payload=marginLib.parseForm(form,info)}catch(err){$('ecMarginError').textContent=err.message;return}
   if(!confirm('¿Guardar esta previsión? Se añadirá una versión histórica y no se sobrescribirán los datos anteriores.'))return;
-  saving=true;$('ecMarginSave').disabled=true;
+  view.saving=true;$('ecMarginSave').disabled=true;
   try{
    const created=await eliteRequest('/rest/v1/tc_cost_forecast_snapshots',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
    if(!validView(view))return;
@@ -215,30 +310,30 @@ function openMarginForm(view,plan,records,forecasts,presetKind=null){
    const verified=await readForecasts(view.id);
    if(!validView(view))return;
    if(!verified.some(x=>x.id===created[0].id))throw Error('No se verificó la lectura posterior. Actualiza antes de reintentar.');
-   closeTaskDialog();await show(view.id);
+   view.data.forecasts=verified;closeTaskDialog();showPage(view,view.page);
   }catch(err){if(validView(view)&&$('ecMarginError')){$('ecMarginError').textContent=err.message;$('ecMarginSave').disabled=false}}
-  finally{saving=false}
+  finally{view.saving=false}
  };
 }
 function row(info,activity,kind,amount,sourceName,sourceLine){return {work_id:info.id,activity_id:activity,kind,amount:Math.round(amount*100)/100,entry_date:planningToday(),source_name:sourceName,source_line:sourceLine}}
 async function save(info,records){
- if(!validView(info)||saving)throw Error('La cuenta o la obra cambió. Abre el formulario nuevamente.');
- saving=true;try{
+ if(!validView(info)||info.saving)throw Error('La cuenta o la obra cambió. Abre el formulario nuevamente.');
+ info.saving=true;try{
   const created=await eliteRequest('/rest/v1/elite_work_economic_entries',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(records)});
   if(!validView(info))return;
   if(created?.length!==records.length)throw Error('La base no confirmó todos los importes. Actualiza antes de reintentar.');
   const live=await readEntries(info.id);
   if(!validView(info))return;
   const ids=new Set(live.map(e=>e.id));if(created.some(e=>!ids.has(e.id)))throw Error('No se verificó la lectura posterior de importes.');
-  closeTaskDialog();await show(info.id);
- }finally{saving=false}
+  info.data.entries=live;closeTaskDialog();showPage(info,info.page);
+ }finally{info.saving=false}
 }
 function manual(info,plan){
  if(!validView(info))return;const rows=leaves(plan.phases||[]);if(!rows.length){statusMessage('Primero introduce las partidas y sus pesos en el Gantt.',true);return}
  let body='<form id="ecManualForm"><div class="top"><h2>Ingresar datos económicos</h2><button type="button" id="closeTask" class="light">✕</button></div><p class="small">Cada importe se SUMA a lo registrado. Usa 0 para registrar un coste nulo. No mezclar bases imponibles con importes IVA incluido.</p>';
  rows.forEach((p,i)=>{body+='<section class="ec-entry-row"><b>'+escape(p.name)+'</b> · '+percent(p.weight)+'<div class="form-pair"><label>Nuevo presupuesto €<input id="ecB'+i+'" type="number" min="0" step="0.01" placeholder="Sin cambio"></label><label>Nuevo coste real €<input id="ecA'+i+'" type="number" min="0" step="0.01" placeholder="Sin cambio"></label></div></section>'});
  body+='<p id="ecError" class="status err"></p><button id="ecSave" class="dark">Confirmar importes</button></form>';dialogForm(body);
- $('ecManualForm').onsubmit=async e=>{e.preventDefault();if(!validView(info)||saving)return;const payload=[];for(let i=0;i<rows.length;i++)for(const kind of ['budget','actual']){const raw=$(kind==='budget'?'ecB'+i:'ecA'+i).value.trim();if(!raw)continue;const n=Number(raw);if(!VALID(n)||n>1e10){$('ecError').textContent='Revisa el importe.';return}payload.push(row(info,rows[i].id,kind,n,'Entrada manual',crypto.randomUUID()))}
+ $('ecManualForm').onsubmit=async e=>{e.preventDefault();if(!validView(info)||info.saving)return;const payload=[];for(let i=0;i<rows.length;i++)for(const kind of ['budget','actual']){const raw=$(kind==='budget'?'ecB'+i:'ecA'+i).value.trim();if(!raw)continue;const n=Number(raw);if(!VALID(n)||n>1e10){$('ecError').textContent='Revisa el importe.';return}payload.push(row(info,rows[i].id,kind,n,'Entrada manual',crypto.randomUUID()))}
  if(!payload.length){$('ecError').textContent='Introduce al menos un importe.';return}if(!confirm('¿Incorporar '+payload.length+' nuevos importes? Se sumarán a los anteriores. Revisa posibles duplicados.'))return;
  $('ecSave').disabled=true;try{await save(info,payload)}catch(err){if(validView(info)){$('ecError').textContent=err.message;$('ecSave')?.removeAttribute('disabled')}}};
 }
@@ -263,7 +358,7 @@ function importDialog(info,plan){
   finally{if(validView(info)&&$('ecImportForm')===form)$('ecParse').disabled=false}
  };
  form.onsubmit=async e=>{
-  e.preventDefault();if(!validView(info)||!proposal||saving)return;
+  e.preventDefault();if(!validView(info)||!proposal||info.saving)return;
   const records=[];for(let i=0;i<proposal.entries.length;i++){
    const original=proposal.entries[i],id=$('ecPreview').querySelector('[data-economy-phase="'+i+'"]').value,value=$('ecPreview').querySelector('[data-economy-amount="'+i+'"]').value;
    const n=Number(value);if(!id||!phases.some(p=>p.id===id)||!value.trim()||!VALID(n)||n>1e10){$('ecImportError').textContent='Asigna todas las partidas y revisa sus importes.';return}
@@ -274,7 +369,7 @@ function importDialog(info,plan){
  };
 }
 detail=function(id){show(id)};
-root.tcEconomyPrueba=()=>show(DEMO);root.tcOpenEconomy=id=>show(id||NATIVE_WORKS.find(w=>!w.archived_at)?.id||DEMO);
-const menu=document.getElementById('eliteMenu');if(menu&&!menu.querySelector('#ecPrueba')){const button=document.createElement('button');button.id='ecPrueba';button.textContent='Panel económico · Prueba';button.type='button';button.onclick=()=>{menu.hidden=true;show(DEMO)};menu.append(button)}
+root.tcEconomyPrueba=()=>show(DEMO);root.tcOpenEconomy=(id,page)=>show(id||NATIVE_WORKS.find(w=>!w.archived_at&&w.execution_state==='execution')?.id||NATIVE_WORKS.find(w=>!w.archived_at)?.id||DEMO,page);
+const menu=document.getElementById('eliteMenu');if(menu&&!menu.querySelector('#ecPrueba')){const button=document.createElement('button');button.id='ecPrueba';button.textContent='Control de Avance · Prueba';button.type='button';button.onclick=()=>{menu.hidden=true;show(DEMO)};menu.append(button)}
 return {DEMO,physical,planned,curve,finance,example,graph};
 });

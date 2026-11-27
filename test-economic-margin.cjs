@@ -19,7 +19,7 @@ assert.equal(M.summary({records:[],date,offerCost:120000,contract:150000}).offer
 assert.equal(M.summary({records:records.slice(0,2),date}).finalCost,125000,'Before the first review use the PM initial estimate.');
 assert.equal(M.summary({records,date:'2026-11-10'}).finalCost,125000,'Future reviews must not leak into earlier snapshots.');
 assert.equal(JSON.stringify(records),before,'Read-only summaries must not alter history.');
-assert.match(M.render({records,date,offerCost:120000,contract:150000}),/Rentabilidad prevista/);
+assert.match(M.render({records,date,offerCost:120000,contract:150000}),/Previsión de cierre/);
 assert.match(M.chart(records,20,date),/role="img"/);
 
 const p={phases:[

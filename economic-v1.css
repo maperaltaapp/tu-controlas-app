@@ -1,83 +1,94 @@
-/* The dashboard and its document preview share the application type scale. */
-.ec-panel-root {max-width:1280px;margin:0 auto;color:var(--tc-ink,#20384d);font:14px/1.4 system-ui,sans-serif}
-.ec-panel-root * {box-sizing:border-box}
-.ec-actions {display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 11px}
-.ec-actions label {display:flex;align-items:center;gap:7px;min-width:0;color:#51687a;font-size:12px}
-.ec-actions select {min-width:0;max-width:340px;height:var(--tc-control);background:white;color:#20384d;border:1px solid #cbd8e1;
-  border-radius:7px;padding:5px 8px;font:600 13px system-ui}
-.ec-demo-label,.ec-cutoff {font-size:12px;color:#526879}
-.ec-demo-label {color:#79591b}
-.ec-cutoff {margin-left:auto;font-variant-numeric:tabular-nums}
-.ec-cutoff time {font-weight:600}
-.ec-disclaimer,.ec-warning {padding:9px 12px;margin:0 0 10px;border:1px solid #e5d6ac;border-radius:7px;background:#fffcf4;color:#6b5629}
-.ec-top {display:grid;grid-template-columns:minmax(0,1.65fr) minmax(250px,1fr);gap:10px;margin-bottom:10px}
-.ec-card {min-width:0;background:#fff;border:1px solid #d9e2e9;border-radius:9px;padding:12px 14px}
-.ec-panel-root>.ec-card+.ec-card {margin-top:10px}
-.ec-card h2 {margin:0 0 8px;color:#244357;font:650 15px/1.3 system-ui;letter-spacing:0}
-.ec-card p {font-size:12px;color:#526879;margin:8px 0}
-.ec-plot {padding:9px 6px 22px 54px}
-.ec-chart {display:block;width:100%;height:clamp(96px,15vw,160px);overflow:visible}
-.ec-chart text {font:11px system-ui;fill:#4f6474}
-.ec-no-graph {min-height:80px;padding:15px 12px;display:grid;place-items:center;text-align:center;font-size:13px;color:#526879;background:#f5f8fa;border-radius:5px}
-.ec-legend {display:flex;gap:5px 14px;flex-wrap:wrap;align-items:center;font:12px/1.3 system-ui;color:#465f70;margin-top:4px}
+/* Obras, avance e ingreso de datos share the navigation and sizing of the app. */
+.ec-panel-root,.tc-portfolio {width:100%;min-width:0;color:var(--tc-ink,#20384d);font:0.9375rem/1.4 system-ui,sans-serif}
+.ec-panel-root *,.tc-portfolio * {box-sizing:border-box}
+:is(.tc-portfolio,.ec-panel-root) .tc-panel-tabs {gap:6px;margin:0;padding:0 0 8px}
+:is(.tc-portfolio,.ec-panel-root) .tc-panel-tabs button {flex:0 1 11rem;min-height:42px;font-size:.9375rem}
+.ec-actions,.tc-works-tools {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:6px 0}
+.ec-actions label {display:flex;align-items:center;gap:8px;min-width:0;font-size:.875rem}
+.ec-actions select {min-width:0;max-width:28rem;width:clamp(12rem,29vw,28rem);min-height:38px;margin:0;border:1px solid #bbcbd7;border-radius:7px;background:#fff;color:#20384d;padding:4px 8px;font:600 .875rem system-ui}
+.ec-panel-root .ec-actions button {margin-left:auto;min-height:40px;padding-inline:16px;white-space:nowrap}
+.ec-context {display:flex;gap:8px 18px;align-items:center;flex-wrap:wrap;margin:9px 0;color:#506679;font-size:.8125rem}
+.ec-context time,.ec-lead-values dd,.ec-amounts dd {font-variant-numeric:tabular-nums}
+.ec-context time {font-weight:650}.ec-demo-label {color:#785413}
+.ec-warning,.ec-k-warning {padding:8px 10px;border:1px solid #e6d9b1;border-radius:6px;background:#fffbef;color:#684e1c}
+.ec-panel-root #ecRetry:not([hidden]) {margin:4px 0 10px}
+.ec-overview {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(16rem,1fr);gap:12px}
+.ec-card {min-width:0;background:white;border:1px solid #d7e1e8;border-radius:9px;padding:14px 16px}
+.ec-panel-root .ec-card h2,.tc-portfolio .tc-works-tools h2 {margin:0;color:#203b50;font:650 1.0625rem/1.35 system-ui}
+.ec-card h3 {margin:12px 0 5px;color:#294358;font-size:.9375rem}
+.ec-card p {font-size:.875rem;line-height:1.4;margin:8px 0}
+.ec-card .ec-source {font-size:.8125rem;color:#526779;margin:8px 0 0}
+.ec-lead-values {display:flex;flex-wrap:wrap;gap:10px clamp(20px,4vw,64px);margin:12px 0 0}
+.ec-lead-values dt {font-size:.875rem;color:#455b6d}
+.ec-lead-values dd {margin:2px 0 0;font-size:clamp(1.15rem,1.6vw,1.45rem);line-height:1.2;font-weight:650;color:#153c50}
+.ec-progress .ec-lead-values>div:first-child dd {color:#17684f}
+.ec-card .ec-difference {color:#415b69;font-size:.8125rem;margin:8px 0 10px}
+.ec-plot {padding:10px 10px 23px 50px}
+.ec-chart {display:block;width:100%;height:clamp(115px,10vw,155px);overflow:visible}
+.ec-chart text {font:12px system-ui;fill:#486173}
+.ec-no-graph {min-height:72px;padding:12px;display:grid;place-items:center;text-align:center;font-size:.875rem;color:#4c6172;background:#f4f7f9;border-radius:6px}
+.ec-legend {display:flex;gap:5px 15px;flex-wrap:wrap;align-items:center;font-size:.8125rem;color:#41596c;margin-top:3px}
 .ec-legend>span {display:inline-flex;align-items:center;gap:5px}
-.ec-legend i {display:inline-block;width:15px;height:3px;border-radius:2px}
+.ec-legend i {width:15px;height:3px;border-radius:2px}
 .ec-color-blue {background:#246c9e}.ec-color-green {background:#16835d}
 .ec-color-orange {background:repeating-linear-gradient(90deg,#b9781e 0 5px,transparent 5px 8px)}
-.ec-summary,.ec-stats {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
-.ec-summary {align-content:start}
-.ec-summary h2 {grid-column:1/-1;margin:0 0 2px}
-.ec-metric {min-width:0;padding:6px 0 3px;border-top:1px solid #e1e8ed;display:grid;align-content:start;gap:1px}
-.ec-metric>span {color:#496172;font-size:12px}
-.ec-metric>strong {font:650 16px/1.25 system-ui;color:#1e3c50;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.ec-metric>small {font-size:11px;color:#647785}
-.ec-indicators .ec-stats {grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr))}
-.ec-card details {margin-top:8px;border-top:1px solid #dce4e9}
-.ec-card summary {cursor:pointer;display:flex;align-items:center;gap:8px;min-height:var(--tc-control);list-style:none;font:600 13px/1.3 system-ui;color:#275878}
-.ec-card summary::-webkit-details-marker {display:none}
-.ec-card summary::after {content:"";width:7px;height:7px;flex:none;margin:0 4px 4px auto;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg)}
-.ec-card details[open]>summary::after {margin-bottom:-3px;transform:rotate(225deg)}
-.ec-card summary small {color:#5b6f7e;font-size:12px;font-weight:400}
-.ec-cost-card {padding-bottom:3px}
-.ec-table-scroll {overflow:auto;max-width:100%}
-.ec-cost-card .ec-table-scroll {max-height:min(44dvh,400px);margin-bottom:10px}
-.ec-table-scroll table {width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
-.ec-table-scroll th,.ec-table-scroll td {padding:6px 8px;border-bottom:1px solid #e2e9ed;text-align:right;font-variant-numeric:tabular-nums}
+.ec-amounts {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:0 20px;margin:12px 0 0}
+.ec-amounts>div {display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #e1e8ed}
+.ec-amounts dt,.ec-metric>span {font-size:.875rem;color:#40596b}
+.ec-amounts dd {margin:0;font-weight:650;text-align:right}
+.ec-fold {margin-top:8px;padding:0 14px}
+.ec-fold[open] {padding-bottom:12px}
+.ec-fold>summary {cursor:pointer;display:flex;align-items:center;gap:8px;min-height:45px;list-style:none;font:600 .9375rem/1.3 system-ui;color:#29475c}
+.ec-fold>summary::-webkit-details-marker {display:none}
+.ec-fold>summary::after {content:"";width:8px;height:8px;flex:none;margin:0 4px 4px auto;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg)}
+.ec-fold[open]>summary::after {margin-bottom:-3px;transform:rotate(225deg)}
+.ec-stats {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:8px 16px;margin-top:12px}
+.ec-metric {min-width:0;padding:7px 0 2px;border-top:1px solid #e1e8ed;display:grid;align-content:start;gap:2px}
+.ec-metric>strong {font:650 1rem/1.25 system-ui;color:#1e3c50;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ec-metric>small {font-size:.8125rem;color:#536c7b}
+.ec-entry fieldset {min-width:0;margin:0;padding:0;border:0}
+.ec-entry-actions {display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 16px}
+.ec-entry-actions button {width:auto;min-height:40px;padding:6px 12px;font:600 .875rem/1.25 system-ui;border:1px solid #c6d4df;background:#f5f8fa;color:#29475c}
+.ec-contract-fields {display:grid;grid-template-columns:repeat(2,minmax(0,15rem));gap:8px}
+.ec-contract-fields label {color:#425c70;font-size:.875rem}
+.ec-table-scroll {overflow:auto;max-width:100%;max-height:min(48dvh,480px)}
+.ec-table-scroll table {width:100%;border-collapse:separate;border-spacing:0;font-size:.875rem}
+.ec-table-scroll th,.ec-table-scroll td {padding:7px 8px;border-bottom:1px solid #e2e9ed;text-align:right;font-variant-numeric:tabular-nums}
 .ec-table-scroll th:first-child,.ec-table-scroll td:first-child {text-align:left}
-.ec-table-scroll th {position:sticky;top:0;background:#edf3f6;color:#415e70}
-.ec-entry-table {min-width:560px}
-.ec-input-cell {display:block;min-width:6em;width:100%;height:32px;padding:4px 6px;margin:0;border:1px solid #cbd8e1;border-radius:4px;
-  background:white;color:#174b70;font:inherit;text-align:right}
-.ec-input-cell[readonly] {border-color:transparent;background:#f5f7f9;color:#4b6274}
+.ec-table-scroll thead th {position:sticky;top:0;background:#edf3f6;color:#405c6e}
+.ec-table-scroll tbody th {font-weight:550;overflow-wrap:anywhere}
+.ec-entry-table {min-width:550px}
+.ec-entry .ec-entry-table {min-width:0;table-layout:fixed}
+.ec-entry .ec-entry-table th:first-child {width:44%}
+.ec-input-cell {display:block;min-width:0;width:100%;min-height:36px;padding:5px 6px;margin:0;border:1px solid #bdccd6;border-radius:5px;background:white;color:#174b70;font:inherit;text-align:right}
+.ec-contract-fields input {margin-top:4px}
+.ec-input-cell[readonly] {border-color:transparent;background:#f3f6f8;color:#455e71}
+#ecCellStatus:empty {margin:0}
 .ec-panel-root :is(button,select,input,summary):focus-visible {outline:2px solid #2479ba;outline-offset:-2px}
-@media (max-width:700px) {
-  .ec-top {grid-template-columns:minmax(0,1fr);gap:8px;margin-bottom:8px}
-  .ec-card {padding:10px 11px}
-  .ec-card h2 {font-size:14px}
-  .ec-cost-card {padding-bottom:2px}
-  .ec-actions {gap:4px 8px}
-  .ec-actions label {flex:1 0 100%}
-  .ec-actions select {width:100%;max-width:none}
-  .ec-chart {height:105px}
-  .ec-legend {gap:4px 10px;font-size:11px}
-  .ec-metric>strong {font-size:15px}
-  .ec-indicators .ec-stats {grid-template-columns:repeat(2,minmax(0,1fr))}
+.tc-portfolio .tc-works-tools h2 {margin-right:auto}
+.tc-works-tools h2 span,.tc-phase-count {font-weight:450;font-variant-numeric:tabular-nums}
+.tc-portfolio .tc-work-progress {display:grid;gap:3px;font-variant-numeric:tabular-nums}
+.tc-work-progress progress {display:block;width:4.5rem;max-width:100%;height:5px;accent-color:#238168}
+.tc-portfolio .tc-work-name {overflow-wrap:anywhere}
+@media(max-width:700px){
+ .ec-overview {grid-template-columns:minmax(0,1fr);gap:8px}
+ .ec-card {padding:11px 12px}.ec-fold {padding:0 12px}.ec-fold[open] {padding-bottom:10px}
+ .ec-lead-values {gap:10px 24px;margin-top:7px}.ec-chart {height:112px}
+ .ec-actions {flex-wrap:nowrap;gap:6px}
+ .ec-actions label {flex:1 1 auto}.ec-actions select {width:0;min-width:0;flex:1}
+ .ec-panel-root .ec-actions button {padding-inline:10px}
+ .ec-entry-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ec-entry-actions button {min-width:0;font-size:.8125rem}
+ .ec-entry .ec-entry-table :is(th,td) {padding:5px}
+ .ec-stats {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tc-portfolio .tc-works-tools {display:flex;flex-wrap:wrap;gap:6px}
+ .tc-portfolio .tc-works-tools h2 {font-size:.9375rem}
+ .tc-portfolio .tc-works-tools button {width:auto;flex:0 0 auto}
+ :is(.tc-portfolio,.ec-panel-root) .tc-panel-tabs button {flex:1 1 0}
 }
-.ec-entry-row{border-bottom:1px solid #e1e9ee;padding:11px 0}.ec-entry-row:last-of-type{border:0}
-.ec-entry-row b{color:#164d62}.ec-entry-row .form-pair{margin-top:7px}
 .ec-import-preview{margin-top:14px}.ec-import-preview .ec-table-scroll{max-height:48vh}.ec-import-preview table{min-width:560px}
 .ec-import-preview select,.ec-import-preview input{min-width:130px;max-width:190px;font-size:12px}
 
-/* Editable cost-derived physical weights. Compact on phones, full-width on monitors. */
-.ec-weights-head {display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.ec-weights-head h2 {margin:0 0 3px}
-.ec-weights-head .small {margin:0}
-.ec-weights-head button {flex:0 0 auto;width:auto;min-width:110px;padding:8px 10px;font-size:12px;min-height:36px}
-.ec-weights-origin {font-size:12px;color:#466478;margin:9px 0}
-.ec-weights .ec-entry-table {width:100%;font-size:12px}
-.ec-weights .ec-entry-table th,.ec-weights .ec-entry-table td {padding:8px;text-align:right;font-variant-numeric:tabular-nums}
-.ec-weights .ec-entry-table th:first-child,.ec-weights .ec-entry-table td:first-child {text-align:left}
-.ec-weights .ec-entry-table tfoot {font-weight:700;background:#f4f8fa}
 #ecWeightsForm .ec-table-scroll {max-height:45vh;overflow:auto}
 #ecWeightsForm table {width:100%;font-size:12px}
 #ecWeightsForm th,#ecWeightsForm td {padding:6px;border-bottom:1px solid #e6eaed}
@@ -86,11 +97,7 @@
 .ec-weight-total {display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;margin:9px 0}
 .ec-weight-actions {display:flex;gap:8px;flex-wrap:wrap}
 .ec-weight-actions button {flex:1;min-width:130px;padding:9px;font-size:12px}
-@media(max-width:600px){.ec-weights-head {flex-wrap:wrap}.ec-weights-head button {width:100%;flex:1 1 100%}
-.ec-weights .ec-entry-table th,.ec-weights .ec-entry-table td {padding:6px;font-size:11px}
-.ec-weight-actions button {flex:1 1 100%}#ecWeightsForm input[data-w-index] {width:78px;max-width:78px}
-}
-
+@media(max-width:600px){.ec-weight-actions button{flex:1 1 100%}#ecWeightsForm input[data-w-index]{width:78px;max-width:78px}}
 .ec-weight-legacy-toolbar {display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 10px;margin:6px 0 12px;border:1px solid #dfe7ed;border-radius:8px;background:#f8fafc}
 .ec-weight-legacy-toolbar button {font-size:12px;padding:8px 10px;width:auto;min-width:0}
 .ec-weight-legacy-toolbar small {color:#526879;font-size:12px;font-variant-numeric:tabular-nums}

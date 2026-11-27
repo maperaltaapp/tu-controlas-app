@@ -86,7 +86,7 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.equal(run('checkSection'),type);assert(document.querySelector('[data-sheet-type="'+type+'"]'));
  assert.equal(JSON.stringify(run('CHECKLIST_ITEMS')),before);
  run("checkSection='prep'");run('renderChecklist()');
- run('openSettings()');assert(document.getElementById('exportClientData'));assert(!document.getElementById('tcBell'));run('works()');assert(!document.getElementById('exportClientData'));assert(document.querySelector('.tc-work-table'));assert.equal(document.querySelectorAll('.tc-work-table tbody tr').length,4);
+ run('openSettings()');assert(document.getElementById('exportClientData'));assert(!document.getElementById('tcBell'));run('works()');assert(!document.getElementById('exportClientData'));assert(document.querySelector('.tc-work-table'));assert.equal(document.querySelectorAll('.tc-work-table tbody tr').length,1);
  // Phase reordering changes only presentation, never work execution state.
  const states=()=>Array.from(document.querySelectorAll('.work-state-section')).map(el=>el.dataset.workState);
  assert.deepEqual(states(),['execution','planning','closing','studies']);
@@ -114,8 +114,37 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  box.querySelector('[data-check-item-remove="0:0"]').onclick();assert.equal(run('editorChecks[0].items.length'),0);
  // Economic cells replace totals through the validated RPC; computed fields stay read-only.
  let costs=[{id:'cost-1',work_id:id,activity_id:'leaf',kind:'budget',amount:1000,entry_date:'2026-11-01',source_name:'Entrada manual'},{id:'cost-2',work_id:id,activity_id:'leaf',kind:'actual',amount:600,entry_date:'2026-11-01',source_name:'factura.pdf'}];
- ctx.readAll=async()=>costs;ctx.eliteRequest=async(path,opts)=>{const payload=JSON.parse(opts.body);assert(path.includes('tc_set_manual_cost'));assert.equal(payload.expected_rows[0].id,'cost-1');costs=costs.map(e=>e.kind==='budget'?{...e,amount:payload.new_total}:e);return payload.new_total};
- await ctx.tcOpenEconomy(id);assert(!document.getElementById('ecCosts').hasAttribute('open'));document.getElementById('ecCosts').open=true;assert(!document.getElementById('ecRecord'));assert(!document.getElementById('ecGantt'));assert(document.querySelector('[data-cost-kind="actual"]').hasAttribute('readonly'));const costInput=document.querySelector('[data-cost-kind="budget"]');costInput.value='1250';await costInput.onchange();assert.equal(document.querySelector('[data-cost-kind="budget"]').value,'1250');assert.equal(document.getElementById('ecCosts').open,true);assert(document.querySelector('.ec-no-graph')?.textContent.includes('línea base de costes aprobada'),'Sin BAC aprobado no se debe fingir una curva económica PMI.');
+ const loadPanel=async table=>table==='elite_work_economic_entries'?costs:[];
+ ctx.readAll=loadPanel;let costWrites=0;
+ ctx.eliteRequest=async(path,opts)=>{costWrites++;const payload=JSON.parse(opts.body);assert(path.includes('tc_set_manual_cost'));assert.equal(payload.target_work,id);assert.equal(payload.expected_rows[0].id,'cost-1');costs=costs.map(e=>e.kind==='budget'?{...e,amount:payload.new_total}:e);return payload.new_total};
+ const el=id=>document.getElementById(id),toggle=()=>el('ecEntryToggle').onclick();
+ await ctx.tcOpenEconomy(id);
+ assert.equal(el('tcAdvanceTab').textContent,'Control de Avance');
+ assert.equal(el('ecEntryToggle').textContent,'Ingresar datos');
+ assert(!el('ecBody').querySelector('input,form,[data-cost-kind]'));
+ assert(!el('ecBody').querySelector('details[open]'));
+ assert.equal(el('ecWork').value,id);
+ el('ecIndicators').open=true;el('ecIndicators').ontoggle();
+ assert.match(el('ecIndicators').textContent,/línea base de costes aprobada/);
+ el('ecParts').open=true;el('ecParts').ontoggle();assert.match(el('ecParts').textContent,/Partida/);
+ toggle();assert.equal(costWrites,0);assert(!el('ecRecord'));assert(!el('ecGantt'));
+ assert(el('ecImport')&&el('ecKEdit')&&el('ecMarginEdit')&&el('ecWeightsEdit')&&el('ecReport'));
+ assert(document.querySelector('[data-cost-kind="actual"]').hasAttribute('readonly'));
+ const costInput=document.querySelector('[data-cost-kind="budget"]');costInput.value='1250';await costInput.onchange();
+ assert.equal(el('ecCellStatus').textContent,'Importe guardado.');assert.equal(costWrites,1);
+ toggle();assert.equal(el('ecWork').value,id);assert(!el('ecBody').querySelector('input'));
+ el('ecParts').open=true;el('ecParts').ontoggle();assert.match(el('ecParts').textContent,/1250|1.250/);
+ toggle();assert.equal(document.querySelector('[data-cost-kind="budget"]').value,'1250');
+ el('ecWeightsEdit').onclick();assert(el('ecWeightsForm'));run('closeTaskDialog()');
+ el('ecKEdit').onclick();assert.equal(el('ecMarginKind').value,'k_setting');run('closeTaskDialog()');
+ el('ecImport').onclick();assert(el('ecImportForm'));run('closeTaskDialog()');
+ await ctx.tcEconomyPrueba();assert.match(el('ecPanel').textContent,/Datos de ejemplo/);toggle();assert(el('ecEntryFields').hasAttribute('disabled'));assert.equal(costWrites,1);
+ ctx.readAll=async()=>{throw Error('offline')};await ctx.tcOpenEconomy(id);assert.equal(el('ecRetry').hidden,false);toggle();assert(el('ecEntryFields').hasAttribute('disabled'));
+ ctx.readAll=loadPanel;await el('ecRetry').onclick();assert(!el('ecEntryFields').hasAttribute('disabled'));
+ let resume;const delayed=new Promise(resolve=>resume=resolve);ctx.readAll=()=>delayed;
+ const stalePanel=ctx.tcOpenEconomy(id);run("sessionEpoch++;session={access_token:'B',user:{id:'B'}};works()");resume(costs);await stalePanel;
+ assert(!el('ecPanel'));assert(document.querySelector('.tc-work-table'));assert.equal(costWrites,1);
+ run("sessionEpoch++;session={access_token:'fixture',user:{id:'A'}}");ctx.readAll=loadPanel;
  // Work exceptions are chosen visually, while the proposal remains uncommitted.
  run(`tcEditWorkCalendar('${id}')`);assert(document.getElementById('wcExceptions').querySelector('[data-wc-day="2026-11-07"]'));assert(document.getElementById('wcDayEditor').hidden);document.querySelector('[data-wc-day="2026-11-07"]').onclick();assert.equal(document.getElementById('wcDate').value,'2026-11-07');assert.equal(document.getElementById('wcWorking').value,'true');document.getElementById('wcAdd').onclick();assert(document.querySelector('[data-wc-day="2026-11-07"]').classList.contains('is-exception'));assert.equal(document.querySelector('[data-wc-day="2026-11-07"]').dataset.working,'true');document.getElementById('wcPreview').onclick();assert.equal(document.getElementById('wcSave').disabled,false);assert(document.getElementById('wcReasonRow').hidden);assert.equal(run('WORK_PLANS[0].revision'),1);
  run('closeTaskDialog()');
