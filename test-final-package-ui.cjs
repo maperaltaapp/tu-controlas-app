@@ -70,6 +70,20 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.equal(run('CHECKLIST_ITEMS[0].notes'),'Dato de otro dispositivo');
  assert.equal(document.getElementById('sheetSaveStatus').textContent,'');
  ctx.eliteRequest=oldCapture;
+ // Built-in labels are scoped to a work; canonical section IDs and rows are unchanged.
+ assert.equal(document.querySelector('[data-sheet-type="prep"]').textContent,'Planificación');
+ const beforeRename=JSON.stringify(run('CHECKLIST_ITEMS'));
+ for(const key of ['prep','providers','execution','close']){
+  await run("openChecklist('"+key+"')");
+  document.querySelector('[data-sheet-type="'+key+'"]').onclick();
+  assert(!document.getElementById('tcTypeArchive'));
+  document.getElementById('tcTypeName').value='Nombre '+key;
+  await document.getElementById('tcTypeForm').onsubmit({preventDefault(){}});
+  assert.equal(document.querySelector('[data-sheet-type="'+key+'"]').textContent,'Nombre '+key);
+  assert.equal(run('NATIVE_WORKS[0].workspace_layout.checklist_type_labels')[key],'Nombre '+key);
+ }
+ assert.equal(JSON.stringify(run('CHECKLIST_ITEMS')),beforeRename);
+ await run("openChecklist('prep')");
  // New custom types can be renamed, archived and restored with existing metadata intact.
  prompts.push('Control QA');await ctx.tcSheetAddType();
  const type=run('checkSection');assert.match(type,/^custom_/);
@@ -86,6 +100,17 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  assert.equal(run('checkSection'),type);assert(document.querySelector('[data-sheet-type="'+type+'"]'));
  assert.equal(JSON.stringify(run('CHECKLIST_ITEMS')),before);
  run("checkSection='prep'");run('renderChecklist()');
+ // Templates are offered only from other works of this account; populated destination is preserved.
+ const sourceId='33333333-3333-4333-8333-333333333333',alienId='44444444-4444-4444-8444-444444444444';
+ run(`NATIVE_WORKS.push({id:'${sourceId}',user_id:'A',name:'Origen',workspace_layout:{sheets:{prep:{columns:[{id:'title',label:'Control'}]}}}},{id:'${alienId}',user_id:'B',name:'Ajena',workspace_layout:{sheets:{prep:{columns:[{id:'title',label:'Privado'}]}}}});renderChecklist()`);
+ const template=document.getElementById('tcTemplateSelect');
+ assert(template.textContent.includes('Origen'));assert(!template.textContent.includes('Ajena'));
+ const templateValue=sourceId+'|prep';template.value=templateValue;template.onchange();
+ assert.equal(document.getElementById('tcTemplateApply').disabled,false);
+ const cloneType='custom_55555555-5555-4555-8555-555555555555';
+ ctx.eliteRequest=async(path,opts)=>{assert(path.includes('tc_copy_checklist_template'));const p=JSON.parse(opts.body);assert.equal(p.source_work,sourceId);assert.equal(p.target_work,id);assert.equal(p.target_section,null);const w=run('NATIVE_WORKS[0]');return {work:{...w,workspace_layout:{...w.workspace_layout,checklist_types:{...w.workspace_layout.checklist_types,[cloneType]:'Plantilla'}}},section:cloneType,rows:[]}};
+ await document.getElementById('tcTemplateApply').onclick();assert.equal(run('checkSection'),cloneType);assert.equal(JSON.stringify(run('CHECKLIST_ITEMS')),before);
+ run("NATIVE_WORKS=NATIVE_WORKS.slice(0,1);checkSection='prep';renderChecklist()");ctx.eliteRequest=oldCapture;
  run('openSettings()');assert(document.getElementById('exportClientData'));assert(!document.getElementById('tcBell'));run('works()');assert(!document.getElementById('exportClientData'));assert(document.querySelector('.tc-work-table'));assert.equal(document.querySelectorAll('.tc-work-table tbody tr').length,1);
  // Phase reordering changes only presentation, never work execution state.
  const states=()=>Array.from(document.querySelectorAll('.work-state-section')).map(el=>el.dataset.workState);

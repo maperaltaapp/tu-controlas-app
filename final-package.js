@@ -7,7 +7,7 @@ const baseSelect=selectSection;selectSection=function(...args){sheetObserver?.di
 const ctx=()=>({owner:session?.user?.id,epoch:sessionEpoch,work:checkWorkId,section:checkSection,nav:navSequence});
 const live=c=>c.owner&&c.owner===session?.user?.id&&c.epoch===sessionEpoch&&c.work===checkWorkId&&c.section===checkSection&&c.nav===navSequence;
 const layout=w=>clone(w?.workspace_layout||{});
-function sections(){const extra=work()?.workspace_layout?.checklist_types||{};return {...CHECK_SECTIONS,...Object.fromEntries(Object.entries(extra).filter(([id,name])=>/^custom_[a-f0-9-]{36}$/.test(id)&&typeof name==='string'&&name.trim()).slice(0,20))}}
+function sections(w=work()){const extra=w?.workspace_layout?.checklist_types||{};const overrides=w?.workspace_layout?.checklist_type_labels||{};const builtins=Object.fromEntries(Object.entries(CHECK_SECTIONS).map(([id,name])=>[id,typeof overrides[id]==='string'&&overrides[id].trim()?overrides[id].trim().slice(0,100):name]));return {...builtins,...Object.fromEntries(Object.entries(extra).filter(([id,name])=>/^custom_[a-f0-9-]{36}$/.test(id)&&typeof name==='string'&&name.trim()).slice(0,20))}}
 function defaults(){return checkSection==='providers'?[{id:'name',label:'Subcontrata / proveedor'},{id:'entry_date',label:'Entrada prevista'},...Object.entries(CONTROL_STEPS).map(([id,label])=>({id:'stage_'+id,label}))]:[{id:'title',label:'Elemento'},{id:'due_date',label:'Fecha'},{id:'notes',label:'Notas'},{id:'completed_at',label:'Completado'}]}
 function config(){const raw=layout(work()).sheets?.[checkSection]||{},valid=c=>c&&typeof c.label==='string'&&(defaults().some(d=>d.id===c.id)||/^col_[a-f0-9-]{36}$/.test(c.id)),clean=rows=>(Array.isArray(rows)?rows:[]).filter(valid).slice(0,40).map(c=>({id:c.id,label:c.label.slice(0,100)})),cols=clean(raw.columns);return {columns:cols.length?cols:defaults(),hidden_columns:clean(raw.hidden_columns),widths:Object.fromEntries(Object.entries(raw.widths||{}).map(([id,width])=>[id,Math.max(90,Math.min(600,Number(width)||180))])),scale:Math.max(.6,Math.min(1.8,Number(raw.scale)||1))}}
 const columns=()=>config().columns||defaults();
@@ -91,11 +91,11 @@ root.tcSheetAddType=async()=>{
  await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:name.slice(0,100)}},id);
 };
 root.tcSheetEditType=()=>{
- const id=checkSection,name=sections()[id];if(!id.startsWith('custom_')||!name||busy)return;
+ const id=checkSection,name=sections()[id];if(!name||busy)return;const custom=id.startsWith('custom_');
  const context=ctx();
- const dialog=dialogForm(`<form id="tcTypeForm"><div class="top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">×</button></div><label>Nombre del checklist<input id="tcTypeName" maxlength="100" required value="${E(name)}"></label><p class="small">Archivar conserva las filas y tareas vinculadas. Puedes recuperarlo después.</p><div class="form-actions"><button type="submit" class="dark">Guardar</button><button type="button" class="light" id="tcTypeArchive">Archivar tipo</button></div></form>`);
- $('tcTypeForm').onsubmit=async e=>{e.preventDefault();const label=$('tcTypeName').value.trim();if(label&&live(context)&&await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:label.slice(0,100)}})&&dialog.isConnected)closeTaskDialog()};
- $('tcTypeArchive').onclick=async()=>{if(!live(context)||!confirm('¿Archivar este tipo de checklist? Se conservarán sus filas, columnas y tareas vinculadas.'))return;if(await changeTypes(next=>{next.archived_checklist_types={...next.archived_checklist_types,[id]:name};delete next.checklist_types[id]},'prep')&&dialog.isConnected)closeTaskDialog()};
+ const dialog=dialogForm(`<form id="tcTypeForm"><div class="top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">×</button></div><label>Nombre del checklist<input id="tcTypeName" maxlength="100" required value="${E(name)}"></label><p class="small">${custom?'Archivar conserva las filas y tareas vinculadas. Puedes recuperarlo después.':'El nombre se guarda para esta obra sin cambiar sus filas ni tareas vinculadas.'}</p><div class="form-actions"><button type="submit" class="dark">Guardar</button>${custom?'<button type="button" class="light" id="tcTypeArchive">Archivar tipo</button>':''}</div></form>`);
+ $('tcTypeForm').onsubmit=async e=>{e.preventDefault();const label=$('tcTypeName').value.trim();if(label&&live(context)&&await changeTypes(next=>{if(custom)next.checklist_types={...next.checklist_types,[id]:label.slice(0,100)};else next.checklist_type_labels={...next.checklist_type_labels,[id]:label.slice(0,100)}})&&dialog.isConnected)closeTaskDialog()};
+ if(custom)$('tcTypeArchive').onclick=async()=>{if(!live(context)||!confirm('¿Archivar este tipo de checklist? Se conservarán sus filas, columnas y tareas vinculadas.'))return;if(await changeTypes(next=>{next.archived_checklist_types={...next.archived_checklist_types,[id]:name};delete next.checklist_types[id]},'prep')&&dialog.isConnected)closeTaskDialog()};
 };
 root.tcSheetRestoreTypes=()=>{
  if(busy||!work())return;
@@ -104,7 +104,42 @@ root.tcSheetRestoreTypes=()=>{
  const context=ctx(),dialog=dialogForm(`<div class="top"><h2>Checklist archivados</h2><button id="closeTask" class="light" type="button">×</button></div><div class="form-actions">${archived.map(([id,name])=>`<button type="button" class="light" data-restore-type="${id}">${E(name)}</button>`).join('')}</div>`);
  dialog.querySelectorAll('[data-restore-type]').forEach(button=>button.onclick=async()=>{const id=button.dataset.restoreType,name=archived.find(([key])=>key===id)?.[1];if(!name||!live(context))return;if(await changeTypes(next=>{next.checklist_types={...next.checklist_types,[id]:name};delete next.archived_checklist_types[id]},id)&&dialog.isConnected)closeTaskDialog()});
 };
-function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select><button type="button" class="light tc-sheet-refresh" id="sheetRefresh" aria-label="Actualizar planilla" title="Actualizar planilla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}" title="${id.startsWith('custom_')&&id===checkSection?'Toca de nuevo para editar o archivar':E(name)}">${E(name)}</button>`).join('')}</div>`}
+
+function templateChoices(){
+ const owner=session?.user?.id,providers=checkSection==='providers';
+ if(!owner)return [];
+ return NATIVE_WORKS.filter(w=>w.id!==checkWorkId&&w.user_id===owner).flatMap(w=>
+  Object.entries(sections(w)).filter(([id])=>(id==='providers')===providers).map(([id,name])=>{
+   const count=providers?WORK_CONTRACTORS.filter(r=>r.work_id===w.id).length:CHECKLIST_ITEMS.filter(r=>r.work_id===w.id&&r.section===id).length;
+   return {work:w.id,section:id,label:w.name+' · '+name,count,hasLayout:!!w.workspace_layout?.sheets?.[id],same:id===checkSection};
+  }).filter(x=>x.count||x.hasLayout)
+ ).sort((a,b)=>Number(b.same)-Number(a.same)||a.label.localeCompare(b.label,'es'));
+}
+function templateBox(){
+ const options=templateChoices(),providers=checkSection==='providers',occupied=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).some(r=>r.work_id===checkWorkId&&(providers||r.section===checkSection));
+ return `<div class="tc-check-template"><label for="tcTemplateSelect">Usar checklist de otra obra</label><div class="tc-template-controls"><select id="tcTemplateSelect" aria-label="Checklist de origen" ${!options.length||providers&&occupied?'disabled':''}><option value="">Elegir una plantilla…</option>${options.map(x=>`<option value="${E(x.work+'|'+x.section)}">${E(x.label)}${providers?'':` · ${x.count} filas`}</option>`).join('')}</select><button type="button" class="light" id="tcTemplateApply" disabled>Usar plantilla</button></div><small>${providers?(occupied?'El cuadro ya contiene empresas; usa una obra sin registros para copiar el formato.':'Solo columnas; no se copian empresas ni etapas.'):(occupied?'Se creará un checklist independiente, sin cambiar esta tabla.':'Copia columnas y nombres de filas; sin fechas, notas, valores ni estados.')}</small></div>`;
+}
+async function applyTemplate(){
+ if(busy||!work())return;
+ const value=$('tcTemplateSelect')?.value,source=templateChoices().find(x=>x.work+'|'+x.section===value);
+ if(!source)return;
+ const c=ctx(),w=work(),providers=c.section==='providers',occupied=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).some(r=>r.work_id===c.work&&(providers||r.section===c.section));
+ if(providers&&occupied)return;
+ if(!confirm(occupied?'¿Crear un nuevo checklist a partir de esta plantilla, conservando el actual?':'¿Copiar la estructura a este checklist? No se copiarán los datos de seguimiento.'))return;
+ busy=true;lockSheet(true);
+ try{
+  const result=await eliteRequest('/rest/v1/rpc/tc_copy_checklist_template',{method:'POST',body:JSON.stringify({source_work:source.work,source_section:source.section,target_work:c.work,target_section:occupied?null:c.section,expected_updated_at:w.updated_at})});
+  if(!sameOwner(c))return;
+  if(!result?.work||result.work.id!==c.work||typeof result.section!=='string'||!Array.isArray(result.rows))throw Error('No se pudo confirmar la copia. Actualiza la aplicación.');
+  NATIVE_WORKS=NATIVE_WORKS.map(x=>x.id===c.work?result.work:x);
+  const added=new Set(result.rows.map(r=>r.id));
+  CHECKLIST_ITEMS=CHECKLIST_ITEMS.filter(r=>!added.has(r.id)).concat(result.rows);
+  if(live(c)){checkSection=result.section;query='';renderChecklist();statusMessage('Plantilla copiada. Ya puedes editar la tabla.')}
+ }catch(e){if(live(c))sheetError(e.message)}
+ finally{if(sameOwner(c)){busy=false;if(live(c))lockSheet(false);const apply=$('tcTemplateApply');if(apply)apply.disabled=!$('tcTemplateSelect')?.value}}
+}
+
+function header(){return `<div class="tc-filter-bar"><label class="tc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="sheetSearch" type="search" aria-label="Buscar tarea u obra" placeholder="Buscar tarea u obra…" value="${E(query)}"></label><select id="sheetWork" aria-label="Obra del checklist">${NATIVE_WORKS.filter(w=>!w.archived_at).map(w=>`<option value="${w.id}" ${w.id===checkWorkId?'selected':''}>${E(w.name)}</option>`).join('')}</select><button type="button" class="light tc-sheet-refresh" id="sheetRefresh" aria-label="Actualizar planilla" title="Actualizar planilla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button></div><div class="tc-sheet-tabs">${Object.entries(sections()).map(([id,name])=>`<button type="button" class="${id===checkSection?'dark':'light'}" aria-pressed="${id===checkSection}" data-sheet-type="${id}" title="${id===checkSection?(id.startsWith('custom_')?'Toca de nuevo para editar o archivar':'Toca de nuevo para editar el nombre'):E(name)}">${E(name)}</button>`).join('')}</div>`}
 openChecklist=async function(section=checkSection,workId=checkWorkId){
  // Keep an in-flight write on its originating view until its confirmed response.
  if(busy)return;
@@ -154,14 +189,16 @@ renderChecklist=function(){
  const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&tcSearchMatches(q,other.name)):[];
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
  $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}
+ ${templateBox()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
- <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
+ <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button><button type="button" class="light" onclick="tcSheetEditType()">Editar tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
  <p class="tc-sheet-save-status" id="sheetSaveStatus" role="status" aria-live="polite"></p></div>${sheetMatrix(rows,cfg,providers)}
  <p class="tc-sheet-help">${rows.length} ${rows.length===1?'fila':'filas'} · Arrastra el borde de una columna para ajustar su ancho.</p></section>`;
  $('sheetRefresh').onclick=()=>tcSheetRefresh();
+ $('tcTemplateSelect').onchange=()=>{$('tcTemplateApply').disabled=!$('tcTemplateSelect').value};$('tcTemplateApply').onclick=applyTemplate;
  $('sheetWork').onchange=e=>{query='';openChecklist(checkSection,e.target.value)};
  $('sheetSearch').oninput=e=>{const pos=e.target.selectionStart;query=e.target.value;renderChecklist();$('sheetSearch').focus();$('sheetSearch').setSelectionRange(pos,pos)};
- document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{if(b.dataset.sheetType===checkSection&&checkSection.startsWith('custom_'))return tcSheetEditType();query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
+ document.querySelectorAll('[data-found-work]').forEach(b=>b.onclick=()=>{query='';openChecklist(checkSection,b.dataset.foundWork)});document.querySelectorAll('[data-sheet-type]').forEach(b=>b.onclick=()=>{if(b.dataset.sheetType===checkSection)return tcSheetEditType();query='';openChecklist(b.dataset.sheetType,checkWorkId)});document.querySelectorAll('[data-column-menu]').forEach(b=>b.onclick=()=>tcSheetColumn(b.dataset.columnMenu));document.querySelectorAll('[data-sheet-delete]').forEach(b=>b.onclick=()=>removeRow(b.dataset.sheetDelete));$('sheetAddRow').onclick=()=>providers?editWorkContractor():addRow();bindTable(cfg,left,top);
 };
 async function writeRow(row,payload,providers,c){const table=providers?'elite_work_contractors':'elite_work_checklist_items',rows=await eliteRequest('/rest/v1/'+table+'?id=eq.'+row.id+'&updated_at=eq.'+encodeURIComponent(row.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});if(!live(c))return;if(rows?.length!==1)throw Error('La fila cambió en otro dispositivo. Actualiza antes de guardar.');if(providers)WORK_CONTRACTORS=WORK_CONTRACTORS.map(x=>x.id===row.id?rows[0]:x);else CHECKLIST_ITEMS=CHECKLIST_ITEMS.map(x=>x.id===row.id?rows[0]:x);renderChecklist()}
 root.tcSheetCell=async(id,key,value)=>{if(busy)return;const providers=checkSection==='providers',row=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).find(r=>r.id===id&&r.work_id===checkWorkId);if(!row)return;const c=ctx();busy=true;lockSheet(true);try{if(key==='title'&&!value.trim())throw Error('El elemento necesita nombre.');if(key==='completed_at')await writeRow(row,{completed_at:value?new Date().toISOString():null},false,c);else if(key.startsWith('col_'))await writeRow(row,{cell_values:{...row.cell_values,[key]:String(value)}},providers,c);else if(['title','notes','due_date','entry_date'].includes(key))await writeRow(row,{[key]:value||(['due_date','entry_date'].includes(key)?null:'')},providers,c)}catch(e){if(live(c)){renderChecklist();sheetError(e.message)}}finally{if(sameOwner(c)){busy=false;if(live(c))lockSheet(false)}}};
