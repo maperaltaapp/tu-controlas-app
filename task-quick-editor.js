@@ -232,13 +232,31 @@ selectHeldForDelete=function(host,kind,id){
   const b=document.createElement('button');b.type='button';b.className=css;b.textContent=label;b.onclick=async e=>{e.stopPropagation();await action();flushRefresh()};actions.append(b);
  };
  button('Editar','light',()=>edit(id));
- if(OWN_TASKS.some(t=>t.id===id&&!t.control_id&&!t.deleted_at))button('Eliminar','tc-action-delete',async()=>{const ok=await deleteHeldItem('task',id);if(ok)selectionClear()});
+ if(CHECKLIST_ITEMS.some(t=>t.id===id)||OWN_TASKS.some(t=>t.id===id&&!t.control_id&&!t.deleted_at))button('Eliminar','tc-action-delete',async()=>{const ok=await deleteHeldItem('task',id);if(ok)selectionClear()});
  button('Cancelar','light',selectionClear);
  host.insertAdjacentElement('afterend',actions);
 };
 deleteHeldItem=async function(kind,id,onError=message=>statusMessage(message,true)){
  if(kind!=='task')return originalDelete(kind,id);
  if(busy||root.tcTaskCompletionPending?.(id)){onError('Espera a que termine el guardado de la tarea y vuelve a intentarlo.');return false}
+ const item=CHECKLIST_ITEMS.find(row=>row.id===id);
+ if(item){
+  const epoch=sessionEpoch,owner=session?.user?.id;
+  const current=()=>!!owner&&sessionEpoch===epoch&&session?.user?.id===owner;
+  if(!current()||!confirm('¿Eliminar «'+item.title+'» del Checklist? También desaparecerá de Tareas.'))return false;
+  busy=true;
+  try{
+   const rows=await eliteRequest('/rest/v1/elite_work_checklist_items?id=eq.'+item.id+'&updated_at=eq.'+encodeURIComponent(item.updated_at),{method:'DELETE',headers:{Prefer:'return=representation'}});
+   if(!current())return false;
+   if(rows?.length!==1)throw Error('La fila cambió. Actualiza antes de eliminar.');
+   CHECKLIST_ITEMS=CHECKLIST_ITEMS.filter(row=>row.id!==id);
+   selectionClear();
+   if(mode==='tasks')renderTaskResults();else render();
+   statusMessage('Elemento eliminado del Checklist.');
+   return true;
+  }catch(error){if(current())onError(error.message);return false}
+  finally{busy=false}
+ }
  const t=OWN_TASKS.find(row=>row.id===id);
  if(!t||t.deleted_at||t.control_id){onError('No se puede eliminar esta tarea desde aquí.');return false}
  const deleteEpoch=sessionEpoch,deleteOwner=session?.user?.id;

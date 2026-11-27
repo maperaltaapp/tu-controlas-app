@@ -209,7 +209,7 @@ function render(){document.querySelectorAll('.nav button').forEach(b=>b.classLis
 function saveWorkDate(id,kind,value){if(value)localStorage.setItem('elite_work_'+kind+'_'+id,value);else localStorage.removeItem('elite_work_'+kind+'_'+id);works()}
 function workDateLabel(value){if(!value)return '—';let a=value.split('-');return a.length===3?a[2]+'/'+a[1]+'/'+a[0]:'—'}
 
-function taskDone(c){return Boolean(c.complete||c.dueComplete)}
+function taskDone(c){return Boolean(c.completed||c.complete||c.dueComplete)}
 function validTaskDate(c){const v=cardDue(c);if(!v)return null;const normalized=typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v+'T12:00:00Z':v;const date=new Date(normalized);return Number.isNaN(date.getTime())?null:date}
 function taskDayKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function taskUrgency(c){const d=validTaskDate(c);if(!d||taskDone(c))return '';const day=taskDayKey(d),today=taskDayKey(new Date());return day<today?'overdue':day===today?'today':''}
@@ -1236,4 +1236,4 @@ $('enter').onclick=login;$('logout').onclick=logoutElite;initAccountRecovery();d
 </script><script src="interaction-refinement.js?v=ad7fe4c69bf3"></script><script src="work-dashboard.js?v=3d71ef1c7212"></script><script src="gantt-contract-pdf.js"></script><script src="gantt-workbench.js?v=e2c056e551bf"></script><script src="gantt-calendar.js?v=a4891e0879e4"></script>
 <script src="gantt-dependencies.js"></script>
 <script src="gantt-print.js"></script>
-<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127c"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>
+<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127d"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>

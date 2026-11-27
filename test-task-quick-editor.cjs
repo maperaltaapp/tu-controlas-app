@@ -100,9 +100,23 @@ async function main(){
  sandbox.selectHeldForDelete(row,'task',tid);
  assert.equal(row.classList.contains('is-task-selected'),false,'Pulsación repetida debe alternar selección');
  const checklistRow=new Node();checklistRow.classList.add('home-row');hosts.push(checklistRow);
+ sandbox.CHECKLIST_ITEMS=[{id:'checklist-test-id',title:'Nuevo elemento',updated_at:'v1'}];
  sandbox.selectHeldForDelete(checklistRow,'task','checklist-test-id');
  const checklistMenu=document.querySelectorAll('.tc-task-actions').at(-1);
- assert.deepEqual(checklistMenu.children.map(b=>b.textContent),['Editar','Cancelar'],'Checklist sin función de eliminación no ofrece acción engañosa');
+ assert.deepEqual(checklistMenu.children.map(b=>b.textContent),['Editar','Eliminar','Cancelar']);
+ sandbox.renderTaskResults=()=>{};
+ sandbox.eliteRequest=async(path,opts)=>{
+  assert.match(path,/elite_work_checklist_items/);
+  assert.equal(opts.method,'DELETE');
+  return [sandbox.CHECKLIST_ITEMS[0]];
+ };
+ accepted=false;
+ await checklistMenu.children[1].onclick({stopPropagation(){}});
+ assert.equal(sandbox.CHECKLIST_ITEMS.length,1);
+ accepted=true;
+ await checklistMenu.children[1].onclick({stopPropagation(){}});
+ assert.equal(sandbox.CHECKLIST_ITEMS.length,0);
+
  sandbox.tcClearTaskSelection();
  sandbox.openQuickTaskEditor(tid);
  assert.doesNotMatch(lastDialog.content,/<h[1-6][^>]*>\s*Editar/i);
