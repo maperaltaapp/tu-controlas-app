@@ -63,5 +63,34 @@ async function push(payload){
  await pending;
  assert.equal(focused,true);
  assert.deepEqual(navigation.at(-1),{type:'navigate',url:home},'A push must not deep-link a possibly different customer session');
+ const html=fs.readFileSync(__dirname+'/index.html','utf8');
+ const start=html.indexOf('function vapidBytes('),end=html.indexOf('async function testPush()',start);
+ const controls={enablePush:{},pushStatus:{},testLocalPush:{}};
+ let remoteWrites=0,localNotices=0;
+ const registration={
+  scope:home,active:{},
+  pushManager:{
+   getSubscription:async()=>null,
+   subscribe:async()=>{throw Error('Registration failed - push service error')}
+  },
+  showNotification:async()=>{localNotices++}
+ };
+ const publicKey=Buffer.concat([Buffer.from([4]),Buffer.alloc(64)]).toString('base64url');
+ const page=vm.createContext({
+  $:id=>controls[id],sessionEpoch:1,pushSupport:()=>true,atob,
+  Notification:{permission:'granted',requestPermission:async()=>'granted'},
+  navigator:{serviceWorker:{register:async()=>registration,ready:Promise.resolve(registration)}},
+  eliteRequest:async(_url,options)=>{if(options)remoteWrites++;return {ready:true,publicKey}},
+  pushMessage:message=>{controls.pushStatus.textContent=message}
+ });
+ vm.runInContext(html.slice(start,end),page);
+ await page.enablePush();
+ assert.match(controls.pushStatus.textContent,/servicio push del navegador rechazó/);
+ assert.equal(remoteWrites,0);
+ assert.equal(controls.enablePush.disabled,false);
+ await page.testLocalPush();
+ assert.equal(localNotices,1);
+ assert.equal(remoteWrites,0);
+ assert.match(controls.pushStatus.textContent,/Aviso local mostrado/);
  console.log('PASS: private lock-screen content, unsafe tag and URL rejection, neutral same-origin navigation, shared-device safety.');
 })().catch(e=>{console.error(e);process.exitCode=1});
