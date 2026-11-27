@@ -117,7 +117,7 @@ function templateChoices(){
 }
 function templateBox(){
  const options=templateChoices(),providers=checkSection==='providers',occupied=(providers?WORK_CONTRACTORS:CHECKLIST_ITEMS).some(r=>r.work_id===checkWorkId&&(providers||r.section===checkSection));
- return `<div class="tc-check-template"><label for="tcTemplateSelect">Usar checklist de otra obra</label><div class="tc-template-controls"><select id="tcTemplateSelect" aria-label="Checklist de origen" ${!options.length||providers&&occupied?'disabled':''}><option value="">Elegir una plantilla…</option>${options.map(x=>`<option value="${E(x.work+'|'+x.section)}">${E(x.label)}${providers?'':` · ${x.count} filas`}</option>`).join('')}</select><button type="button" class="light" id="tcTemplateApply" disabled>Usar plantilla</button></div><small>${providers?(occupied?'El cuadro ya contiene empresas; usa una obra sin registros para copiar el formato.':'Solo columnas; no se copian empresas ni etapas.'):(occupied?'Se creará un checklist independiente, sin cambiar esta tabla.':'Copia columnas y nombres de filas; sin fechas, notas, valores ni estados.')}</small></div>`;
+ return `<div class="tc-check-template"><label for="tcTemplateSelect">Usar checklist de otra obra</label><div class="tc-template-controls"><select id="tcTemplateSelect" aria-label="Checklist de origen" ${!options.length||providers&&occupied?'disabled':''}><option value="">Elegir una plantilla…</option>${options.map(x=>`<option value="${E(x.work+'|'+x.section)}">${E(x.label)}${providers?'':` · ${x.count} filas`}</option>`).join('')}</select><button type="button" class="light" id="tcTemplateApply" disabled>Usar plantilla</button></div><small>${providers?(occupied?'El cuadro ya contiene empresas; usa una obra sin registros para copiar el formato.':'Solo columnas; no se copian empresas ni etapas.'):(!options.length?'No hay checklists de otras obras con filas o formato guardado.':occupied?'Se creará un checklist independiente, sin cambiar esta tabla.':'Copia columnas y nombres de filas; sin fechas, notas, valores ni estados.')}</small></div>`;
 }
 async function applyTemplate(){
  if(busy||!work())return;
@@ -188,11 +188,11 @@ renderChecklist=function(){
  const left=previous?.scrollLeft||0,top=previous?.scrollTop||0;
  const matches=q?NATIVE_WORKS.filter(other=>!other.archived_at&&other.id!==w.id&&tcSearchMatches(q,other.name)):[];
  const recover=cfg.hidden_columns.length||defaults().some(col=>!cols.some(c=>c.id===col.id));
- $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}
+ $('content').innerHTML=`<section class="panel control-panel tc-sheet"><div class="tc-tool-sticky">${header()}</div>
  ${templateBox()}
  ${matches.length?`<div class="tc-sheet-tools">${matches.map(other=>`<button class="light" data-found-work="${other.id}">${E(other.name)}</button>`).join('')}</div>`:''}
  <div class="tc-sheet-tools"><button class="dark" id="sheetAddRow">+ Fila</button><button class="light" onclick="tcSheetAddColumn()">+ Columna</button><button class="light" onclick="tcSheetAddType()">+ Tipo</button><button type="button" class="light" onclick="tcSheetEditType()">Editar tipo</button>${Object.keys(layout(w).archived_checklist_types||{}).length?'<button class="light" onclick="tcSheetRestoreTypes()">Recuperar tipos</button>':''}${recover?'<button class="light" onclick="tcSheetRestoreColumns()">Recuperar columnas</button>':''}${providers?'<button class="light" onclick="openContractorDirectory(checkWorkId)">Registro de proveedores</button>':''}</div>
- <p class="tc-sheet-save-status" id="sheetSaveStatus" role="status" aria-live="polite"></p></div>${sheetMatrix(rows,cfg,providers)}
+ <p class="tc-sheet-save-status" id="sheetSaveStatus" role="status" aria-live="polite"></p>${sheetMatrix(rows,cfg,providers)}
  <p class="tc-sheet-help">${rows.length} ${rows.length===1?'fila':'filas'} · Arrastra el borde de una columna para ajustar su ancho.</p></section>`;
  $('sheetRefresh').onclick=()=>tcSheetRefresh();
  $('tcTemplateSelect').onchange=()=>{$('tcTemplateApply').disabled=!$('tcTemplateSelect').value};$('tcTemplateApply').onclick=applyTemplate;
