@@ -66,13 +66,23 @@ function edit(id){
  +'</select></label>'
  +'<label id="tcQuickCustomRow"'+(reminder==='custom'?'':' hidden')+'>Fecha y hora del recordatorio<input name="custom" type="datetime-local" value="'+esc(localDateTime(task.remind_at))+'"></label>'
  +info+reminderExtras+'<details class="task-form-section"'+(checklistDraft.length?' open':'')+'><summary>Checklist <span id="tcQuickCheckSummary"></span></summary><div id="tcQuickCheckEditor"></div><button type="button" class="light" id="tcQuickAddChecklist">+ Checklist</button></details><div id="tcQuickError" class="status err" role="alert"></div>'
- +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
+ +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button>'+(!task.deleted_at&&!task.completed?'<button class="light" type="button" data-complete>Marcar como completada</button>':'')+'<button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
  const dialog=dialogForm(html),form=dialog.querySelector('#tcQuickTaskForm');
  dialog.setAttribute?.('aria-label','Datos de tarea');
  if(typeof mountTaskChecklists==='function')mountTaskChecklists(form.querySelector('#tcQuickCheckEditor'),form.querySelector('#tcQuickCheckSummary'),checklistDraft,form.querySelector('#tcQuickAddChecklist'));
  const switchCustom=()=>{form.querySelector('#tcQuickCustomRow').hidden=form.elements.reminder.value!=='custom'};
  form.elements.reminder.onchange=switchCustom;
  form.querySelector('[data-cancel]').onclick=closeTaskDialog;
+ const completeButton=form.querySelector('[data-complete]');
+ if(completeButton)completeButton.onclick=async()=>{
+  if(busy||!sameSession()||!dialog.isConnected)return;
+  const status=form.querySelector('#tcQuickError');
+  status.textContent='';
+  const lock=disabled=>form.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=disabled);
+  busy=true;
+  try{await completeNativeTask(task,{dialog,status,lock})}
+  finally{busy=false}
+ };
  form.querySelector('[data-delete]').onclick=async()=>{
   if(busy||!sameSession())return;
   if(task.deleted_at){

@@ -689,13 +689,15 @@ function normalizeTaskChecklists(draft){return draft.map(c=>({...c,name:c.name.t
 function collectNativeTask(){const due=$('ownDue').value,start=$('ownStart').value,repeat=$('ownRecurrence').value;if(start&&due&&new Date(start)>new Date(due))throw Error('El vencimiento debe ser posterior al inicio.');if(repeat!=='none'&&!due)throw Error('Indica un vencimiento para repetir la tarea.');const labels=$('ownLabels').value.split(',').map(x=>x.trim()).filter(Boolean);if(labels.length>50)throw Error('Máximo 50 etiquetas.');const wid=$('ownWorkId').value||null,reminder=collectTaskReminders();return {title:$('ownTitle').value.trim(),category:wid?'work':$('ownCategory').value,work_id:wid,work_name:wid?NATIVE_WORKS.find(w=>w.id===wid)?.name||'':editingTask?.work_name||'',description:$('ownDescription').value,start_at:start?new Date(start).toISOString():null,due_at:due?new Date(due).toISOString():null,status:editingTask?.status||'pending',completed:!!editingTask?.completed,priority:$('ownPriority').value,labels,stage:editingTask?.stage||'General',recurrence:repeat,recurrence_timezone:'Europe/Madrid',...reminder,checklists:normalizeTaskChecklists(editorChecks)}}
 async function patchNativeTask(t,data){const rows=await eliteRequest('/rest/v1/elite_tasks?id=eq.'+t.id+'&updated_at=eq.'+encodeURIComponent(t.updated_at),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(data)});if(!rows?.length)throw Error('Esta tarea ha cambiado en otro dispositivo. Cierra, actualiza y vuelve a intentarlo.');return rows[0]}
 async function saveOwnTask(e){e.preventDefault();lockOwnForm(true);try{const data=collectNativeTask();if(!data.title)throw Error('Escribe el nombre.');const shouldComplete=data.completed&&(!editingTask||!editingTask.completed)&&data.recurrence!=='none';if(shouldComplete){data.completed=false;data.status='pending'}let saved;if(editingTask)saved=await patchNativeTask(editingTask,data);else saved=(await eliteRequest('/rest/v1/elite_tasks',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(data)}))[0];editingTask=saved;if(shouldComplete)await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:saved.id,expected_updated_at:saved.updated_at})});await fetchOwnTasks();if(!OWN_TASKS.some(task=>task.id===saved.id))throw Error('No se pudo verificar la tarea guardada.');closeTaskDialog();render();statusMessage('Tarea guardada.');return true}catch(err){$('ownFormStatus').textContent=err.message;lockOwnForm(false);return false}}
-async function completeNativeTask(t){
+async function completeNativeTask(t,view=null){
  if(!t?.id||taskCompletionBusy.has(t.id))return;
  const epoch=sessionEpoch,account=session?.user?.id||null;
  const current=()=>!!account&&sessionEpoch===epoch&&session?.user?.id===account;
+ const visible=()=>current()&&(!view||view.dialog.isConnected);
+ const lock=view?.lock||lockOwnForm;
  if(!current())return;
  taskCompletionBusy.add(t.id);
- lockOwnForm(true);
+ lock(true);
  try{
   if(t.completed){
    const data={completed:false,status:'pending'};
@@ -719,17 +721,17 @@ async function completeNativeTask(t){
   if(!current())return;
   await fetchOwnTasks();
   if(!current())return;
-  closeTaskDialog();
+  if(visible())closeTaskDialog();
   render();
   statusMessage(t.completed?'Tarea reabierta.':'Tarea completada.');
  }catch(error){
   if(!current())return;
-  const status=$('ownFormStatus');
+  const status=view?(visible()?view.status:null):$('ownFormStatus');
   if(status)status.textContent=error.message;
   else statusMessage(error.message,true);
  }finally{
   taskCompletionBusy.delete(t.id);
-  if(current())lockOwnForm(false);
+  if(visible())lock(false);
  }
 }
 async function changeOwnTask(data){lockOwnForm(true);try{await patchNativeTask(editingTask,data);await fetchOwnTasks();closeTaskDialog();render();statusMessage(data.deleted_at?'Tarea archivada. Puedes restaurarla desde Archivo.':'Tarea restaurada.')}catch(e){$('ownFormStatus').textContent=e.message;lockOwnForm(false)}}
@@ -1234,4 +1236,4 @@ $('enter').onclick=login;$('logout').onclick=logoutElite;initAccountRecovery();d
 </script><script src="interaction-refinement.js?v=ad7fe4c69bf3"></script><script src="work-dashboard.js?v=3d71ef1c7212"></script><script src="gantt-contract-pdf.js"></script><script src="gantt-workbench.js?v=e2c056e551bf"></script><script src="gantt-calendar.js?v=a4891e0879e4"></script>
 <script src="gantt-dependencies.js"></script>
 <script src="gantt-print.js"></script>
-<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127b"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>
+<script src="work-actions.js?v=a31ebb5dd4ee"></script><script src="report-history.js"></script><script src="daily-report.js"></script><script src="task-order.js"></script><script src="task-quick-editor.js?v=20261127c"></script><script src="economic-import.js"></script><script src="economic-margin.js?v=98c30708ffc6"></script><script src="economic-weights.js?v=20261126c"></script><script src="economic-v1.js?v=20261127a"></script><script src="final-package.js?v=8d58dbf9f887"></script><script src="company-contact.js?v=ff49cdd6d136"></script><script src="final-calendars.js?v=c9fafd331a5c"></script></body></html>
