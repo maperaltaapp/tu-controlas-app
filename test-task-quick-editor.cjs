@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(__dirname+'/task-quick-editor.js','utf8');
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
-assert.match(html,/src="task-quick-editor\.js"/);
-assert.match(html,/href="task-quick-editor\.css"/);
+assert.match(html,/src="task-quick-editor\.js(?:\?[^"]+)?"/);
+assert.match(html,/href="task-quick-editor\.css(?:\?[^"]+)?"/);
 const tid='00000000-0000-4000-8000-000000000001';
 class Node{
  constructor(tag='div'){this.tagName=tag;this.children=[];this.attributes={};this.isConnected=true;this.className='';this.flags=new Set();this.classList={add:v=>this.flags.add(v),remove:v=>this.flags.delete(v),contains:v=>this.flags.has(v)}}
@@ -14,11 +14,11 @@ class Node{
 const nodes=[],hosts=[],listeners={},messages=[],patches=[];
 const document={
  querySelectorAll(s){
-  if(s==='.home-row.is-task-selected')return hosts.filter(x=>x.classList.contains('is-task-selected'));
+  if(s.startsWith('.home-row.is-task-selected'))return hosts.filter(x=>x.classList.contains('is-task-selected'));
   if(s==='.tc-task-actions')return nodes.filter(x=>x.className==='tc-task-actions'&&x.isConnected);
   return [];
  },
- querySelector(s){return s==='.home-row.is-task-selected'?hosts.find(x=>x.classList.contains('is-task-selected'))||null:null},
+ querySelector(s){return s.startsWith('.home-row.is-task-selected')?hosts.find(x=>x.classList.contains('is-task-selected'))||null:null},
  createElement:tag=>new Node(tag),
  addEventListener:(type,fn)=>{listeners[type]=fn}
 };
@@ -28,7 +28,9 @@ const formControls=()=>({
  title:{value:task.title,focus(){}},
  due:{value:task.due_at.slice(0,16)},
  reminder:{value:'none'},
- custom:{value:''}
+ custom:{value:''},
+ extra0:{value:task.extra_remind_at[0]?.slice(0,16)||''},
+ extra1:{value:task.extra_remind_at[1]?.slice(0,16)||''}
 });
 function modal(content){
  const controls=formControls(),fields=[{disabled:false},{disabled:false}],close={onclick:null},remove={onclick:null},cancel={onclick:null},error={textContent:''},customRow={hidden:true};
@@ -73,7 +75,11 @@ async function main(){
  assert.equal(row.classList.contains('is-task-selected'),true);
  let bar=document.querySelectorAll('.tc-task-actions').at(-1);
  assert.deepEqual(bar.children.map(b=>b.textContent),['Editar','Eliminar','Cancelar']);
+ let deferredRenders=0;
+ sandbox.tcAfterTaskInteraction(()=>deferredRenders++);
+ assert.equal(deferredRenders,0,'Completar otra tarea conserva la selección activa');
  await bar.children[2].onclick({stopPropagation(){}});
+ assert.equal(deferredRenders,1,'Cerrar la selección aplica el refresco pendiente');
  assert.equal(row.classList.contains('is-task-selected'),false,'Cancelar debe salir de selección');
  sandbox.selectHeldForDelete(row,'task',tid);
  listeners.pointerdown({target:{closest:()=>null}});
@@ -111,6 +117,17 @@ async function main(){
  lastDialog.form.elements.reminder.value='60';
  await lastDialog.form.onsubmit({preventDefault(){}});
  assert.deepEqual(Object.keys(patches.at(-1)),['title']);
+ const future='2099-01-01T09:30';
+ sandbox.openQuickTaskEditor(tid);
+ lastDialog.form.elements.reminder.value='60';
+ lastDialog.form.elements.extra0.value=future;
+ await lastDialog.form.onsubmit({preventDefault(){}});
+ assert.equal(task.extra_remind_at[0],future+':00.000Z','Guarda el aviso adicional');
+ sandbox.openQuickTaskEditor(tid);
+ lastDialog.form.elements.reminder.value='60';
+ lastDialog.form.elements.extra0.value='';
+ await lastDialog.form.onsubmit({preventDefault(){}});
+ assert.equal(task.extra_remind_at.length,0,'Quita el aviso adicional sin quitar el principal');
  const before=patches.length;
  sandbox.openQuickTaskEditor(tid);
  lastDialog.cancel.onclick();
@@ -126,7 +143,11 @@ async function main(){
  assert.equal(await sandbox.deleteHeldItem('task',tid),false,'Cancelar borrado no modifica datos');
  assert.equal(patches.length,before);
  accepted=true;
- assert.equal(await sandbox.deleteHeldItem('task',tid),true);
+ sandbox.selectHeldForDelete(row,'task',tid);
+ sandbox.tcAfterTaskInteraction(()=>deferredRenders++);
+ assert.equal(deferredRenders,1,'La respuesta al completar otras tareas no cierra las acciones');
+ await document.querySelectorAll('.tc-task-actions').at(-1).children[1].onclick({stopPropagation(){}});
+ assert.equal(deferredRenders,2);
  assert.ok(task.deleted_at,'Borrado reversible usa deleted_at');
  assert.deepEqual(Object.keys(patches.at(-1)),['deleted_at']);
  assert.equal(sandbox.OWN_TASKS[0].id,tid,'Nunca modifica otras tareas');

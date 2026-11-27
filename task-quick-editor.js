@@ -1,10 +1,15 @@
 /* Minimal, safe editing of existing tasks and dismissible long-press actions. */
 (function(root){
 'use strict';
-const originalTaskForm=openTaskForm,originalHomeRow=homeRow,originalSelect=selectHeldForDelete,originalDelete=deleteHeldItem;
-let busy=false;
+const originalTaskForm=openTaskForm,originalSelect=selectHeldForDelete,originalDelete=deleteHeldItem;
+let busy=false,pendingRefresh=null,taskPointer=null;
+const selectedRow='.home-row.is-task-selected,.compact-task.is-task-selected';
+function flushRefresh(){
+ if(taskPointer!==null||document.querySelector(selectedRow)||!pendingRefresh)return;
+ const refresh=pendingRefresh;pendingRefresh=null;refresh();
+}
 function selectionClear(){
- document.querySelectorAll('.home-row.is-task-selected').forEach(row=>row.classList.remove('is-task-selected'));
+ document.querySelectorAll('.home-row.is-task-selected,.compact-task.is-task-selected').forEach(row=>row.classList.remove('is-task-selected'));
  document.querySelectorAll('.tc-task-actions').forEach(node=>node.remove());
  document.querySelectorAll('.home-row.is-delete-selected').forEach(row=>row.classList.remove('is-delete-selected'));
  document.querySelectorAll('.home-row>.tc-delete-button').forEach(node=>node.remove());
@@ -50,7 +55,8 @@ function edit(id){
  const dateValue=due||'';
  const type=linked?'date':'datetime-local';
  const info=linked?'<p class="small">Actividad vinculada al Gantt. Las fechas con dependencias se editan desde el cronograma.</p>':'';
- const extras=task.extra_remind_at?.length?'<p class="small">Se conservan los avisos adicionales existentes.</p>':'';
+ const originalExtras=task.extra_remind_at||[];
+ const reminderExtras='<details class="task-form-section"><summary>Avisos adicionales</summary>'+[0,1].map(i=>'<label>Aviso '+(i+2)+'<input name="extra'+i+'" type="datetime-local" value="'+esc(localDateTime(originalExtras[i]))+'"></label>').join('')+'</details>';
  const html='<form id="tcQuickTaskForm" class="tc-quick-form" aria-label="Datos de tarea"><div class="top tc-quick-top"><button type="button" class="light" id="closeTask" aria-label="Cerrar">✕</button></div>'
  +'<label>Nombre<input name="title" maxlength="240" required value="'+title+'"></label>'
  +'<label>Vencimiento<input name="due" type="'+type+'" value="'+esc(dateValue)+'"></label>'
@@ -58,7 +64,7 @@ function edit(id){
  +[['none','Sin aviso'],['0','Al vencimiento'],['5','5 minutos antes'],['15','15 minutos antes'],['30','30 minutos antes'],['60','1 hora antes'],['1440','1 día antes'],['custom','Elegir día y hora']].map(row=>'<option value="'+row[0]+'"'+(row[0]===reminder?' selected':'')+'>'+row[1]+'</option>').join('')
  +'</select></label>'
  +'<label id="tcQuickCustomRow"'+(reminder==='custom'?'':' hidden')+'>Fecha y hora del recordatorio<input name="custom" type="datetime-local" value="'+esc(localDateTime(task.remind_at))+'"></label>'
- +info+extras+'<details class="task-form-section"'+(checklistDraft.length?' open':'')+'><summary>Checklist <span id="tcQuickCheckSummary"></span></summary><div id="tcQuickCheckEditor"></div><button type="button" class="light" id="tcQuickAddChecklist">+ Checklist</button></details><div id="tcQuickError" class="status err" role="alert"></div>'
+ +info+reminderExtras+'<details class="task-form-section"'+(checklistDraft.length?' open':'')+'><summary>Checklist <span id="tcQuickCheckSummary"></span></summary><div id="tcQuickCheckEditor"></div><button type="button" class="light" id="tcQuickAddChecklist">+ Checklist</button></details><div id="tcQuickError" class="status err" role="alert"></div>'
  +'<div class="form-actions tc-quick-actions"><button class="dark" type="submit" data-save>Guardar</button><button class="light" type="button" data-cancel>Cancelar</button><button class="tc-quick-delete" type="button" data-delete>'+((task.deleted_at&&task.stage==='Gantt')?'Historial':task.deleted_at?'Restaurar':'Eliminar')+'</button></div></form>';
  const dialog=dialogForm(html),form=dialog.querySelector('#tcQuickTaskForm');
  dialog.setAttribute?.('aria-label','Datos de tarea');
@@ -79,7 +85,12 @@ function edit(id){
    finally{busy=false}
    return;
   }
-  const ok=await deleteHeldItem('task',id);if(ok&&sameSession()&&dialog.isConnected)closeTaskDialog();
+  const button=form.querySelector('[data-delete]'),error=form.querySelector('#tcQuickError');
+  button.disabled=true;error.textContent='';
+  try{
+   const ok=await deleteHeldItem('task',id,message=>{error.textContent=message});
+   if(ok&&sameSession()&&dialog.isConnected)closeTaskDialog();
+  }finally{button.disabled=false}
  };
  form.onsubmit=async event=>{
   event.preventDefault();if(busy||!sameSession())return;
@@ -95,10 +106,25 @@ function edit(id){
    if(JSON.stringify(checklistDraft)!==checklistOriginal)add.checklists=normalizeTaskChecklists(checklistDraft);
    if(!linked&&iso!==(task.due_at||null))add.due_at=iso;
    if(r.remind_minutes!==(task.remind_minutes??null)||r.remind_at!==(task.remind_at||null)){
-    const reminderTime=r.remind_at?Date.parse(r.remind_at):r.remind_minutes!=null&&iso?Date.parse(iso)-r.remind_minutes*60000:null;
-    if(reminderTime!=null&&(task.extra_remind_at||[]).some(v=>Date.parse(v)===reminderTime))throw Error('Ya existe otro aviso para esa fecha y hora.');
     add.remind_minutes=r.remind_minutes;add.remind_at=r.remind_at;
    }
+   {
+    const entered=[0,1].map(i=>form.elements['extra'+i].value);
+    if(entered.some((value,i)=>value!==localDateTime(originalExtras[i]))){
+     const extras=entered.flatMap((value,i)=>{
+      if(!value)return [];
+      const unchanged=value===localDateTime(originalExtras[i]);
+      const iso=unchanged?originalExtras[i]:validLocalDateTime(value);
+      if(!unchanged&&Date.parse(iso)<=Date.now())throw Error('Los avisos nuevos deben tener una fecha y hora futuras.');
+      return [iso];
+     });
+     add.extra_remind_at=extras;
+    }
+   }
+   const reminderTime=r.remind_at?Date.parse(r.remind_at):r.remind_minutes!=null&&iso?Date.parse(iso)-r.remind_minutes*60000:null;
+   const extraTimes=(add.extra_remind_at||originalExtras).map(value=>Date.parse(value));
+   if(('remind_minutes' in add||'extra_remind_at' in add||'due_at' in add||linked&&selectedDue!==linked.row.end)
+     &&(extraTimes.includes(reminderTime)||new Set(extraTimes).size!==extraTimes.length))throw Error('Los avisos deben tener fechas y horas distintas.');
    const dueChanged=!!linked&&selectedDue!==linked.row.end;
    if(!Object.keys(add).length&&!dueChanged){closeTaskDialog();return}
    busy=true;error.textContent='';form.querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
@@ -132,6 +158,7 @@ function edit(id){
    const reminderPatch={};
    if('remind_minutes' in add){reminderPatch.remind_minutes=add.remind_minutes;reminderPatch.remind_at=add.remind_at}
    if('checklists' in add)reminderPatch.checklists=add.checklists;
+   if('extra_remind_at' in add)reminderPatch.extra_remind_at=add.extra_remind_at;
    if(linked){
     if(Object.keys(reminderPatch).length){
      const fresh=OWN_TASKS.find(t=>t.id===id);
@@ -173,42 +200,47 @@ openTaskForm=function(id=null,workId=null){
  return originalTaskForm(id,workId);
 };
 selectHeldForDelete=function(host,kind,id){
- if(kind!=='task'||!host?.classList.contains('home-row'))return originalSelect(host,kind,id);
+ if(kind!=='task'||!host||!(host.classList.contains('home-row')||host.classList.contains('compact-task')))return originalSelect(host,kind,id);
  const same=host.classList.contains('is-task-selected');selectionClear();
  if(same)return;
  host.classList.add('is-task-selected');
  const actions=document.createElement('div');actions.className='tc-task-actions';
  actions.setAttribute('role','group');actions.setAttribute('aria-label','Acciones de la tarea');
  const button=(label,css,action)=>{
-  const b=document.createElement('button');b.type='button';b.className=css;b.textContent=label;b.onclick=async e=>{e.stopPropagation();await action()};actions.append(b);
+  const b=document.createElement('button');b.type='button';b.className=css;b.textContent=label;b.onclick=async e=>{e.stopPropagation();await action();flushRefresh()};actions.append(b);
  };
  button('Editar','light',()=>edit(id));
  if(OWN_TASKS.some(t=>t.id===id&&!t.control_id&&!t.deleted_at))button('Eliminar','tc-action-delete',async()=>{const ok=await deleteHeldItem('task',id);if(ok)selectionClear()});
  button('Cancelar','light',selectionClear);
  host.insertAdjacentElement('afterend',actions);
 };
-deleteHeldItem=async function(kind,id){
+deleteHeldItem=async function(kind,id,onError=message=>statusMessage(message,true)){
  if(kind!=='task')return originalDelete(kind,id);
+ if(busy||root.tcTaskCompletionPending?.(id)){onError('Espera a que termine el guardado de la tarea y vuelve a intentarlo.');return false}
  const t=OWN_TASKS.find(row=>row.id===id);
- if(!t||t.deleted_at||t.control_id){statusMessage('No se puede eliminar esta tarea desde aquí.',true);return false}
+ if(!t||t.deleted_at||t.control_id){onError('No se puede eliminar esta tarea desde aquí.');return false}
  const deleteEpoch=sessionEpoch,deleteOwner=session?.user?.id;
  const sameSession=()=>!!deleteOwner&&sessionEpoch===deleteEpoch&&session?.user?.id===deleteOwner;
  if(!sameSession())return false;
  const linked=linkFor(id);
  if(!confirm('¿Eliminar «'+t.title+'»'+(linked?' y su actividad vinculada de Gantt':'')+'? Podrás consultar el historial.'))return false;
  if(!sameSession())return false;
- if(busy){statusMessage('Hay un guardado pendiente.',true);return false}
  busy=true;
  try{
   if(linked){
    if(G2.busy||G2.draft)throw Error('Termina primero los cambios abiertos en Gantt.');
-   const rows=gHydrate(linked.plan.phases),next=await redistributeDeletedWeight(rows,linked.row.id);
+   const rows=gHydrate(linked.plan.phases),next=ElitePlanning.derive(TCGantt.removal(rows,linked.row.id));
+   ElitePlanning.validate(next);
    if(!sameSession())return false;
    if(G2.busy||G2.draft)throw Error('El Gantt cambió mientras se preparaba la eliminación.');
    G2.work=t.work_id;
-   const saved=await gCommit(next,{reschedule:false,removeId:linked.row.id});
+   const saving=gCommit(next,{reschedule:false,removeId:linked.row.id}),token=G2.saveToken;
+   const saved=await saving;
    if(!sameSession())return false;
-   if(!saved)throw Error(G2.message||'No se pudo quitar la actividad Gantt.');
+   if(!saved){
+    if(G2.work===t.work_id&&!G2.busy&&G2.saveToken===token)G2.draft=null;
+    throw Error(G2.message||'No se pudo quitar la actividad Gantt.');
+   }
   }else{
    if(!sameSession())return false;
    const archived=await patchNativeTask(t,{deleted_at:new Date().toISOString()});
@@ -220,16 +252,24 @@ deleteHeldItem=async function(kind,id){
   selectionClear();if(mode==='tasks')tasks();else render();
   statusMessage(linked?'Actividad eliminada de Gantt, con historial conservado.':'Tarea eliminada. Podrás restaurarla desde Archivadas.');
   return true;
- }catch(e){if(sameSession())statusMessage(e.message,true);return false}
+ }catch(e){if(sameSession())onError(e.message);return false}
  finally{busy=false}
 };
 
 root.openQuickTaskEditor=edit;
 root.tcClearTaskSelection=selectionClear;
+root.tcRefreshTaskResults=()=>renderTaskResults();
+root.tcAfterTaskInteraction=refresh=>{pendingRefresh=refresh;flushRefresh()};
 document.addEventListener('pointerdown',e=>{
- if(document.querySelector('.home-row.is-task-selected')&&!e.target.closest('.home-row.is-task-selected,.tc-task-actions'))selectionClear();
+ if(e.target.closest('[data-hold-kind="task"],.tc-task-actions'))taskPointer=e.pointerId;
+ if(document.querySelector(selectedRow)&&!e.target.closest(selectedRow+',.tc-task-actions'))selectionClear();
 },true);
+for(const event of ['pointerup','pointercancel'])document.addEventListener(event,e=>{
+ if(taskPointer===e.pointerId)taskPointer=null;
+ if(pendingRefresh)setTimeout(flushRefresh,0);
+},true);
+document.addEventListener('click',()=>{if(pendingRefresh)setTimeout(flushRefresh,0)},true);
 document.addEventListener('keydown',e=>{
- if(e.key==='Escape'&&document.querySelector('.home-row.is-task-selected')){selectionClear();e.preventDefault()}
+ if(e.key==='Escape'&&document.querySelector(selectedRow)){selectionClear();e.preventDefault();flushRefresh()}
 },true);
 })(typeof window==='undefined'?globalThis:window);

@@ -202,7 +202,11 @@ run(`session={access_token:'fixture',user:{id:'A'}};nativeReady=true;NATIVE_WORK
  ctx.readAll=async()=>{throw Error('offline')};await ctx.tcOpenEconomy(id);assert.equal(el('ecRetry').hidden,false);toggle();assert(el('ecEntryFields').hasAttribute('disabled'));
  ctx.readAll=loadPanel;await el('ecRetry').onclick();assert(!el('ecEntryFields').hasAttribute('disabled'));
  let resume;const delayed=new Promise(resolve=>resume=resolve);ctx.readAll=()=>delayed;
- const stalePanel=ctx.tcOpenEconomy(id);run("sessionEpoch++;session={access_token:'B',user:{id:'B'}};works()");resume(costs);await stalePanel;
+ const stalePanel=ctx.tcOpenEconomy(id);
+ assert(el('ecProgressTitle'),'The physical chart is visible before either economic request resolves');
+ assert.match(el('ecBody').textContent,/Cargando costes y previsiones/);
+ assert(el('ecEntryToggle').disabled,'Economic data entry stays gated until the reads finish');
+ run("sessionEpoch++;session={access_token:'B',user:{id:'B'}};works()");resume(costs);await stalePanel;
  assert(!el('ecPanel'));assert(document.querySelector('.tc-work-table'));assert.equal(costWrites,1);
  run("sessionEpoch++;session={access_token:'fixture',user:{id:'A'}}");ctx.readAll=loadPanel;
  // Work exceptions are chosen visually, while the proposal remains uncommitted.

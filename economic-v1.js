@@ -73,11 +73,11 @@ function moneyCurve(plan,entries,date,baseline){
  return graph({points:points.map(p=>({...p,planned:p.planned===null?null:p.planned/max*100,real:p.real===null?null:p.real/max*100})),trend:[]},max);
 }
 
-function progressCard(data, facts){
+function progressCard(data){
  const {plan,date}=data,actual=physical(plan,date),target=planned(plan,date),delta=actual===null||target===null?null:actual-target;
- const chart=curve(plan,date),measured=facts.rows.filter(r=>r.progress!==null).length;
- const last=leaves(plan.phases||[]).flatMap(p=>(p.observations||[]).filter(o=>o.date<=date&&VALID(o.percent)).map(o=>o.date)).sort().at(-1);
- const coverage=facts.rows.length?`Medición en ${measured} de ${facts.rows.length} partidas`:'Sin partidas en el Gantt';
+ const rows=leaves(plan.phases||[]),chart=curve(plan,date),measured=rows.filter(r=>observed(r,date)!==null).length;
+ const last=rows.flatMap(p=>(p.observations||[]).filter(o=>o.date<=date&&VALID(o.percent)).map(o=>o.date)).sort().at(-1);
+ const coverage=rows.length?`Medición en ${measured} de ${rows.length} partidas`:'Sin partidas en el Gantt';
  const gap=delta===null?'':new Intl.NumberFormat('es-ES',{maximumFractionDigits:1,signDisplay:'exceptZero'}).format(delta)+' pp frente al plan';
  const milestone=(plan.phases||[]).filter(p=>p.milestone&&p.end>=date&&p.activity_status!=='done').sort((a,b)=>a.end.localeCompare(b.end))[0];
  const hasCurve=chart.points.some(p=>p.planned!==null||p.real!==null);
@@ -123,7 +123,11 @@ function renderSummary(body,data){
   ['ecIndicators','Costes e indicadores de plazo y coste',()=>indicators(data,f,margin)],
   ['ecHistory','Historial de márgenes y previsiones',()=>data.forecastError?pending:marginLib.marginHistory(data.forecasts,data.date,margin)]
  ];
- body.innerHTML='<div class="ec-overview">'+progressCard(data,f)+closing+'</div>'+
+ if(data.progressPlan!==data.plan){
+  data.progressPlan=data.plan;
+  data.progressHtml=progressCard(data);
+ }
+ body.innerHTML='<div class="ec-overview">'+data.progressHtml+closing+'</div>'+
   sections.map(([id,title])=>`<details id="${id}" class="ec-card ec-fold"><summary>${title}</summary><div></div></details>`).join('');
  for(const [id,,renderDetail] of sections){
   const fold=$(id);
@@ -197,7 +201,11 @@ async function show(id=DEMO,page='summary'){
  $('ecWork').onchange=e=>show(e.target.value);
  $('tcAdvanceTab').onclick=()=>{if(view.data&&!view.saving)showPage(view,'summary')};
  $('ecRetry').onclick=()=>show(id,view.page);
- const data={work,date,demo,entries:[],forecasts:[],entriesError:false,forecastError:false};
+ const data={work,date,demo,plan:sample?.plan||planOf(id),entries:[],forecasts:[],entriesError:false,forecastError:false};
+ data.progressPlan=data.plan;data.progressHtml=progressCard(data);
+ if(!demo){
+  $('ecBody').innerHTML='<div class="ec-overview">'+data.progressHtml+'<section class="ec-card"><p role="status">Cargando costes y previsiones…</p></section></div>';
+ }
  if(demo){
   data.entries=sample.entries;
   data.forecasts=[
@@ -217,7 +225,7 @@ async function show(id=DEMO,page='summary'){
    $('ecLoadStatus').className='ec-warning';$('ecRetry').hidden=false;
   }
  }
- data.plan=sample?.plan||planOf(id);view.data=data;
+ view.data=data;
  const toggle=$('ecEntryToggle');toggle.disabled=false;
  toggle.onclick=()=>{if(view.saving)return;showPage(view,view.page==='entry'?'summary':'entry',true)};
  showPage(view,view.page);
