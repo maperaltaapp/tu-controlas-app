@@ -2,7 +2,7 @@
 // No network, real accounts, or Supabase writes.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
-const start=html.indexOf('let taskGanttRefreshSequence=0;'),end=html.indexOf('\nconst gRenderFullEditor=',start);
+const start=html.indexOf('let latestTaskGanttRefresh=null;'),end=html.indexOf('\nconst gRenderFullEditor=',start);
 assert(start>0&&end>start,'Expected atomic refresh implementation');
 const state={boards:0,reads:[],tasks:[],plans:[]};
 const owner=(id)=>({user:{id},access_token:'test-'+id});
@@ -66,12 +66,12 @@ const defer=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve
  const oldReload=ctx.fetchOwnTasks();
  index=1;await ctx.fetchOwnTasks();
  oldTasks.resolve([{id:'stale-version'}]);oldPlans.resolve([{work_id:'stale-plan'}]);
- await assert.rejects(oldReload,/actualización más reciente/);
+ await oldReload;
  assert.equal(ctx.OWN_TASKS[0].id,'new-version');
  assert.equal(ctx.WORK_PLANS[0].work_id,'plan-new-version');
 
  // Missing authenticated ownership cannot trigger a network read.
  const before=state.boards;ctx.session=null;ctx.readAll=async()=>{throw Error('Unwanted request')};
  await assert.rejects(ctx.fetchOwnTasks(),/Vuelve a entrar/);assert.equal(state.boards,before);
- console.log('PASS: client task/Gantt snapshots commit together and reject failures, owner switches and out-of-order reloads');
+ console.log('PASS: client task/Gantt snapshots commit together and reject failures and owner switches, and share the newest snapshot after overlapping reloads');
 })().catch(error=>{console.error(error);process.exitCode=1});
