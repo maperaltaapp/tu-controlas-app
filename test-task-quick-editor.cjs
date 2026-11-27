@@ -33,14 +33,14 @@ const formControls=()=>({
  extra1:{value:task.extra_remind_at[1]?.slice(0,16)||''}
 });
 function modal(content){
- const controls=formControls(),fields=[{disabled:false},{disabled:false}],close={onclick:null},remove={onclick:null},cancel={onclick:null},error={textContent:''},customRow={hidden:true};
+ const controls=formControls(),fields=[{disabled:false},{disabled:false}],close={onclick:null},remove={onclick:null},complete={onclick:null},cancel={onclick:null},error={textContent:''},customRow={hidden:true};
  const form={
   elements:controls,onsubmit:null,
-  querySelector(s){return ({'[data-delete]':remove,'[data-cancel]':cancel,'#tcQuickError':error,'#tcQuickCustomRow':customRow})[s]||null},
+  querySelector(s){return ({'[data-delete]':remove,'[data-complete]':content.includes('data-complete')?complete:null,'[data-cancel]':cancel,'#tcQuickError':error,'#tcQuickCustomRow':customRow})[s]||null},
   querySelectorAll(){return fields},
  };
  const dialog={isConnected:true,querySelector(){return form}};
- lastDialog={content,form,dialog,error,close,remove,cancel,fields};
+ lastDialog={content,form,dialog,error,close,remove,complete,cancel,fields};
  return dialog;
 }
 const sandbox={
@@ -68,6 +68,15 @@ const sandbox={
 sandbox.window=sandbox;sandbox.globalThis=sandbox;
 vm.runInNewContext(source,sandbox,{filename:'task-quick-editor.js'});
 async function main(){
+ let completion;
+ sandbox.completeNativeTask=async(row,view)=>{completion={row,view}};
+ sandbox.openQuickTaskEditor(tid);
+ assert.match(lastDialog.content,/Marcar como completada/);
+ await lastDialog.complete.onclick();
+ assert.equal(completion.row.id,tid);
+ assert.equal(completion.view.status,lastDialog.error);
+ sandbox.closeTaskDialog();
+
  assert.match(sandbox.homeRow({own:true,id:tid}),/openQuickTaskEditor\(this\.dataset\.holdId\)/);
  assert.equal(sandbox.openTaskForm(null),42,'Crear tareas no debe cambiar');
  const row=new Node();row.classList.add('home-row');hosts.push(row);

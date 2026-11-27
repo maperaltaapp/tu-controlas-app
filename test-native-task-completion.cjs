@@ -1,7 +1,7 @@
 // Exercise the real task-dialog completion handler with isolated fake data.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
-const from=html.indexOf('async function completeNativeTask(t){'),to=html.indexOf('\nasync function changeOwnTask(',from);
+const from=html.indexOf('async function completeNativeTask('),to=html.indexOf('\nasync function changeOwnTask(',from);
 assert.ok(from>0&&to>from,'Completion handler must be present');
 const implementation=html.slice(from,to);
 const state={locks:[],patches:[],requests:[],prompts:[],refresh:0,render:0,close:0,messages:[],errors:[],failure:null,answers:[]};
