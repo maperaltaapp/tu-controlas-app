@@ -234,6 +234,28 @@ async function main(){
  sandbox.sessionEpoch=oldTaskEpoch;sandbox.session=oldTaskSession;
  sandbox.fetchOwnTasks=initialFetch;sandbox.patchNativeTask=initialPatch;
 
+ // A failed reminder write after the Gantt write must retry only the reminder.
+ let ganttSaves=0;
+ sandbox.gCommit=async rows=>{
+  ganttSaves++;
+  sandbox.WORK_PLANS[0].phases=rows;
+  gantt.title=rows[0].name;
+  return true;
+ };
+ sandbox.openQuickTaskEditor(gantt.id);
+ const form=lastDialog.form;
+ form.elements.title.value='Montaje de arquetas revisado';
+ form.elements.due.value='2026-12-05';
+ form.elements.reminder.value='15';
+ failSave=true;
+ await form.onsubmit({preventDefault(){}});
+ assert.match(lastDialog.error.textContent,/Se guardó el Gantt/);
+ assert.equal(ganttSaves,1);
+ failSave=false;
+ await form.onsubmit({preventDefault(){}});
+ assert.equal(ganttSaves,1,'El reintento solo debe guardar el aviso pendiente');
+ assert.equal(gantt.remind_minutes,15);
+
  // A delayed Gantt save must not refresh the next account once it finishes.
  sandbox.ElitePlanning={derive:rows=>rows,validate:()=>{}};
  sandbox.TCGantt={removal:(rows,id)=>rows.filter(row=>row.id!==id)};

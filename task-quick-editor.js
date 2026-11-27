@@ -151,9 +151,13 @@ function edit(id){
     row.name=title;
     if(G2.busy||G2.draft)throw Error('Termina los cambios abiertos del Gantt antes de editar esta tarea.');
     G2.work=task.work_id;
-    const ok=await gCommit(rows,{reschedule:false});
+    const saving=gCommit(rows,{reschedule:false}),token=G2.saveToken;
+    const ok=await saving;
     if(!sameSession())return;
-    if(!ok)throw Error(G2.message||'No se pudo guardar el Gantt.');
+    if(!ok){
+     if(G2.work===task.work_id&&!G2.busy&&G2.saveToken===token)G2.draft=null;
+     throw Error(G2.message||'No se pudo guardar el Gantt.');
+    }
     planSaved=true;
     const currentTask=OWN_TASKS.find(t=>t.id===id),currentLink=linkFor(id);
     if(!currentTask||!currentLink)throw Error('Vuelve a abrir la tarea para comprobar su versión actual.');
