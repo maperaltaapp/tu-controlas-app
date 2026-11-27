@@ -66,6 +66,24 @@ const switched=()=>{ctx.sessionEpoch++;ctx.session={access_token:'fixture-b',use
  assert.equal(state.reads,1);assert.equal(state.renders,1);
  assert.equal(state.messages.length,1);
 
+ // Completing a selected overdue row releases its selection before queuing the redraw.
+ reset();
+ ctx.OWN_TASKS[0].due_at='2026-11-01T12:00:00Z';
+ let selected=true;
+ ctx.window.tcClearTaskSelection=()=>{selected=false};
+ ctx.window.tcAfterTaskInteraction=refresh=>{assert.equal(selected,false);refresh()};
+ await ctx.toggleTaskComplete(task.id,{checked:true,disabled:false,closest:()=>selected});
+ assert.equal(state.renders,1);
+ delete ctx.window.tcClearTaskSelection;delete ctx.window.tcAfterTaskInteraction;
+
+ // A successful write followed by a failed refresh keeps the saved check visible.
+ reset();ctx.fetchOwnTasks=async()=>{throw Error('Sin conexión')};
+ const completed={checked:true,disabled:false};
+ await ctx.toggleTaskComplete(task.id,completed);
+ assert.equal(completed.checked,true);
+ assert.equal(completed.disabled,true);
+ assert.match(state.messages[0][0],/El cambio se guardó/);
+
  // An account switch before the RPC returns must not refresh or rerender B.
  reset();let resolveRpc,signalRpc;const rpcStarted=new Promise(resolve=>signalRpc=resolve);
  ctx.eliteRequest=async()=>{signalRpc();return new Promise(resolve=>resolveRpc=resolve)};

@@ -598,6 +598,8 @@ async function toggleTaskComplete(id,checkbox){
   return;
  }
  if(!task){checkbox.checked=false;return}
+ // Completing the selected task ends its selection. Other rows keep their actions.
+ if(checkbox.closest?.('.is-task-selected'))window.tcClearTaskSelection?.();
  const detailId=workDetailId,scroll=window.scrollY,section=mode;
  const refreshView=()=>{
   if(!current()||mode!==section||workDetailId!==detailId)return;
@@ -608,6 +610,7 @@ async function toggleTaskComplete(id,checkbox){
   if(window.scrollTo)window.scrollTo(0,scroll);
  };
  taskCompletionBusy.add(id);checkbox.disabled=true;
+ let saved=false;
  try{
   if(task.completed){
    const data={completed:false,status:'pending'};
@@ -627,14 +630,27 @@ async function toggleTaskComplete(id,checkbox){
    if(!current())return;
    await eliteRequest('/rest/v1/rpc/elite_complete_task',{method:'POST',body:JSON.stringify({task_id:task.id,expected_updated_at:task.updated_at})});
   }
+  saved=true;
   if(!current())return;
   await fetchOwnTasks();
   if(!current())return;
   if(window.tcAfterTaskInteraction)window.tcAfterTaskInteraction(refreshView);else refreshView();
   statusMessage(task.completed?'Tarea reabierta.':'Tarea completada. Disponible en Finalizadas.');
  }catch(e){
-  if(current()){checkbox.checked=!!task.completed;checkbox.disabled=false;statusMessage(e.message,true)}
- }finally{taskCompletionBusy.delete(id)}
+  if(current()){
+   // A failed reload cannot undo a completion the server already accepted.
+   checkbox.checked=saved?!task.completed:!!task.completed;
+   const message=saved?'El cambio se guardó, pero no se pudo actualizar la lista. Recarga para verlo.':e.message;
+   statusMessage(message,true);
+   if(checkbox.parentElement){
+    const row=checkbox.parentElement;
+    if(row.nextElementSibling?.matches('.task-completion-error'))row.nextElementSibling.remove();
+    const warning=checkbox.ownerDocument.createElement('p');
+    warning.className='small task-completion-error';warning.setAttribute('role','alert');
+    warning.textContent=message;row.after(warning);
+   }
+  }
+ }finally{taskCompletionBusy.delete(id);if(current())checkbox.disabled=saved}
 }
 function startWorkDrag(event,id){if(workMoveBusy){event.preventDefault();return}draggedWorkId=id;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',id);event.currentTarget.classList.add('dragging')}
 function endWorkDrag(){draggedWorkId=null;workDragClickUntil=Date.now()+250;document.querySelectorAll('.dragging,.drop-target').forEach(e=>e.classList.remove('dragging','drop-target'))}
