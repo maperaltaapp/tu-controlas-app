@@ -62,3 +62,11 @@ body>.elite-header{background:var(--navy);border-bottom:1px solid #324861}
 .elite-header .helmet-mark{width:42px;height:42px;flex-shrink:0}
 @media(max-width:760px){.elite-header .elite-brand{font-size:16px;gap:5px}.elite-header .helmet-mark{width:35px;height:35px}}
 @media(max-width:370px){.elite-header .elite-brand{font-size:13px;gap:4px}.elite-header .helmet-mark{width:31px;height:31px}}
+
+/* On narrow screens all six navigation items must fit, including long labels. */
+@media(max-width:370px){
+ .tc-nav{gap:1px;padding-inline:3px}
+ .tc-nav button{min-width:0;min-inline-size:0;grid-template-columns:minmax(0,1fr);white-space:normal;overflow-wrap:anywhere;line-height:1.15;padding-inline:1px}
+ .tc-nav button span{min-width:0;max-width:100%;overflow-wrap:anywhere}
+ .elite-header .tc-head-actions button{font-size:12px;padding-inline:4px}
+}
