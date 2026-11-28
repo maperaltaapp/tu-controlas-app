@@ -10,7 +10,7 @@ self.addEventListener('push',event=>{
  event.waitUntil(self.registration.showNotification('TU CONTROLAS',{
   body:'Tienes un aviso pendiente. Abre la aplicación para consultarlo.',
   tag,
-  icon:'./icon-192.png',
+  icon:'./icon-192.png?v=20261128a',
   // The push payload never supplies a deep link for this shared device.
   data:{url:self.registration.scope}
  }));

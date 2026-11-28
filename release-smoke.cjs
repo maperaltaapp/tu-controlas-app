@@ -4,6 +4,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const SITE='https://maperaltaapp.github.io/tu-controlas-app/';
 const ASSETS=Object.freeze([
+ 'brand.css','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png','favicon-32.png','login-art.webp',
  'company-contact.js','final-package.js','final-package.css','final-calendars.js','interaction-refinement.js','interaction-refinement.css','economic-v1.js','economic-v1.css','economic-margin.js','economic-margin.css','gantt-calendar.js','report-history.js','index.html','auth-session.js','account-recovery.js','client-export.js','client-backup-preview.js','work-calendar.js',
  'shared-holidays.js','work-dashboard.js','work-actions.js','task-quick-editor.js',
  'task-order.js','gantt-workbench.js','daily-report.js','sw.js'
