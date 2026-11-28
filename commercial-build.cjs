@@ -8,7 +8,7 @@ const fs=require('node:fs'),path=require('node:path');
 const PROJECT_REF='vyswxgbbqyffnduhhrvz',LEGACY_ORIGIN='https://maperaltaapp.github.io';
 const LEGACY_FILES_START="const WORK_FILES_BUCKET='elite-work-files'";
 const OLD_SESSION='tc_session_v1',NEW_SESSION='tc_commercial_session_v1';
-const EXTRAS=['manifest.webmanifest','sw.js','icon.svg','icon-192.png','icon-512.png'];
+const EXTRAS=['manifest.webmanifest','sw.js','icon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png','favicon-32.png','login-art.webp'];
 function commercialConfig(env){
  const ref=(env.TC_COMMERCIAL_SUPABASE_REF||'').trim();
  const publishable=(env.TC_COMMERCIAL_PUBLISHABLE_KEY||'').trim();
